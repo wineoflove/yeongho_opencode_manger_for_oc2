@@ -7,6 +7,7 @@ import type { GitStatusResponse } from "@/types/git"
 import { RepoActivityIndicator } from "@/components/activity/RepoActivityIndicator"
 import { RepoCardShell } from "./RepoCardShell"
 import { RepoRowActions } from "./RepoRowActions"
+import { t } from "@/i18n/translate"
 
 interface RepoCardProps {
   repo: Repo;
@@ -62,7 +63,7 @@ export function RepoCard({
   const meta = isCloning ? (
     <span className="flex items-center gap-1.5">
       <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-      Cloning...
+      {t("Cloning...")}
     </span>
   ) : (
     <>

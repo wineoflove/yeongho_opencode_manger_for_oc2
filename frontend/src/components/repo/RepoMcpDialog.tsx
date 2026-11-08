@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { invalidateSessionCaches } from '@/lib/queryInvalidation'
 import { showToast } from '@/lib/toast'
 import { formatMcpServerName } from '@/lib/mcp'
+import { t } from '@/i18n/translate'
 
 interface RepoMcpDialogProps {
   open: boolean
@@ -52,12 +53,12 @@ export function RepoMcpContent({ open, directory }: RepoMcpContentProps) {
       }
     },
     onSuccess: async () => {
-      showToast.success('MCP server updated for this location')
+      showToast.success(t('MCP server updated for this location'))
       await fetchStatus()
       invalidateSessionCaches(queryClient)
     },
     onError: (error) => {
-      showToast.error(error instanceof Error ? error.message : 'Failed to update MCP server')
+      showToast.error(error instanceof Error ? error.message : t('Failed to update MCP server'))
     },
   })
 
@@ -66,18 +67,18 @@ export function RepoMcpContent({ open, directory }: RepoMcpContentProps) {
       await mcpApi.removeAuth(serverId, directory)
     },
     onSuccess: async () => {
-      showToast.success('Authentication removed for this location')
+      showToast.success(t('Authentication removed for this location'))
       setRemoveAuthConfirmServer(null)
       await fetchStatus()
       invalidateSessionCaches(queryClient)
     },
     onError: (error) => {
-      showToast.error(error instanceof Error ? error.message : 'Failed to remove authentication')
+      showToast.error(error instanceof Error ? error.message : t('Failed to remove authentication'))
     },
   })
 
   const handleOAuthStartAuth = async (): Promise<McpAuthStartResponse> => {
-    if (!authDialogServerId) throw new Error('No server ID')
+    if (!authDialogServerId) throw new Error(t('No server ID'))
     return await mcpApi.startAuth(authDialogServerId, directory)
   }
 
@@ -126,8 +127,8 @@ export function RepoMcpContent({ open, directory }: RepoMcpContentProps) {
             }
           }}
           onCancel={() => setRemoveAuthConfirmServer(null)}
-          title="Remove Authentication"
-          description="This will remove the OAuth credentials for this MCP server at this location. You will need to re-authenticate to use this server here again."
+          title={t('Remove Authentication')}
+          description={t('This will remove the OAuth credentials for this MCP server at this location. You will need to re-authenticate to use this server here again.')}
           itemName={removeAuthConfirmServer ? formatMcpServerName(removeAuthConfirmServer) : ''}
           isDeleting={removeAuthMutation.isPending}
         />
@@ -155,9 +156,9 @@ export function RepoMcpDialog({ open, onOpenChange, directory }: RepoMcpDialogPr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent mobileFullscreen className="sm:fixed sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[400px] sm:max-w-[400px] sm:h-auto sm:max-h-[80vh] flex flex-col gap-0 pb-safe">
         <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 sm:pb-3 shrink-0 ">
-          <DialogTitle>MCP for This Location</DialogTitle>
+          <DialogTitle>{t('MCP for This Location')}</DialogTitle>
           <DialogDescription>
-            Toggle MCP servers for this repository
+            {t('Toggle MCP servers for this repository')}
           </DialogDescription>
         </DialogHeader>
 

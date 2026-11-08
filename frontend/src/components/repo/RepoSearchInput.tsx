@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { t } from "@/i18n/translate";
 
 interface RepoSearchInputProps {
   value: string;
@@ -11,7 +12,7 @@ interface RepoSearchInputProps {
 export function RepoSearchInput({
   value,
   onValueChange,
-  placeholder = "Search repositories...",
+  placeholder = t("Search repositories..."),
   name = "repo-search",
 }: RepoSearchInputProps) {
   return (

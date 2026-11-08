@@ -33,6 +33,7 @@ import { openUrlFromManager } from '@/lib/open-url'
 import { showToast } from '@/lib/toast'
 import { TrustExecutableList } from './TrustExecutableList'
 import { actionIcon } from './projectActionIcons'
+import { t } from '@/i18n/translate'
 
 interface ProjectActionsMenuProps {
   repoId: number
@@ -105,7 +106,7 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
     try {
       snapshot = await getProjectConfig(repoId, requestDirectory)
     } catch (error) {
-      showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to verify repository actions'))
+      showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to verify repository actions')))
       return
     }
     const scope = scopeRef.current
@@ -115,7 +116,7 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
     )
     const executable = snapshot.repoFile.executable
     if (snapshot.repoFile.hash !== hash || !repoAction || !executable) {
-      showToast.error('Repository actions changed. Reopen the menu to review them.')
+      showToast.error(t('Repository actions changed. Reopen the menu to review them.'))
       return
     }
     setPendingTrust({ actionId, hash, directory: requestDirectory, executable })
@@ -130,7 +131,7 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
           void requestTrustConfirmation(actionId, hash)
           return
         }
-        showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to run action'))
+        showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to run action')))
       },
     })
   }, [runAction, handleRunSuccess, requestTrustConfirmation])
@@ -146,13 +147,13 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
         setPendingTrust(null)
         startRun(actionId)
       },
-      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to trust repository commands')),
+      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to trust repository commands'))),
     })
   }, [pendingTrust, trustConfig, startRun, repoId])
 
   const handleStop = useCallback((terminal: TerminalInfo) => {
     removeTerminal.mutate({ ptyID: terminal.id, directory }, {
-      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to stop action')),
+      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to stop action'))),
     })
   }, [removeTerminal, directory])
 
@@ -169,7 +170,7 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Project actions"
+            aria-label={t('Project actions')}
             className="h-10 w-10 text-muted-foreground hover:text-foreground sm:h-8 sm:w-8"
           >
             <Play className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -178,7 +179,7 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
         <DropdownMenuContent align="end" className="w-56">
           {actions.length === 0 ? (
             <DropdownMenuLabel className="font-normal text-muted-foreground">
-              No actions configured
+              {t('No actions configured')}
             </DropdownMenuLabel>
           ) : (
             actions.map((action) => {
@@ -199,7 +200,7 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
                   {running && (
                     <DropdownMenuItem onSelect={() => handleStop(running)}>
                       <Square className="mr-2 h-4 w-4" />
-                      Stop
+                      {t('Stop')}
                     </DropdownMenuItem>
                   )}
                 </Fragment>
@@ -207,7 +208,7 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
             })
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={handleManage}>Manage actions…</DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleManage}>{t('Manage actions…')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -216,11 +217,11 @@ export function ProjectActionsMenu({ repoId, directory }: ProjectActionsMenuProp
         onOpenChange={(open) => { if (!open) setPendingTrust(null) }}
         onConfirm={handleConfirmTrust}
         onCancel={() => setPendingTrust(null)}
-        title="Trust repository actions"
-        description="This repository defines commands that run on your machine."
+        title={t('Trust repository actions')}
+        description={t('This repository defines commands that run on your machine.')}
         warning={pendingTrust ? <TrustExecutableList executable={pendingTrust.executable} /> : undefined}
-        confirmLabel="Trust and run"
-        pendingLabel="Trusting…"
+        confirmLabel={t('Trust and run')}
+        pendingLabel={t('Trusting…')}
         isPending={trustConfig.isPending}
       />
     </>

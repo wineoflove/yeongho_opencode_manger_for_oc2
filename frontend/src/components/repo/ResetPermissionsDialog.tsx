@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { showToast } from "@/lib/toast";
+import { t } from "@/i18n/translate";
 
 interface ResetPermissionsDialogProps {
   open: boolean;
@@ -26,11 +27,11 @@ export function ResetPermissionsDialog({
   const resetPermissionsMutation = useMutation({
     mutationFn: () => resetRepoPermissions(repoId),
     onSuccess: () => {
-      showToast.success("Permissions reset successfully");
+      showToast.success(t("Permissions reset successfully"));
       onOpenChange(false);
     },
     onError: () => {
-      showToast.error("Failed to reset permissions");
+      showToast.error(t("Failed to reset permissions"));
     },
   });
 
@@ -38,11 +39,9 @@ export function ResetPermissionsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reset Permissions</DialogTitle>
+          <DialogTitle>{t("Reset Permissions")}</DialogTitle>
           <DialogDescription>
-            This will clear all "Allow Always" permissions for this repository.
-            You will be prompted again for permission when opencode needs to perform
-            actions like running commands or editing files.
+            {t('This will clear all "Allow Always" permissions for this repository. You will be prompted again for permission when opencode needs to perform actions like running commands or editing files.')}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -51,7 +50,7 @@ export function ResetPermissionsDialog({
             onClick={() => onOpenChange(false)}
             disabled={resetPermissionsMutation.isPending}
           >
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button
             variant="destructive"
@@ -61,10 +60,10 @@ export function ResetPermissionsDialog({
             {resetPermissionsMutation.isPending ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Resetting...
+                {t("Resetting...")}
               </>
             ) : (
-              "Reset Permissions"
+              t("Reset Permissions")
             )}
           </Button>
         </DialogFooter>

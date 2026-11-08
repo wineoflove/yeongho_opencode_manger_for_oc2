@@ -31,11 +31,13 @@ import { invalidateRepoListCaches } from "@/lib/queryInvalidation"
 import { showToast } from "@/lib/toast"
 import { formatShortRelativeTime } from "@/lib/utils"
 import { ASSISTANT_REPO_ID } from "@opencode-manager/shared/utils"
+import { msg, t, tn } from "@/i18n/translate"
+import { tr } from "@/i18n/rich"
 
 const DELETE_BRANCH_OPTIONS: Array<RadioOption<DeleteBranchChoice>> = [
-  { value: 'none', label: 'Keep branch', description: 'Leave the branch in the parent repository.' },
-  { value: 'local', label: 'Delete local branch', description: 'Remove the branch from the parent repository.' },
-  { value: 'local-and-remote', label: 'Delete local and remote branch', description: 'Also delete its remote branch when it has the same name and is merged.' },
+  { value: 'none', label: msg('Keep branch'), description: msg('Leave the branch in the parent repository.') },
+  { value: 'local', label: msg('Delete local branch'), description: msg('Remove the branch from the parent repository.') },
+  { value: 'local-and-remote', label: msg('Delete local and remote branch'), description: msg('Also delete its remote branch when it has the same name and is merged.') },
 ]
 
 interface RepoCardWrapperProps {
@@ -232,7 +234,7 @@ export function RepoList({ onAddRepo }: { onAddRepo: () => void }) {
       setRepoToDelete(null)
       setDeleteBranchChoice('none')
       if (result.branch?.error) {
-        showToast.warning(`Deleted the worktree but failed to delete branch "${result.branch.name}"`, {
+        showToast.warning(t('Deleted the worktree but failed to delete branch "{branch}"', { branch: result.branch.name }), {
           description: result.branch.error,
         })
       }
@@ -335,8 +337,7 @@ export function RepoList({ onAddRepo }: { onAddRepo: () => void }) {
       case !!error && !repos:
         return (
           <div className="text-center p-8 text-destructive">
-            Failed to load repositories:{" "}
-            {error instanceof Error ? error.message : "Unknown error"}
+            {t("Failed to load repositories: {error}", { error: error instanceof Error ? error.message : t("Unknown error") })}
           </div>
         )
 
@@ -345,11 +346,11 @@ export function RepoList({ onAddRepo }: { onAddRepo: () => void }) {
           <div className="text-center p-12">
             <GitBranch className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">
-              No repositories yet. Add one to get started.
+              {t("No repositories yet. Add one to get started.")}
             </p>
             <Button size="sm" className="mt-4" onClick={onAddRepo}>
               <Plus className="w-4 h-4 mr-1" />
-              Add repository
+              {t("Add repository")}
             </Button>
           </div>
         )
@@ -535,52 +536,63 @@ export function RepoList({ onAddRepo }: { onAddRepo: () => void }) {
         title={
           selectedRepos.size > 0
             ? hasLocalRepos && !hasClonedRepos
-              ? "Unlink Multiple Repositories"
-              : "Delete Multiple Repositories"
+              ? t("Unlink Multiple Repositories")
+              : t("Delete Multiple Repositories")
             : repoForDelete
               ? repoForDelete.isWorktree
-                ? "Delete Worktree"
+                ? t("Delete Worktree")
                 : repoForDelete.isLocal
-                  ? "Unlink Repository"
-                  : "Delete Repository"
-              : "Delete Repository"
+                  ? t("Unlink Repository")
+                  : t("Delete Repository")
+              : t("Delete Repository")
         }
         description={
           selectedRepos.size > 0
             ? hasClonedRepos && !hasLocalRepos
-              ? `Are you sure you want to delete ${selectedRepos.size} repositor${selectedRepos.size === 1 ? "y" : "ies"}? This will remove all local files. This action cannot be undone.`
+              ? tn(
+                  "Are you sure you want to delete {count} repository? This will remove all local files. This action cannot be undone.",
+                  "Are you sure you want to delete {count} repositories? This will remove all local files. This action cannot be undone.",
+                  selectedRepos.size,
+                )
               : hasLocalRepos && !hasClonedRepos
-                ? `Are you sure you want to unlink ${selectedRepos.size} repositor${selectedRepos.size === 1 ? "y" : "ies"}? Only workspace references will be removed. Your original files will not be affected.`
-                : `Are you sure you want to delete ${selectedRepos.size} repositor${selectedRepos.size === 1 ? "y" : "ies"}? Cloned repositories will have their local files removed. Locally discovered repositories will only have their workspace references removed — original files will not be affected.`
+                ? tn(
+                    "Are you sure you want to unlink {count} repository? Only workspace references will be removed. Your original files will not be affected.",
+                    "Are you sure you want to unlink {count} repositories? Only workspace references will be removed. Your original files will not be affected.",
+                    selectedRepos.size,
+                  )
+                : tn(
+                    "Are you sure you want to delete {count} repository? Cloned repositories will have their local files removed. Locally discovered repositories will only have their workspace references removed — original files will not be affected.",
+                    "Are you sure you want to delete {count} repositories? Cloned repositories will have their local files removed. Locally discovered repositories will only have their workspace references removed — original files will not be affected.",
+                    selectedRepos.size,
+                  )
             : repoForDelete?.isWorktree
-              ? "Are you sure you want to delete this worktree? This will remove all local files. This action cannot be undone."
+              ? t("Are you sure you want to delete this worktree? This will remove all local files. This action cannot be undone.")
               : repoForDelete?.isLocal
               ? (
                 <>
-                  Are you sure you want to unlink this repository? Only the workspace reference will be removed.
+                  {t("Are you sure you want to unlink this repository? Only the workspace reference will be removed.")}
                   {repoForDelete.sourcePath && (
                     <>
-                      {" "}Your original files at{" "}
-                      <span className="font-mono text-xs">{repoForDelete.sourcePath}</span>{" "}
-                      will not be affected.
+                      {" "}
+                      {tr("Your original files at {path} will not be affected.", { path: <span className="font-mono text-xs">{repoForDelete.sourcePath}</span> })}
                     </>
                   )}
                 </>
               )
-              : "Are you sure you want to delete this repository? This will remove all local files. This action cannot be undone."
+              : t("Are you sure you want to delete this repository? This will remove all local files. This action cannot be undone.")
         }
         isDeleting={deleteMutation.isPending || batchDeleteMutation.isPending}
-        confirmLabel={unlinkOnly ? 'Unlink' : 'Delete'}
-        pendingLabel={unlinkOnly ? 'Unlinking...' : 'Deleting...'}
+        confirmLabel={unlinkOnly ? t("Unlink") : t("Delete")}
+        pendingLabel={unlinkOnly ? t("Unlinking...") : t("Deleting...")}
       >
         {selectedRepos.size === 0 && repoForDelete?.isWorktree && (
           <div>
-            <span className="mb-1.5 block text-sm font-medium text-foreground">Branch</span>
+            <span className="mb-1.5 block text-sm font-medium text-foreground">{t("Branch")}</span>
             <RadioOptionGroup
               name="delete-worktree-branch"
               value={deleteBranchChoice}
               onChange={setDeleteBranchChoice}
-              options={DELETE_BRANCH_OPTIONS}
+              options={DELETE_BRANCH_OPTIONS.map((option) => ({ ...option, label: t(option.label), description: option.description === undefined ? undefined : t(option.description) }))}
             />
           </div>
         )}

@@ -1,4 +1,5 @@
 import type { RepoFileExecutable } from './trustExecutable'
+import { t } from '@/i18n/translate'
 
 export function TrustExecutableList({ executable }: { executable: RepoFileExecutable }) {
   const envEntries = Object.entries(executable.env ?? {})
@@ -6,14 +7,14 @@ export function TrustExecutableList({ executable }: { executable: RepoFileExecut
     <div className="max-h-64 space-y-3 overflow-y-auto">
       {executable.actions.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-medium">Actions</p>
+          <p className="text-xs font-medium">{t('Actions')}</p>
           <ul className="space-y-1">
             {executable.actions.map((action) => (
               <li key={action.id} className="space-y-0.5">
                 <p className="text-xs font-medium">{action.name}</p>
                 <p className="font-mono text-xs">{action.command}</p>
                 {action.url && <p className="font-mono text-xs">{action.url}</p>}
-                {action.autoOpenUrl && <p className="text-xs">Opens URL automatically</p>}
+                {action.autoOpenUrl && <p className="text-xs">{t('Opens URL automatically')}</p>}
               </li>
             ))}
           </ul>
@@ -21,10 +22,10 @@ export function TrustExecutableList({ executable }: { executable: RepoFileExecut
       )}
       {(executable.environment !== undefined || envEntries.length > 0) && (
         <div className="space-y-1">
-          <p className="text-xs font-medium">Environment variables</p>
+          <p className="text-xs font-medium">{t('Environment variables')}</p>
           {executable.environment !== undefined && (
             <p className="text-xs">
-              Environment: <span className="font-mono">{executable.environment}</span>
+              {t('Environment:')} <span className="font-mono">{executable.environment}</span>
             </p>
           )}
           {envEntries.length > 0 && (
@@ -40,7 +41,7 @@ export function TrustExecutableList({ executable }: { executable: RepoFileExecut
       )}
       {executable.setup.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-medium">Worktree setup commands</p>
+          <p className="text-xs font-medium">{t('Worktree setup commands')}</p>
           <ul className="space-y-1">
             {executable.setup.map((command, index) => (
               <li key={`${index}-${command}`} className="font-mono text-xs">

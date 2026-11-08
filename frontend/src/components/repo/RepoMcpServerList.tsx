@@ -6,6 +6,7 @@ import { Loader2, XCircle, AlertCircle, Plug, Shield, Key, RefreshCw, ChevronDow
 import type { McpStatus } from '@/api/mcp'
 import { formatMcpServerName } from '@/lib/mcp'
 import { McpStatusBadge } from '@/components/settings/McpStatusBadge'
+import { t } from '@/i18n/translate'
 
 interface RepoMcpServerListProps {
   hasFetchedStatus: boolean
@@ -41,13 +42,13 @@ export function RepoMcpServerList({
       {hasFetchedStatus && serverIds.length === 0 ? (
         <div className="text-center py-6 text-muted-foreground">
           <Plug className="w-10 h-10 mx-auto mb-3 opacity-50" />
-          <p className="text-sm">No MCP servers configured for this location</p>
-          <p className="text-xs mt-1">Add them in Settings or in the project's opencode.json</p>
+          <p className="text-sm">{t('No MCP servers configured for this location')}</p>
+          <p className="text-xs mt-1">{t("Add them in Settings or in the project's opencode.json")}</p>
         </div>
       ) : isLoadingStatus ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
+          <span className="ml-2 text-sm text-muted-foreground">{t('Loading...')}</span>
         </div>
       ) : (
         <div className="space-y-3">
@@ -76,21 +77,21 @@ export function RepoMcpServerList({
                         <DropdownMenuTrigger asChild>
                           <button 
                             className="cursor-pointer hover:bg-accent rounded inline-flex items-center gap-1"
-                            title="Click for options"
+                            title={t('Click for options')}
                           >
                             {status?.status === 'connected' && (
                               <span className="text-xs bg-success text-success-foreground px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                                Connected<ChevronDown className="h-3 w-3" />
+                                {t('Connected')}<ChevronDown className="h-3 w-3" />
                               </span>
                             )}
                             {status?.status === 'needs_auth' && (
                               <span className="text-xs border border-warning text-warning px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                                Needs Auth<ChevronDown className="h-3 w-3" />
+                                {t('Needs Auth')}<ChevronDown className="h-3 w-3" />
                               </span>
                             )}
                             {status?.status === 'failed' && (
                               <span className="text-xs bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                                <AlertCircle className="h-3 w-3" />Failed<ChevronDown className="h-3 w-3" />
+                                <AlertCircle className="h-3 w-3" />{t('Failed')}<ChevronDown className="h-3 w-3" />
                               </span>
                             )}
                           </button>
@@ -99,13 +100,13 @@ export function RepoMcpServerList({
                           {showAuthButton && (
                             <DropdownMenuItem onClick={() => onAuthClick(serverId)}>
                               <Key className="h-4 w-4 mr-2" />
-                              Authenticate
+                              {t('Authenticate')}
                             </DropdownMenuItem>
                           )}
                           {connectedWithOAuth && (
                             <DropdownMenuItem onClick={() => onAuthClick(serverId)}>
                               <RefreshCw className="h-4 w-4 mr-2" />
-                              Re-authenticate
+                              {t('Re-authenticate')}
                             </DropdownMenuItem>
                           )}
                           {connectedWithOAuth && (
@@ -116,7 +117,7 @@ export function RepoMcpServerList({
                                 disabled={removeAuthMutation.isPending}
                               >
                                 <Shield className="h-4 w-4 mr-2" />
-                                {removeAuthMutation.isPending ? 'Removing...' : 'Remove Auth'}
+                                {removeAuthMutation.isPending ? t('Removing...') : t('Remove Auth')}
                               </DropdownMenuItem>
                             </>
                           )}
@@ -143,7 +144,7 @@ export function RepoMcpServerList({
                       size="sm"
                     >
                       <Key className="h-3 w-3 mr-1" />
-                      Auth
+                      {t('Auth')}
                     </Button>
                   ) : (
                     <Switch

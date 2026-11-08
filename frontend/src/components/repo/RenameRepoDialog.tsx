@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { X, Check } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { t } from '@/i18n/translate'
 
 interface RenameRepoDialogProps {
   isOpen: boolean
@@ -43,7 +44,7 @@ export function RenameRepoDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent hideCloseButton className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Rename repository</DialogTitle>
+          <DialogTitle>{t('Rename repository')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
@@ -59,7 +60,7 @@ export function RenameRepoDialog({
             {editName && (
               <button
                 type="button"
-                aria-label="Clear"
+                aria-label={t('Clear')}
                 onClick={() => {
                   setEditName('')
                   inputRef.current?.focus()
@@ -77,14 +78,14 @@ export function RenameRepoDialog({
               onClick={handleCancel}
               className="flex-1 h-10"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               type="submit"
               className="flex-1 h-10"
             >
               <Check className="w-4 h-4 mr-2" />
-              Save
+              {t('Save')}
             </Button>
           </div>
         </form>

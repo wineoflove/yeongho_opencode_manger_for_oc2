@@ -29,6 +29,7 @@ import type {
 import { ACTION_ICON_OPTIONS, actionIcon } from './projectActionIcons'
 import { TrustExecutableList } from './TrustExecutableList'
 import { hasExecutableContent, type RepoFileExecutable } from './trustExecutable'
+import { t, template } from '@/i18n/translate'
 
 interface ActionDraft {
   id: string
@@ -99,7 +100,7 @@ function ActionForm({ draft, isSaving, onChange, onSave, onCancel }: ActionFormP
     <div ref={formRef} className="space-y-3 bg-card p-3">
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
         <div className="space-y-1">
-          <Label htmlFor="action-name">Name</Label>
+          <Label htmlFor="action-name">{t('Name')}</Label>
           <Input
             id="action-name"
             value={draft.name}
@@ -107,7 +108,7 @@ function ActionForm({ draft, isSaving, onChange, onSave, onCancel }: ActionFormP
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="action-icon">Icon</Label>
+          <Label htmlFor="action-icon">{t('Icon')}</Label>
           <Select
             value={draft.icon}
             onValueChange={(value) => onChange({ ...draft, icon: value as ProjectActionIcon })}
@@ -118,7 +119,7 @@ function ActionForm({ draft, isSaving, onChange, onSave, onCancel }: ActionFormP
             <SelectContent>
               {ACTION_ICON_OPTIONS.map(({ value, label }) => (
                 <SelectItem key={value} value={value}>
-                  {label}
+                  {t(label)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -126,7 +127,7 @@ function ActionForm({ draft, isSaving, onChange, onSave, onCancel }: ActionFormP
         </div>
       </div>
       <div className="space-y-1">
-        <Label htmlFor="action-command">Command</Label>
+        <Label htmlFor="action-command">{t('Command')}</Label>
         <Input
           id="action-command"
           value={draft.command}
@@ -134,7 +135,7 @@ function ActionForm({ draft, isSaving, onChange, onSave, onCancel }: ActionFormP
         />
       </div>
       <div className="space-y-1">
-        <Label htmlFor="action-url">URL template</Label>
+        <Label htmlFor="action-url">{t('URL template')}</Label>
         <Input
           id="action-url"
           placeholder="http://localhost:3000/{worktree}"
@@ -143,7 +144,7 @@ function ActionForm({ draft, isSaving, onChange, onSave, onCancel }: ActionFormP
         />
       </div>
       <div className="flex items-center justify-between">
-        <Label htmlFor="action-auto-open">Auto-open URL</Label>
+        <Label htmlFor="action-auto-open">{t('Auto-open URL')}</Label>
         <Switch
           id="action-auto-open"
           checked={draft.autoOpenUrl}
@@ -152,10 +153,10 @@ function ActionForm({ draft, isSaving, onChange, onSave, onCancel }: ActionFormP
       </div>
       <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button type="button" size="sm" onClick={() => onSave(draft)} disabled={!canSave || isSaving}>
-          Save
+          {t('Save')}
         </Button>
       </div>
     </div>
@@ -258,19 +259,19 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
       : [...personalActions.map(actionToPayload), payload]
     updateActions.mutate(next, {
       onSuccess: () => setDraft(null),
-      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to save action')),
+      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to save action'))),
     })
   }
 
   const handleDeleteAction = (id: string) => {
     updateActions.mutate(personalActions.filter((action) => action.id !== id).map(actionToPayload), {
-      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to delete action')),
+      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to delete action'))),
     })
   }
 
   const handleSaveSetup = () => {
     updateSetup.mutate(setupCommands.map((command) => command.trim()), {
-      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to save setup commands')),
+      onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to save setup commands'))),
     })
   }
 
@@ -294,7 +295,7 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
       { hash: trustReview.hash, directory: trustReview.directory },
       {
         onSuccess: () => setTrustReview(null),
-        onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to trust repository commands')),
+        onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to trust repository commands'))),
       },
     )
   }
@@ -302,14 +303,14 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
   const moveAction = (action: ProjectAction, to: ProjectItemSource) => {
     moveItem.mutate(
       { kind: 'action', id: action.id, to, directory },
-      { onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to move action')) },
+      { onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to move action'))) },
     )
   }
 
   const moveSetup = (command: string, to: ProjectItemSource) => {
     moveItem.mutate(
       { kind: 'setup', command, to, directory },
-      { onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to move setup command')) },
+      { onError: (error) => showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to move setup command'))) },
     )
   }
 
@@ -335,7 +336,7 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
         </div>
       ) : !config ? (
         <p className="px-4 py-4 text-sm text-destructive sm:px-6">
-          {configQuery.error instanceof Error ? configQuery.error.message : 'No configuration available.'}
+          {configQuery.error instanceof Error ? configQuery.error.message : t('No configuration available.')}
         </p>
       ) : (
         <>
@@ -355,11 +356,11 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                 <div className="flex items-center gap-3 rounded-lg border border-warning/50 bg-warning/10 p-3">
                   <ShieldAlert className="h-4 w-4 shrink-0 text-warning" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">Repository commands are not trusted</p>
-                    <p className="text-xs text-muted-foreground">They won't run until you review and trust them.</p>
+                    <p className="text-sm font-medium">{t('Repository commands are not trusted')}</p>
+                    <p className="text-xs text-muted-foreground">{t("They won't run until you review and trust them.")}</p>
                   </div>
                   <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={openTrustReview}>
-                    Review
+                    {t('Review')}
                   </Button>
                 </div>
               )}
@@ -370,11 +371,11 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
             <div className="shrink-0 px-4 pt-3 sm:px-6">
               <TabsList className="w-full justify-start">
                 <TabsTrigger value="actions">
-                  Actions
+                  {t('Actions')}
                   <TabCount count={personalActions.length + repoActions.length} />
                 </TabsTrigger>
                 <TabsTrigger value="setup">
-                  Worktree setup
+                  {t('Worktree setup')}
                   <TabCount count={setupCommands.length + repoSetup.length} />
                 </TabsTrigger>
               </TabsList>
@@ -382,7 +383,7 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
 
             <TabsContent value="actions" className="mt-0 flex min-h-0 flex-1 flex-col px-0">
               <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 sm:px-6">
-                <p className="text-xs text-muted-foreground">Start these from the actions menu in the header.</p>
+                <p className="text-xs text-muted-foreground">{t('Start these from the actions menu in the header.')}</p>
                 <Button
                   type="button"
                   size="sm"
@@ -391,14 +392,14 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                   onClick={() => setDraft(emptyActionDraft())}
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  Add action
+                  {t('Add action')}
                 </Button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6">
                 <SettingsList
                   isEmpty={personalActions.length === 0 && repoActions.length === 0 && !isAddingAction}
-                  emptyTitle="No actions configured"
-                  emptyHint="Add a command you run often, like a dev server or test watcher."
+                  emptyTitle={t('No actions configured')}
+                  emptyHint={t('Add a command you run often, like a dev server or test watcher.')}
                   maxHeightClassName="max-h-none"
                 >
                   {personalActions.map((action) =>
@@ -418,7 +419,7 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                             size="icon"
                             variant="ghost"
                             className="h-8 w-8"
-                            aria-label={`Edit ${action.name}`}
+                            aria-label={t('Edit {name}', { name: action.name })}
                             onClick={() => setDraft(actionToDraft(action))}
                           >
                             <Pencil className="h-4 w-4" />
@@ -426,19 +427,19 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                         }
                         actions={[
                           {
-                            label: 'Move to repository',
+                            label: t('Move to repository'),
                             onClick: () => moveAction(action, 'repo'),
                             disabled: moveItem.isPending,
                           },
                           {
-                            label: 'Delete',
+                            label: t('Delete'),
                             destructive: true,
                             separatorBefore: true,
                             onClick: () => handleDeleteAction(action.id),
                             disabled: updateActions.isPending,
                           },
                         ]}
-                        actionsLabel={`Actions for ${action.name}`}
+                        actionsLabel={t('Actions for {name}', { name: action.name })}
                       />
                     ),
                   )}
@@ -448,17 +449,17 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                       key={`repo:${action.id}`}
                       className={COMPACT_ROW_CLASS}
                       title={<ActionTitle action={action} />}
-                      badges={<Badge variant="secondary" className="shrink-0">In repo</Badge>}
+                      badges={<Badge variant="secondary" className="shrink-0">{t('In repo')}</Badge>}
                       description={<span className="font-mono" title={action.command}>{action.command}</span>}
                       belowDescription={<ActionUrl url={action.url} />}
                       actions={[
                         {
-                          label: 'Move to my settings',
+                          label: t('Move to my settings'),
                           onClick: () => moveAction(action, 'personal'),
                           disabled: moveItem.isPending,
                         },
                       ]}
-                      actionsLabel={`Actions for ${action.name}`}
+                      actionsLabel={t('Actions for {name}', { name: action.name })}
                     />
                   ))}
                 </SettingsList>
@@ -468,25 +469,27 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
             <TabsContent value="setup" className="mt-0 flex min-h-0 flex-1 flex-col px-0">
               <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 sm:px-6">
                 <p className="text-xs text-muted-foreground">
-                  Run in order after a new worktree is created.{' '}
-                  <code className="font-mono">$ROOT_PROJECT_PATH</code> points to the main checkout.
+                  {t('Run in order after a new worktree is created.')}{' '}
+                  {template('{variable} points to the main checkout.').split('{variable}')[0]}
+                  <code className="font-mono">$ROOT_PROJECT_PATH</code>
+                  {template('{variable} points to the main checkout.').split('{variable}')[1]}
                 </p>
                 <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={addSetupCommand}>
                   <Plus className="h-4 w-4 mr-1" />
-                  Add command
+                  {t('Add command')}
                 </Button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
                 <SettingsList
                   isEmpty={setupCommands.length === 0 && repoSetup.length === 0}
-                  emptyTitle="No setup commands"
-                  emptyHint="Add commands such as pnpm install to prepare new worktrees."
+                  emptyTitle={t('No setup commands')}
+                  emptyHint={t('Add commands such as pnpm install to prepare new worktrees.')}
                   maxHeightClassName="max-h-none"
                 >
                   {setupCommands.map((command, index) => (
                     <div key={index} className="flex items-center gap-1 bg-card px-3 py-2">
                       <Input
-                        aria-label={`Setup command ${index + 1}`}
+                        aria-label={t('Setup command {number}', { number: index + 1 })}
                         autoFocus={index === focusSetupIndex}
                         value={command}
                         className="mr-1 h-9 min-w-0 flex-1 font-mono md:text-xs"
@@ -501,7 +504,7 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 shrink-0"
-                        aria-label="Move up"
+                        aria-label={t('Move up')}
                         disabled={index === 0}
                         onClick={() => setSetupCommands((current) => arrayMove(current, index, index - 1))}
                       >
@@ -512,22 +515,22 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 shrink-0"
-                        aria-label="Move down"
+                        aria-label={t('Move down')}
                         disabled={index === setupCommands.length - 1}
                         onClick={() => setSetupCommands((current) => arrayMove(current, index, index + 1))}
                       >
                         <ArrowDown className="h-4 w-4" />
                       </Button>
                       <SettingsListRowActionsMenu
-                        label={`Actions for setup command ${index + 1}`}
+                        label={t('Actions for setup command {number}', { number: index + 1 })}
                         actions={[
                           {
-                            label: 'Move to repository',
+                            label: t('Move to repository'),
                             onClick: () => moveSetup(command, 'repo'),
                             disabled: setupDirty || moveItem.isPending,
                           },
                           {
-                            label: 'Remove',
+                            label: t('Remove'),
                             destructive: true,
                             separatorBefore: true,
                             onClick: () =>
@@ -543,22 +546,22 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                       className={COMPACT_ROW_CLASS}
                       title={<span title={item.command}>{item.command}</span>}
                       titleClassName="font-mono text-xs font-normal"
-                      badges={<Badge variant="secondary" className="shrink-0">In repo</Badge>}
+                      badges={<Badge variant="secondary" className="shrink-0">{t('In repo')}</Badge>}
                       actions={[
                         {
-                          label: 'Move to my settings',
+                          label: t('Move to my settings'),
                           onClick: () => moveSetup(item.command, 'personal'),
                           disabled: moveItem.isPending,
                         },
                       ]}
-                      actionsLabel={`Actions for ${item.command}`}
+                      actionsLabel={t('Actions for {name}', { name: item.command })}
                     />
                   ))}
                 </SettingsList>
               </div>
               <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-6">
                 <p className="text-xs text-muted-foreground" aria-live="polite">
-                  {setupDirty ? 'Unsaved changes' : ''}
+                  {setupDirty ? t('Unsaved changes') : ''}
                 </p>
                 <Button
                   type="button"
@@ -566,7 +569,7 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
                   onClick={handleSaveSetup}
                   disabled={!setupDirty || !setupValid || updateSetup.isPending}
                 >
-                  Save setup
+                  {t('Save setup')}
                 </Button>
               </div>
             </TabsContent>
@@ -579,11 +582,11 @@ export function RepoActionsContent({ repoId, directory, open }: RepoActionsConte
         onOpenChange={(next) => { if (!next) setTrustReview(null) }}
         onConfirm={handleTrust}
         onCancel={() => setTrustReview(null)}
-        title="Trust repository commands"
-        description="This repository defines commands that run on your machine."
+        title={t('Trust repository commands')}
+        description={t('This repository defines commands that run on your machine.')}
         warning={trustReview ? <TrustExecutableList executable={trustReview.executable} /> : undefined}
-        confirmLabel="Trust these commands"
-        pendingLabel="Trusting…"
+        confirmLabel={t('Trust these commands')}
+        pendingLabel={t('Trusting…')}
         isPending={trustConfig.isPending}
       />
     </div>
@@ -605,8 +608,8 @@ export function RepoActionsDialog({ repoId, directory, open, onOpenChange }: Rep
         className="flex flex-col gap-0 overflow-hidden p-0 pb-safe sm:h-auto sm:max-h-[85vh] sm:max-w-[560px] sm:p-0"
       >
         <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
-          <DialogTitle>Project Actions</DialogTitle>
-          <DialogDescription>Commands and setup steps for this location.</DialogDescription>
+          <DialogTitle>{t('Project Actions')}</DialogTitle>
+          <DialogDescription>{t('Commands and setup steps for this location.')}</DialogDescription>
         </DialogHeader>
 
         <RepoActionsContent repoId={repoId} directory={directory} open={open} />

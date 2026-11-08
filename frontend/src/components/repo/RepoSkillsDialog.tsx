@@ -15,6 +15,7 @@ import { isLocalOpenCodeServer, useOpenCodeServerId } from '@/contexts/OpenCodeS
 import { serverScopedKey } from '@/lib/serverScope'
 import type { SkillFileInfo } from '@opencode-manager/shared'
 import type { SkillInfo } from '@opencode-manager/shared/opencode'
+import { t } from '@/i18n/translate'
 
 function toRemoteSkillFileInfo(skill: SkillInfo): SkillFileInfo {
   return {
@@ -82,11 +83,11 @@ export function RepoSkillsContent({
   const canLoad = !!sessionId
   const loadSkill = useLoadSkill(sessionId)
   const description = isRemoteServer
-    ? canLoad ? 'Load a skill from this server into the current session' : 'Skills available on this server'
-    : canLoad ? 'Search and load a skill into the current session' : 'Skills available for this repository'
+    ? canLoad ? t('Load a skill from this server into the current session') : t('Skills available on this server')
+    : canLoad ? t('Search and load a skill into the current session') : t('Skills available for this repository')
   const emptyHint = isRemoteServer
-    ? 'This server exposes no skills for this location.'
-    : 'Install a skill or add one to .opencode/skills/<name>/SKILL.md.'
+    ? t('This server exposes no skills for this location.')
+    : t('Install a skill or add one to .opencode/skills/<name>/SKILL.md.')
 
   const handleLoad = (skill: SkillFileInfo) => {
     loadSkill.mutate({ skillName: skill.name })
@@ -107,7 +108,7 @@ export function RepoSkillsContent({
         {!isRemoteServer && (
           <Button type="button" variant="outline" size="sm" onClick={() => setInstallDialogOpen(true)}>
             <Download className="h-4 w-4 mr-1" />
-            Install Skill
+            {t('Install Skill')}
           </Button>
         )}
       </div>
@@ -117,9 +118,9 @@ export function RepoSkillsContent({
           isLoading={isLoading}
           data={skills}
           error={error as Error | null}
-          primaryAction={canLoad ? { label: 'Load', onClick: handleLoad } : undefined}
-          rowActions={isRemoteServer ? [] : [{ label: 'Delete', onClick: setDeleteSkill, destructive: true }]}
-          emptyTitle="No skills found"
+          primaryAction={canLoad ? { label: t('Load'), onClick: handleLoad } : undefined}
+          rowActions={isRemoteServer ? [] : [{ label: t('Delete'), onClick: setDeleteSkill, destructive: true }]}
+          emptyTitle={t('No skills found')}
           emptyHint={emptyHint}
           maxHeightClassName="max-h-none"
         />
@@ -139,8 +140,8 @@ export function RepoSkillsContent({
           onOpenChange={(isOpen) => !isOpen && setDeleteSkill(null)}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteSkill(null)}
-          title="Delete Skill"
-          description="Delete this managed skill directory and bundled files? This action cannot be undone."
+          title={t('Delete Skill')}
+          description={t('Delete this managed skill directory and bundled files? This action cannot be undone.')}
           itemName={deleteSkill?.name}
           isDeleting={isDeleting}
         />
@@ -158,7 +159,7 @@ export function RepoSkillsDialog({ onOpenChange, ...props }: RepoSkillsDialogPro
     <Dialog open={props.open} onOpenChange={onOpenChange}>
       <DialogContent mobileFullscreen className="sm:max-w-3xl sm:max-h-[85vh] gap-0 flex flex-col p-0 md:p-6 pb-safe">
         <DialogHeader className="p-4 sm:p-6 border-b shrink-0">
-          <DialogTitle>Skills</DialogTitle>
+          <DialogTitle>{t('Skills')}</DialogTitle>
         </DialogHeader>
         <RepoSkillsContent {...props} onDone={() => onOpenChange(false)} />
       </DialogContent>

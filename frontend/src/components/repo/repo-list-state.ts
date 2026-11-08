@@ -1,6 +1,7 @@
 import type { Repo } from "@/api/types"
 import type { GitStatusResponse } from "@/types/git"
 import { getRepoDisplayName } from "@/lib/utils"
+import { msg, t } from "@/i18n/translate"
 
 export type RepoFilterMode = 'all' | 'recent' | 'attention' | 'worktrees' | 'local'
 export type RepoSortMode = 'recent' | 'manual' | 'name'
@@ -115,9 +116,9 @@ export function filterReposByMode(repos: RepoViewModel[], mode: RepoFilterMode):
 export function getRepoListEmptyMessage(sections: RepoListSection[], searchQuery: string): string {
   const query = searchQuery.trim()
   if (query) {
-    return `No repositories found matching "${query}"`
+    return t('No repositories found matching "{query}"', { query })
   }
-  return sections[0]?.emptyMessage ?? 'No repositories found'
+  return t(sections[0]?.emptyMessage ?? 'No repositories found')
 }
 
 export function sortRepos(repos: RepoViewModel[], mode: RepoSortMode, manualOrder?: number[]): RepoViewModel[] {
@@ -157,9 +158,9 @@ export function groupReposIntoSections(
 ): RepoListSection[] {
   if (sortMode === 'manual') {
     return [{
-      title: 'All Repositories',
+      title: msg('All Repositories'),
       repos,
-      emptyMessage: repos.length === 0 ? 'No repositories found' : undefined
+      emptyMessage: repos.length === 0 ? msg('No repositories found') : undefined
     }]
   }
 
@@ -173,14 +174,14 @@ export function groupReposIntoSections(
     
     if (needsAttention.length === 0) {
       return [{
-        title: 'Needs Attention',
+        title: msg('Needs Attention'),
         repos: [],
-        emptyMessage: 'No repositories need attention'
+        emptyMessage: msg('No repositories need attention')
       }]
     }
 
     return [{
-      title: 'Needs Attention',
+      title: msg('Needs Attention'),
       repos: needsAttention
     }]
   }
@@ -190,14 +191,14 @@ export function groupReposIntoSections(
     
     if (recentRepos.length === 0) {
       return [{
-        title: 'Recent',
+        title: msg('Recent'),
         repos: [],
-        emptyMessage: 'No recently accessed repositories'
+        emptyMessage: msg('No recently accessed repositories')
       }]
     }
 
     return [{
-      title: 'Recent',
+      title: msg('Recent'),
       repos: recentRepos
     }]
   }
@@ -223,14 +224,14 @@ export function groupReposIntoSections(
 
   if (needsAttention.length > 0) {
     sections.push({
-      title: 'Needs Attention',
+      title: msg('Needs Attention'),
       repos: needsAttention
     })
   }
 
   if (recentlyActive.length > 0) {
     sections.push({
-      title: 'Recent',
+      title: msg('Recent'),
       repos: recentlyActive
     })
   }
@@ -242,14 +243,14 @@ export function groupReposIntoSections(
 
   if (remaining.length > 0) {
     sections.push({
-      title: 'All Repositories',
+      title: msg('All Repositories'),
       repos: remaining
     })
   } else if (sections.length === 0) {
     sections.push({
-      title: 'All Repositories',
+      title: msg('All Repositories'),
       repos,
-      emptyMessage: repos.length === 0 ? 'No repositories found' : undefined
+      emptyMessage: repos.length === 0 ? msg('No repositories found') : undefined
     })
   }
 
