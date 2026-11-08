@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MultiRunSheet } from '@/components/repo/MultiRunSheet'
+import { t } from '@/i18n/translate'
 
 interface RemoteMultiRunProps {
   serverId: string
@@ -39,11 +40,11 @@ export function RemoteMultiRunButton({ serverId, directory }: { serverId: string
         size="sm"
         variant="outline"
         onClick={handleOpen}
-        aria-label="Multi-run"
+        aria-label={t('Multi-run')}
         className="h-9 w-9 shrink-0 p-0 @min-[36rem]:w-auto @min-[36rem]:px-3"
       >
         <Layers className="h-4 w-4 @min-[36rem]:mr-2" />
-        <span className="hidden @min-[36rem]:inline">Multi-run</span>
+        <span className="hidden @min-[36rem]:inline">{t('Multi-run')}</span>
       </Button>
       {mounted ? (
         <RemoteMultiRun

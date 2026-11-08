@@ -22,6 +22,7 @@ import {
   type MultiRunFusionStatus,
 } from '@opencode-manager/shared/schemas'
 import { getMultiRunEntryStatusLabel } from '@opencode-manager/shared/notifications'
+import { msg, t, tn } from '@/i18n/translate'
 
 type StatusTone = 'success' | 'warning' | 'destructive' | 'info' | 'muted'
 
@@ -55,9 +56,9 @@ const TONE_CLASSES: Record<StatusTone, string> = {
 }
 
 const FUSION_STATUS: Record<MultiRunFusionStatus, { label: string; tone: StatusTone }> = {
-  starting: { label: 'Starting', tone: 'info' },
-  started: { label: 'Started', tone: 'muted' },
-  failed: { label: 'Failed', tone: 'destructive' },
+  starting: { label: msg('Starting'), tone: 'info' },
+  started: { label: msg('Started'), tone: 'muted' },
+  failed: { label: msg('Failed'), tone: 'destructive' },
 }
 
 const PROMPT_PREVIEW_LENGTH = 240
@@ -73,19 +74,19 @@ const HEADER_BUTTON_CLASS = 'h-7 px-2 text-xs'
 function describeEntryReadiness(entry: MultiRunEntry, live: SessionStatusType): EntryReadiness {
   switch (entry.status) {
     case 'discarded':
-      return { ready: false, label: getMultiRunEntryStatusLabel('discarded'), tone: 'muted', reason: 'discarded' }
+      return { ready: false, label: getMultiRunEntryStatusLabel('discarded'), tone: 'muted', reason: msg('discarded') }
     case 'failed':
-      return { ready: false, label: getMultiRunEntryStatusLabel('failed'), tone: 'destructive', reason: entry.error ?? 'no final reply' }
+      return { ready: false, label: getMultiRunEntryStatusLabel('failed'), tone: 'destructive', reason: entry.error ?? msg('no final reply') }
     case 'starting':
-      return { ready: false, label: getMultiRunEntryStatusLabel('starting'), tone: 'info', reason: 'still starting' }
+      return { ready: false, label: getMultiRunEntryStatusLabel('starting'), tone: 'info', reason: msg('still starting') }
     case 'started':
       if (!entry.sessionId) {
-        return { ready: false, label: getMultiRunEntryStatusLabel('started'), tone: 'muted', reason: 'no session recorded' }
+        return { ready: false, label: getMultiRunEntryStatusLabel('started'), tone: 'muted', reason: msg('no session recorded') }
       }
       if (live.type !== 'idle') {
-        return { ready: false, label: 'Running', tone: 'warning', reason: 'still running — wait for a final reply' }
+        return { ready: false, label: msg('Running'), tone: 'warning', reason: msg('still running — wait for a final reply') }
       }
-      return { ready: true, label: 'Ready', tone: 'success', reason: null }
+      return { ready: true, label: msg('Ready'), tone: 'success', reason: null }
   }
 }
 
@@ -180,7 +181,7 @@ export function MultiRunCard({
               <span className="truncate text-sm font-semibold text-foreground">{run.name}</span>
               {selecting ? (
                 <span className="rounded-full border border-primary/50 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                  Selection mode
+                  {t('Selection mode')}
                 </span>
               ) : null}
             </span>
@@ -189,7 +190,7 @@ export function MultiRunCard({
         </button>
         {selecting ? (
           <Button variant="outline" size="sm" className={HEADER_BUTTON_CLASS} onClick={onExitSelection}>
-            Exit
+            {t('Exit')}
           </Button>
         ) : (
           <Button
@@ -200,7 +201,7 @@ export function MultiRunCard({
             onClick={onStartSelection}
           >
             <Combine className="h-3.5 w-3.5" />
-            Fuse results
+            {t('Fuse results')}
           </Button>
         )}
       </div>
@@ -222,7 +223,7 @@ export function MultiRunCard({
                 className="mt-1 text-xs font-medium text-primary hover:underline"
                 onClick={() => setPromptExpanded((current) => !current)}
               >
-                {promptExpanded ? 'Show less' : 'Show more'}
+                {promptExpanded ? t('Show less') : t('Show more')}
               </button>
             ) : null}
           </div>
@@ -247,7 +248,7 @@ export function MultiRunCard({
           {run.fusions.length > 0 ? (
             <div className="border-t border-border">
               <h4 className="flex items-center gap-2 px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Fusions
+                {t('Fusions')}
                 <span className="rounded-full border border-border px-1.5 text-[11px] font-medium normal-case">
                   {run.fusions.length}
                 </span>
@@ -299,10 +300,10 @@ function EntryRow({
   const unavailable = unavailableReason !== null || !readiness.ready
   const sessionId = entry.sessionId
   const canDiscard = canDiscardMultiRunEntry(entry)
-  const isolationLabel = entry.isolated ? 'Isolated' : 'Repository checkout'
+  const isolationLabel = entry.isolated ? t('Isolated') : t('Repository checkout')
 
   const detail = selecting && unavailable
-    ? `Unavailable · ${reason}`
+    ? t('Unavailable · {reason}', { reason: reason === null ? '' : t(reason) })
     : entry.status === 'failed' && entry.error
       ? entry.error
       : null
@@ -328,7 +329,7 @@ function EntryRow({
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="truncate text-sm font-medium">{entry.model}</p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <StatusPill label={readiness.label} tone={readiness.tone} />
+            <StatusPill label={t(readiness.label)} tone={readiness.tone} />
             {readiness.label === 'Running' && sessionId ? <SessionStatusIndicator sessionID={sessionId} /> : null}
             <span className="text-xs text-muted-foreground">{isolationLabel}</span>
           </div>
@@ -342,10 +343,10 @@ function EntryRow({
 
       <div className="flex shrink-0 items-center gap-1">
         {sessionId ? (
-          <RowAction icon={ArrowUpRight} label="Open" onClick={() => onOpenSession(sessionId, entry.isolated)} />
+          <RowAction icon={ArrowUpRight} label={t('Open')} onClick={() => onOpenSession(sessionId, entry.isolated)} />
         ) : null}
         {sessionId && onWalkthrough ? (
-          <RowAction icon={BookOpen} label="Walkthrough" onClick={() => onWalkthrough(sessionId)} />
+          <RowAction icon={BookOpen} label={t('Walkthrough')} onClick={() => onWalkthrough(sessionId)} />
         ) : null}
         {canDiscard ? (
           <DropdownMenu>
@@ -354,7 +355,7 @@ function EntryRow({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
-                aria-label={`More actions for ${entry.model}`}
+                aria-label={t('More actions for {model}', { model: entry.model })}
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -362,7 +363,7 @@ function EntryRow({
             <DropdownMenuContent align="end">
               <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onDiscard}>
                 <Trash2 className="h-4 w-4" />
-                Discard
+                {t('Discard')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -388,12 +389,12 @@ function FusionRow({ fusion, onOpenSession, onWalkthrough }: FusionRowProps) {
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="truncate text-sm font-medium">{fusion.model}</p>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <StatusPill label={status.label} tone={status.tone} />
+          <StatusPill label={t(status.label)} tone={status.tone} />
           {fusion.status === 'started' && sessionId ? <SessionStatusIndicator sessionID={sessionId} /> : null}
           <span className="text-xs text-muted-foreground">
             <span>
-              from {fusion.sources.length} source{fusion.sources.length === 1 ? '' : 's'}
-              {truncated ? ' (truncated)' : ''}
+              {tn('from {count} source', 'from {count} sources', fusion.sources.length)}
+              {truncated ? ` ${t('(truncated)')}` : ''}
             </span>
             <span> · {formatShortRelativeTime(new Date(fusion.createdAt))}</span>
           </span>
@@ -402,8 +403,8 @@ function FusionRow({ fusion, onOpenSession, onWalkthrough }: FusionRowProps) {
       </div>
       {sessionId ? (
         <div className="flex shrink-0 items-center gap-1">
-          <RowAction icon={ArrowUpRight} label="Open" onClick={() => onOpenSession(sessionId, fusion.isolated)} />
-          {onWalkthrough ? <RowAction icon={BookOpen} label="Walkthrough" onClick={() => onWalkthrough(sessionId)} /> : null}
+          <RowAction icon={ArrowUpRight} label={t('Open')} onClick={() => onOpenSession(sessionId, fusion.isolated)} />
+          {onWalkthrough ? <RowAction icon={BookOpen} label={t('Walkthrough')} onClick={() => onWalkthrough(sessionId)} /> : null}
         </div>
       ) : null}
     </li>

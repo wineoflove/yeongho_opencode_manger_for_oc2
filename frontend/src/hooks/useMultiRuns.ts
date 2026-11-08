@@ -9,6 +9,7 @@ import type {
   MultiRunFusion,
   MultiRunTarget,
 } from '@opencode-manager/shared/schemas'
+import { t, tn } from '@/i18n/translate'
 
 function multiRunQueryKey(target: MultiRunTarget | undefined) {
   return ['multi-runs', target] as const
@@ -67,15 +68,15 @@ export function useLaunchMultiRun(target: MultiRunTarget) {
       const started = countEntries(run, 'started')
       const failed = countEntries(run, 'failed')
       if (failed === 0) {
-        showToast.success(`Started ${started} run${started === 1 ? '' : 's'}`)
+        showToast.success(tn('Started {count} run', 'Started {count} runs', started))
       } else if (started === 0) {
-        showToast.error(`Failed to start ${failed} run${failed === 1 ? '' : 's'}`)
+        showToast.error(tn('Failed to start {count} run', 'Failed to start {count} runs', failed))
       } else {
-        showToast.warning(`Started ${started}, failed ${failed}`)
+        showToast.warning(t('Started {started}, failed {failed}', { started, failed }))
       }
     },
     onError: (error: unknown) => {
-      showToast.error(error instanceof Error ? error.message : 'Failed to launch multi-run')
+      showToast.error(error instanceof Error ? error.message : t('Failed to launch multi-run'))
     },
   })
 }
@@ -104,9 +105,9 @@ export function useFuseMultiRun(target: MultiRunTarget) {
       invalidateMultiRunCaches(queryClient, target)
       const fusion = run.fusions.find((candidate) => candidate.requestId === variables.request.requestId)
       if (fusion?.status === 'started') {
-        showToast.success('Fusion started')
+        showToast.success(t('Fusion started'))
       } else if (fusion?.status === 'failed') {
-        showToast.error(fusion.error || 'Fusion failed')
+        showToast.error(fusion.error || t('Fusion failed'))
       }
     },
     onError: () => {
@@ -123,10 +124,10 @@ export function useDiscardMultiRunEntry(target: MultiRunTarget) {
       discardMultiRunEntry(runId, entryId),
     onSuccess: () => {
       invalidateMultiRunCaches(queryClient, target)
-      showToast.success('Run discarded')
+      showToast.success(t('Run discarded'))
     },
     onError: (error: unknown) => {
-      showToast.error(error instanceof Error ? error.message : 'Failed to discard run')
+      showToast.error(error instanceof Error ? error.message : t('Failed to discard run'))
     },
   })
 }

@@ -27,6 +27,7 @@ import {
   type MultiRunEntry,
   type MultiRunTarget,
 } from '@opencode-manager/shared/schemas'
+import { t } from '@/i18n/translate'
 
 interface MultiRunSheetProps {
   target: MultiRunTarget
@@ -157,7 +158,7 @@ export function MultiRunSheet({ target, directory, defaultBaseRef, open, onOpenC
         onClose={close}
         side="right"
         widthClass="w-full sm:w-[min(640px,92vw)]"
-        ariaLabel="Multi-run"
+        ariaLabel={t('Multi-run')}
       >
         <Tabs
           value={activeTab}
@@ -165,12 +166,12 @@ export function MultiRunSheet({ target, directory, defaultBaseRef, open, onOpenC
           className="flex min-h-0 flex-1 flex-col"
         >
           <SideDrawerHeader
-            title="Multi-run"
+            title={t('Multi-run')}
             onClose={close}
             meta={
               <TabsList className="mt-2 grid w-full grid-cols-2 sm:inline-grid sm:w-auto">
-                <TabsTrigger value="runs">Runs</TabsTrigger>
-                <TabsTrigger value="new">New run</TabsTrigger>
+                <TabsTrigger value="runs">{t('Runs')}</TabsTrigger>
+                <TabsTrigger value="new">{t('New run')}</TabsTrigger>
               </TabsList>
             }
           />
@@ -183,13 +184,13 @@ export function MultiRunSheet({ target, directory, defaultBaseRef, open, onOpenC
                 </div>
               ) : runsQuery.error ? (
                 <p className="text-sm text-destructive">
-                  {runsQuery.error instanceof Error ? runsQuery.error.message : 'Failed to load runs'}
+                  {runsQuery.error instanceof Error ? runsQuery.error.message : t('Failed to load runs')}
                 </p>
               ) : runs.length === 0 ? (
                 <div className="space-y-3 py-8 text-center">
-                  <p className="text-sm text-muted-foreground">No runs yet.</p>
+                  <p className="text-sm text-muted-foreground">{t('No runs yet.')}</p>
                   <Button variant="outline" onClick={() => setActiveTab('new')}>
-                    Start a new run
+                    {t('Start a new run')}
                   </Button>
                 </div>
               ) : (
@@ -247,15 +248,15 @@ export function MultiRunSheet({ target, directory, defaultBaseRef, open, onOpenC
         }}
         onConfirm={confirmDiscard}
         onCancel={() => setPendingDiscard(null)}
-        title="Discard run"
+        title={t('Discard run')}
         description={
           pendingDiscard?.entry.isolated
-            ? 'Discard this run and remove its workspace directory? This action cannot be undone.'
-            : 'Discard this run? This action cannot be undone.'
+            ? t('Discard this run and remove its workspace directory? This action cannot be undone.')
+            : t('Discard this run? This action cannot be undone.')
         }
         warning={pendingDiscard?.entry.model}
-        confirmLabel="Discard"
-        pendingLabel="Discarding..."
+        confirmLabel={t('Discard')}
+        pendingLabel={t('Discarding...')}
         isPending={discard.isPending}
       />
 
@@ -334,30 +335,30 @@ function NewRunForm({ target, directory, defaultBaseRef, open, onLaunched }: New
   return (
     <SideDrawerContent className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Run one prompt on up to {MULTI_RUN_MAX_MODELS} models at once, each in its own session.
+        {t('Run one prompt on up to {count} models at once, each in its own session.', { count: MULTI_RUN_MAX_MODELS })}
       </p>
 
       <div className="space-y-1.5">
-        <Label htmlFor="multi-run-name">Group name</Label>
-        <Input id="multi-run-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Sweep" />
+        <Label htmlFor="multi-run-name">{t('Group name')}</Label>
+        <Input id="multi-run-name" value={name} onChange={(event) => setName(event.target.value)} placeholder={t('Sweep')} />
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="multi-run-prompt">Prompt</Label>
+        <Label htmlFor="multi-run-prompt">{t('Prompt')}</Label>
         <Textarea
           id="multi-run-prompt"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder="The prompt to send to every model"
+          placeholder={t('The prompt to send to every model')}
           rows={4}
         />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Models</Label>
+          <Label>{t('Models')}</Label>
           <span className="text-xs text-muted-foreground">
-            {selectedModels.length}/{MULTI_RUN_MAX_MODELS} selected
+            {t('{selected}/{max} selected', { selected: selectedModels.length, max: MULTI_RUN_MAX_MODELS })}
           </span>
         </div>
         <div className="relative">
@@ -365,8 +366,8 @@ function NewRunForm({ target, directory, defaultBaseRef, open, onLaunched }: New
           <Input
             value={modelSearch}
             onChange={(event) => setModelSearch(event.target.value)}
-            placeholder="Search models..."
-            aria-label="Search models"
+            placeholder={t('Search models...')}
+            aria-label={t('Search models')}
             autoComplete="off"
             className="pl-9"
           />
@@ -376,7 +377,7 @@ function NewRunForm({ target, directory, defaultBaseRef, open, onLaunched }: New
             sections={visibleModelSections}
             selectedModels={selectedModels}
             onToggle={toggleModel}
-            emptyLabel={modelSections.length === 0 ? 'No models available.' : 'No models match your search.'}
+            emptyLabel={modelSections.length === 0 ? t('No models available.') : t('No models match your search.')}
             maxSelected={MULTI_RUN_MAX_MODELS}
           />
         </div>
@@ -384,22 +385,22 @@ function NewRunForm({ target, directory, defaultBaseRef, open, onLaunched }: New
 
       <div className="flex items-center justify-between rounded-lg border border-border p-3">
         <div className="space-y-0.5">
-          <Label htmlFor="multi-run-isolate">Isolate runs</Label>
-          <p className="text-xs text-muted-foreground">Give each model its own workspace.</p>
+          <Label htmlFor="multi-run-isolate">{t('Isolate runs')}</Label>
+          <p className="text-xs text-muted-foreground">{t('Give each model its own workspace.')}</p>
         </div>
         <Switch id="multi-run-isolate" checked={isolate} onCheckedChange={setIsolate} />
       </div>
 
       {isolate ? (
         <div className="space-y-1.5">
-          <Label htmlFor="multi-run-base-ref">Start from</Label>
+          <Label htmlFor="multi-run-base-ref">{t('Start from')}</Label>
           {target.kind === 'repo' ? (
             <BranchCombobox
               id="multi-run-base-ref"
               repoId={target.repoId}
               value={baseRef}
               onValueChange={setBaseRef}
-              placeholder="Current HEAD"
+              placeholder={t('Current HEAD')}
               clearable
             />
           ) : (
@@ -407,12 +408,12 @@ function NewRunForm({ target, directory, defaultBaseRef, open, onLaunched }: New
               id="multi-run-base-ref"
               value={baseRef}
               onChange={(event) => setBaseRef(event.target.value)}
-              placeholder="Current HEAD"
+              placeholder={t('Current HEAD')}
               autoComplete="off"
               className="font-mono text-sm"
             />
           )}
-          <p className="text-xs text-muted-foreground">Each isolated workspace starts from this branch.</p>
+          <p className="text-xs text-muted-foreground">{t('Each isolated workspace starts from this branch.')}</p>
         </div>
       ) : null}
 
@@ -425,11 +426,11 @@ function NewRunForm({ target, directory, defaultBaseRef, open, onLaunched }: New
           aria-describedby={missingRequirements.length > 0 ? 'multi-run-requirements' : undefined}
         >
           {launch.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          {launch.isPending ? 'Launching…' : 'Launch'}
+          {launch.isPending ? t('Launching…') : t('Launch')}
         </Button>
         {missingRequirements.length > 0 ? (
           <p id="multi-run-requirements" className="text-xs text-muted-foreground">
-            Required: {missingRequirements.join(', ')}
+            {t('Required: {items}', { items: missingRequirements.join(', ') })}
           </p>
         ) : null}
       </div>
