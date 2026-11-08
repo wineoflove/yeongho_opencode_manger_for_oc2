@@ -14,6 +14,7 @@ import { Shield, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SSHHostKeyRequest } from '@/api/types'
 import { showToast } from '@/lib/toast'
+import { t } from '@/i18n/translate'
 
 type SSHHostKeyResponse = 'accept' | 'reject'
 
@@ -66,10 +67,10 @@ export function SSHHostKeyDialog({
     try {
       await onRespond(request.id, response)
       if (response === 'accept') {
-        showToast.success('Host key accepted')
+        showToast.success(t('Host key accepted'))
       }
     } catch {
-      showToast.error('Failed to respond to host key request. Please try again.')
+      showToast.error(t('Failed to respond to host key request. Please try again.'))
     } finally {
       setIsLoading(false)
     }
@@ -93,12 +94,12 @@ export function SSHHostKeyDialog({
               "h-5 w-5",
               request.isKeyChanged ? "text-destructive" : "text-warning"
             )} />
-            <span>{request.isKeyChanged ? 'Host Key Changed' : 'Verify SSH Host Key'}</span>
+            <span>{request.isKeyChanged ? t('Host Key Changed') : t('Verify SSH Host Key')}</span>
           </DialogTitle>
           <DialogDescription>
             {request.isKeyChanged
-              ? 'WARNING: The host key for this server has changed!'
-              : 'Verify the authenticity of this SSH server before connecting.'}
+              ? t('WARNING: The host key for this server has changed!')
+              : t('Verify the authenticity of this SSH server before connecting.')}
           </DialogDescription>
         </DialogHeader>
 
@@ -106,27 +107,26 @@ export function SSHHostKeyDialog({
           {request.isKeyChanged && (
             <Alert variant="destructive">
               <AlertDescription className="text-sm">
-                <strong>Security Warning:</strong> This could indicate a man-in-the-middle attack.
-                Only proceed if you are certain the server is legitimate.
+                <strong>{t('Security Warning:')}</strong> {t('This could indicate a man-in-the-middle attack. Only proceed if you are certain the server is legitimate.')}
               </AlertDescription>
             </Alert>
           )}
 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between items-start">
-              <span className="text-muted-foreground">Host:</span>
+              <span className="text-muted-foreground">{t('Host:')}</span>
               <span className="font-mono font-medium">{request.host}</span>
             </div>
             <div className="flex justify-between items-start">
-              <span className="text-muted-foreground">IP Address:</span>
+              <span className="text-muted-foreground">{t('IP Address:')}</span>
               <span className="font-mono font-medium">{request.ip}</span>
             </div>
             <div className="flex justify-between items-start">
-              <span className="text-muted-foreground">Key Type:</span>
+              <span className="text-muted-foreground">{t('Key Type:')}</span>
               <span className="font-mono font-medium">{request.keyType}</span>
             </div>
             <div className="flex justify-between items-start gap-4">
-              <span className="text-muted-foreground">Fingerprint:</span>
+              <span className="text-muted-foreground">{t('Fingerprint:')}</span>
               <div className="flex items-center gap-2 flex-1 justify-end">
                 <span className="font-mono text-xs break-all">{request.fingerprint}</span>
                 <CopyButton content={request.fingerprint} variant="ghost" iconSize="sm" />
@@ -136,9 +136,9 @@ export function SSHHostKeyDialog({
 
           <div className="text-xs text-muted-foreground">
             <div className="flex justify-between">
-              <span>Auto-reject in:</span>
+              <span>{t('Auto-reject in:')}</span>
               <span className={cn("font-mono", isExpired && "text-destructive")}>
-                {isExpired ? 'Expired' : formatTime(timeRemaining)}
+                {isExpired ? t('Expired') : formatTime(timeRemaining)}
               </span>
             </div>
           </div>
@@ -151,7 +151,7 @@ export function SSHHostKeyDialog({
             disabled={isLoading || isExpired}
             className="w-full sm:flex-1 text-sm h-9 sm:h-10"
           >
-            {isLoading ? 'Processing...' : 'Reject'}
+            {isLoading ? t('Processing...') : t('Reject')}
           </Button>
           <Button
             variant={request.isKeyChanged ? 'destructive' : 'default'}
@@ -159,7 +159,7 @@ export function SSHHostKeyDialog({
             disabled={isLoading || isExpired}
             className="w-full sm:flex-1 text-sm h-9 sm:h-10"
           >
-            {isLoading ? 'Processing...' : 'Accept'}
+            {isLoading ? t('Processing...') : t('Accept')}
           </Button>
         </DialogFooter>
       </DialogContent>
