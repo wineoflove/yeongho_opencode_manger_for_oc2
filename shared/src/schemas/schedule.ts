@@ -7,6 +7,68 @@ export type ScheduleRunTriggerSource = z.infer<typeof ScheduleRunTriggerSourceSc
 export const ScheduleRunStatusSchema = z.enum(['running', 'completed', 'failed', 'cancelled'])
 export type ScheduleRunStatus = z.infer<typeof ScheduleRunStatusSchema>
 
+export const ScheduleRunOutcomeSchema = z.enum([
+  'succeeded',
+  'partial',
+  'failed',
+  'blocked',
+  'skipped',
+  'unreported',
+  'cancelled',
+])
+export type ScheduleRunOutcome = z.infer<typeof ScheduleRunOutcomeSchema>
+
+export const ScheduleReportedOutcomeSchema = z.enum(['succeeded', 'partial', 'failed', 'blocked', 'skipped'])
+export type ScheduleReportedOutcome = z.infer<typeof ScheduleReportedOutcomeSchema>
+
+export const ScheduleDeliveryStatusSchema = z.enum(['published', 'already_published', 'failed', 'not_applicable'])
+export type ScheduleDeliveryStatus = z.infer<typeof ScheduleDeliveryStatusSchema>
+
+export const ScheduleUsageTotalsSchema = z.object({
+  input: z.number().int().nonnegative(),
+  output: z.number().int().nonnegative(),
+  reasoning: z.number().int().nonnegative(),
+  cacheRead: z.number().int().nonnegative(),
+  cacheWrite: z.number().int().nonnegative(),
+  cost: z.number().nonnegative(),
+  messages: z.number().int().nonnegative(),
+})
+export type ScheduleUsageTotals = z.infer<typeof ScheduleUsageTotalsSchema>
+
+export const ScheduleAdditionalUsageSchema = ScheduleUsageTotalsSchema.omit({ messages: true }).extend({
+  models: z.record(z.string().max(200), ScheduleUsageTotalsSchema.omit({ messages: true })).optional(),
+})
+export type ScheduleAdditionalUsage = z.infer<typeof ScheduleAdditionalUsageSchema>
+
+export const ScheduleRunUsageSchema = z.object({
+  computedAt: z.number(),
+  sessions: z.number().int().nonnegative(),
+  totals: ScheduleUsageTotalsSchema,
+  byModel: z.record(z.string(), ScheduleUsageTotalsSchema),
+  additional: ScheduleAdditionalUsageSchema.nullable(),
+  error: z.string().max(300).nullable(),
+})
+export type ScheduleRunUsage = z.infer<typeof ScheduleRunUsageSchema>
+
+export const ScheduleOutcomeReportInputSchema = z.object({
+  outcome: ScheduleReportedOutcomeSchema,
+  summary: z.string().trim().min(1).max(600),
+  processed: z.number().int().nonnegative().optional(),
+  remaining: z.number().int().nonnegative().optional(),
+  unit: z.string().trim().min(1).max(40).optional(),
+  delivery: ScheduleDeliveryStatusSchema.optional(),
+  artifacts: z.array(z.string().trim().min(1).max(300)).max(10).optional(),
+  additionalUsage: ScheduleAdditionalUsageSchema.optional(),
+})
+export type ScheduleOutcomeReportInput = z.infer<typeof ScheduleOutcomeReportInputSchema>
+
+export const ScheduleOutcomeReportSchema = ScheduleOutcomeReportInputSchema.extend({
+  reportedAt: z.number(),
+  agent: z.string().nullable(),
+  reportCount: z.number().int().positive(),
+})
+export type ScheduleOutcomeReport = z.infer<typeof ScheduleOutcomeReportSchema>
+
 export const ScheduleModeSchema = z.enum(['interval', 'cron'])
 export type ScheduleMode = z.infer<typeof ScheduleModeSchema>
 
@@ -229,6 +291,10 @@ export const ScheduleRunSchema = z.object({
   runBranch: z.string().nullable(),
   commitHash: z.string().nullable(),
   worktreePath: z.string().nullable(),
+  outcome: ScheduleRunOutcomeSchema.nullable().optional(),
+  outcomeReport: ScheduleOutcomeReportSchema.nullable().optional(),
+  usage: ScheduleRunUsageSchema.nullable().optional(),
+  agentUsed: z.string().nullable().optional(),
 })
 export type ScheduleRun = z.infer<typeof ScheduleRunSchema>
 
