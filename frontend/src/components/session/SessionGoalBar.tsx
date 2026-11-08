@@ -10,6 +10,7 @@ import {
 } from '@/hooks/useSessionGoals'
 import { getGoalOutcomeTitle, getGoalTokenLabel, getGoalTurnLabel, getGoalOutcomeReason } from '@opencode-manager/shared/notifications'
 import { isTerminalSessionGoal, type SessionGoalStatus } from '@opencode-manager/shared/schemas'
+import { t } from '@/i18n/translate'
 
 const STATUS_CHIP_CLASSES: Record<SessionGoalStatus, string> = {
   active: 'bg-highlight text-highlight-foreground border-highlight',
@@ -70,7 +71,7 @@ export function SessionGoalBar({ sessionID }: { sessionID: string }) {
               className="ml-auto h-6 px-2 text-xs"
               onClick={() => setDismissedGoalId(goal.id)}
             >
-              Dismiss
+              {t('Dismiss')}
             </Button>
           </>
         ) : (
@@ -83,7 +84,7 @@ export function SessionGoalBar({ sessionID }: { sessionID: string }) {
                 disabled={resumeGoal.isPending}
                 onClick={() => resumeGoal.mutate(goal.id)}
               >
-                Resume
+                {t('Resume')}
               </Button>
             ) : (
               <Button
@@ -93,7 +94,7 @@ export function SessionGoalBar({ sessionID }: { sessionID: string }) {
                 disabled={pauseGoal.isPending}
                 onClick={() => pauseGoal.mutate(goal.id)}
               >
-                Pause
+                {t('Pause')}
               </Button>
             )}
             <Button
@@ -103,7 +104,7 @@ export function SessionGoalBar({ sessionID }: { sessionID: string }) {
               disabled={cancelGoal.isPending}
               onClick={() => cancelGoal.mutate(goal.id)}
             >
-              Cancel
+              {t('Cancel')}
             </Button>
           </div>
         )}
@@ -118,7 +119,7 @@ export function SessionGoalBar({ sessionID }: { sessionID: string }) {
             type="button"
             onClick={() => setExpanded((value) => !value)}
             aria-expanded={expanded}
-            aria-label={expanded ? 'Collapse goal objective' : 'Expand goal objective'}
+            aria-label={expanded ? t('Collapse goal objective') : t('Expand goal objective')}
             className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
           >
             {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}

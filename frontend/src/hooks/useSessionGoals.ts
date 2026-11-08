@@ -10,6 +10,7 @@ import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
 import { serverScopedKey } from '@/lib/serverScope'
 import { showToast } from '@/lib/toast'
 import { SESSION_GOAL_POLL_INTERVAL_MS, type SessionGoal, type StartSessionGoalRequest } from '@opencode-manager/shared/schemas'
+import { t } from '@/i18n/translate'
 
 function sessionGoalQueryKey(sessionId: string, serverId: string) {
   return serverScopedKey(['session-goal', sessionId], serverId)
@@ -45,18 +46,18 @@ export function useStartSessionGoal() {
   const serverId = useOpenCodeServerId()
   return useGoalMutation(
     (input: StartSessionGoalRequest) => startSessionGoal({ ...input, serverId }),
-    'Failed to start goal',
+    t('Failed to start goal'),
   )
 }
 
 export function usePauseSessionGoal() {
-  return useGoalMutation(pauseSessionGoal, 'Failed to pause goal')
+  return useGoalMutation(pauseSessionGoal, t('Failed to pause goal'))
 }
 
 export function useResumeSessionGoal() {
-  return useGoalMutation(resumeSessionGoal, 'Failed to resume goal')
+  return useGoalMutation(resumeSessionGoal, t('Failed to resume goal'))
 }
 
 export function useCancelSessionGoal() {
-  return useGoalMutation(cancelSessionGoal, 'Failed to cancel goal')
+  return useGoalMutation(cancelSessionGoal, t('Failed to cancel goal'))
 }
