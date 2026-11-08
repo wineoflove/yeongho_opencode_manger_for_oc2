@@ -17,7 +17,12 @@ import {
   parseAllowedRoute,
 } from '../../src/services/opencode-manager-tool-plugin'
 import { installManagedPlugins, getOpenCodePluginDir } from '../../src/services/opencode/plugin-registry'
-import { loadGeneratedPlugin, type GeneratedPlugin, type GeneratedTool, type SessionContextEvent } from '../helpers/opencode-plugin-context'
+import {
+  loadGeneratedPlugin,
+  type GeneratedPlugin,
+  type GeneratedTool,
+  type SessionContextEvent,
+} from '../helpers/opencode-plugin-context'
 import { resolveOpenCode2Binary, runOpenCodeStandalone } from '../helpers/opencode-binary'
 
 type JsonSchema = {
@@ -78,13 +83,20 @@ async function runToolResult(
   input: unknown,
   context: { sessionID?: string; signal?: AbortSignal } = {},
 ): Promise<{ content: string; metadata?: Record<string, unknown> }> {
-  return (await tool.execute!(input, { signal: context.signal ?? new AbortController().signal, sessionID: context.sessionID })) as {
+  return (await tool.execute!(input, {
+    signal: context.signal ?? new AbortController().signal,
+    sessionID: context.sessionID,
+  })) as {
     content: string
     metadata?: Record<string, unknown>
   }
 }
 
-async function runTool(tool: GeneratedTool, input: unknown, context: { sessionID?: string; signal?: AbortSignal } = {}): Promise<string> {
+async function runTool(
+  tool: GeneratedTool,
+  input: unknown,
+  context: { sessionID?: string; signal?: AbortSignal } = {},
+): Promise<string> {
   return (await runToolResult(tool, input, context)).content
 }
 
@@ -113,17 +125,190 @@ describe('ocm-manager plugin', () => {
     await fs.rm(configHome, { recursive: true, force: true })
   })
 
+  describe('goal tools', () => {
+    async function loadGoalTool(name: string): Promise<GeneratedTool> {
+      const plugin = await loadManagerPlugin(configHome)
+      const tool = plugin.registeredTools().find((candidate) => candidate.name === name)
+      if (!tool?.execute) throw new Error(`The generated plugin does not register "${name}"`)
+      return tool
+    }
+
+    it('registers get_goal, create_goal and update_goal with the OpenCode 1 argument names', async () => {
+      const plugin = await loadManagerPlugin(configHome)
+      const tools = new Map(plugin.registeredTools().map((tool) => [tool.name, tool.input as JsonSchema]))
+
+      expect(tools.get('get_goal')?.properties).toHaveProperty('session_id')
+      expect(tools.get('create_goal')?.required).toEqual(['objective'])
+      expect(tools.get('update_goal')?.properties?.status?.enum).toEqual(['active', 'paused', 'complete'])
+      expect(tools.get('update_goal')?.additionalProperties).toBe(false)
+    })
+
+    it('reads the current session goal through the internal API', async () => {
+      const fetchMock = jsonResponse({ goal: { id: 4, status: 'active' } })
+      vi.stubGlobal('fetch', fetchMock)
+      const tool = await loadGoalTool('get_goal')
+
+      const content = await runTool(tool, {}, { sessionID: 'ses_goal' })
+
+      const [url, init] = fetchMock.mock.calls[0] ?? []
+      expect(url).toBe('http://localhost:5003/api/internal/agent-goals?sessionId=ses_goal')
+      expect(init.method).toBe('GET')
+      expect(init.headers.Authorization).toBe('Bearer secret-token')
+      expect(JSON.parse(content)).toEqual({ id: 4, status: 'active' })
+    })
+
+    it('creates a goal for the calling session only', async () => {
+      const fetchMock = jsonResponse({ goal: { id: 5, status: 'active', objective: 'Ship it' } })
+      vi.stubGlobal('fetch', fetchMock)
+      const tool = await loadGoalTool('create_goal')
+
+      await runTool(tool, { objective: 'Ship it', session_id: 'ses_goal' }, { sessionID: 'ses_goal' })
+
+      const [url, init] = fetchMock.mock.calls[0] ?? []
+      expect(url).toBe('http://localhost:5003/api/internal/agent-goals')
+      expect(JSON.parse(init.body)).toEqual({ sessionId: 'ses_goal', objective: 'Ship it' })
+    })
+
+    it.each(['get_goal', 'create_goal', 'update_goal'])('%s rejects another session without calling the API', async (name) => {
+      const fetchMock = jsonResponse({})
+      vi.stubGlobal('fetch', fetchMock)
+      const tool = await loadGoalTool(name)
+
+      await expect(
+        runTool(tool, { objective: 'x', status: 'paused', session_id: 'ses_other' }, { sessionID: 'ses_goal' }),
+      ).rejects.toThrow('only manage the current session goal')
+      await expect(runTool(tool, { objective: 'x' }, {})).rejects.toThrow('need a session')
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('forwards status updates and surfaces API errors', async () => {
+      const fetchMock = jsonResponse({ goal: { id: 6, status: 'paused' } })
+      vi.stubGlobal('fetch', fetchMock)
+      const tool = await loadGoalTool('update_goal')
+
+      await runTool(tool, { status: 'paused' }, { sessionID: 'ses_goal' })
+      const [url, init] = fetchMock.mock.calls[0] ?? []
+      expect(url).toBe('http://localhost:5003/api/internal/agent-goals/update')
+      expect(JSON.parse(init.body)).toEqual({ sessionId: 'ses_goal', status: 'paused' })
+
+      vi.stubGlobal('fetch', jsonResponse({ error: 'This session has no open goal' }, { ok: false, status: 404 }))
+      await expect(runTool(tool, { status: 'complete' }, { sessionID: 'ses_goal' })).rejects.toThrow(
+        'status 404: {"error":"This session has no open goal"}',
+      )
+    })
+  })
+
   it('default-exports the V2 plugin definition', async () => {
     const plugin = await loadGeneratedPlugin(path.join(getOpenCodePluginDir(configHome), 'ocm-manager.js'))
 
     expect(plugin.id).toBe('ocm.manager')
   })
 
+  it.each([true, false])(
+    'observes only allowlisted response headers without consuming the model stream, collection success=%s',
+    async (success) => {
+      const plugin = await loadManagerPlugin(configHome)
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      if (success) fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }))
+      else fetchSpy.mockRejectedValue(new Error('private-collector-error'))
+      const response = new Response('model response body', {
+        headers: {
+          'anthropic-ratelimit-requests-remaining': '2',
+          'anthropic-ratelimit-unified-5h-utilization': '0.25',
+          'set-cookie': 'private-cookie',
+          'x-private': 'private-value',
+        },
+      })
+      const request = new Request('https://provider.invalid/private-path', {
+        headers: { Authorization: 'Bearer private-access' },
+      })
+      try {
+        await plugin.triggerHttpResponse({
+          sessionID: 'ses-fixture',
+          agent: 'assistant',
+          model: { providerID: 'anthropic', id: 'fixture' },
+          kind: 'primary',
+          request,
+          response,
+        })
+        expect(fetchSpy).toHaveBeenCalledOnce()
+        const init = fetchSpy.mock.calls[0]?.[1]
+        expect(JSON.parse(String(init?.body))).toEqual({
+          providerId: 'anthropic',
+          modelId: 'fixture',
+          headers: {
+            'anthropic-ratelimit-requests-remaining': '2',
+            'anthropic-ratelimit-unified-5h-utilization': '0.25',
+          },
+        })
+        expect(response.bodyUsed).toBe(false)
+        expect(await response.text()).toBe('model response body')
+        expect(request.headers.get('Authorization')).toBe('Bearer private-access')
+      } finally {
+        fetchSpy.mockRestore()
+        await plugin.dispose()
+      }
+    },
+  )
+
+  it('collects a response that carries only unified subscription headers', async () => {
+    const plugin = await loadManagerPlugin(configHome)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }))
+    try {
+      await plugin.triggerHttpResponse({
+        sessionID: 'ses-fixture',
+        agent: 'assistant',
+        model: { providerID: 'anthropic', id: 'fixture' },
+        kind: 'primary',
+        request: new Request('https://provider.invalid/v1/messages'),
+        response: new Response('body', {
+          headers: {
+            'anthropic-ratelimit-unified-status': 'allowed',
+            'anthropic-ratelimit-unified-5h-utilization': '0.1',
+          },
+        }),
+      })
+      expect(fetchSpy).toHaveBeenCalledOnce()
+      expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body)).headers).toEqual({
+        'anthropic-ratelimit-unified-status': 'allowed',
+        'anthropic-ratelimit-unified-5h-utilization': '0.1',
+      })
+    } finally {
+      fetchSpy.mockRestore()
+      await plugin.dispose()
+    }
+  })
+
+  it('does not collect retry-after alone as Anthropic quota evidence', async () => {
+    const plugin = await loadManagerPlugin(configHome)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    try {
+      await plugin.triggerHttpResponse({
+        sessionID: 'ses-fixture',
+        agent: 'assistant',
+        model: { providerID: 'other', id: 'fixture' },
+        kind: 'primary',
+        request: new Request('https://provider.invalid'),
+        response: new Response('body', { headers: { 'retry-after': '5' } }),
+      })
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      fetchSpy.mockRestore()
+      await plugin.dispose()
+    }
+  })
+
   describe('mobile output instructions', () => {
     it('adds the mobile output instructions to a session prompted from the mobile client', async () => {
       const plugin = await loadManagerPlugin(configHome)
-      await plugin.triggerSessionPrompt({ sessionID: 'ses_mobile', metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'mobile' } })
-      const event: SessionContextEvent = { sessionID: 'ses_mobile', system: [] }
+      await plugin.triggerSessionPrompt({
+        sessionID: 'ses_mobile',
+        metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'mobile' },
+      })
+      const event: SessionContextEvent = {
+        sessionID: 'ses_mobile',
+        system: [],
+      }
 
       await plugin.triggerSessionContext(event)
 
@@ -132,9 +317,18 @@ describe('ocm-manager plugin', () => {
 
     it('removes the mobile output instructions when the latest prompt is from the desktop client', async () => {
       const plugin = await loadManagerPlugin(configHome)
-      await plugin.triggerSessionPrompt({ sessionID: 'ses_switch', metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'mobile' } })
-      await plugin.triggerSessionPrompt({ sessionID: 'ses_switch', metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'desktop' } })
-      const event: SessionContextEvent = { sessionID: 'ses_switch', system: [] }
+      await plugin.triggerSessionPrompt({
+        sessionID: 'ses_switch',
+        metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'mobile' },
+      })
+      await plugin.triggerSessionPrompt({
+        sessionID: 'ses_switch',
+        metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'desktop' },
+      })
+      const event: SessionContextEvent = {
+        sessionID: 'ses_switch',
+        system: [],
+      }
 
       await plugin.triggerSessionContext(event)
 
@@ -143,9 +337,15 @@ describe('ocm-manager plugin', () => {
 
     it('keeps the mobile output instructions when a later prompt carries no client metadata', async () => {
       const plugin = await loadManagerPlugin(configHome)
-      await plugin.triggerSessionPrompt({ sessionID: 'ses_nometa', metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'mobile' } })
+      await plugin.triggerSessionPrompt({
+        sessionID: 'ses_nometa',
+        metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'mobile' },
+      })
       await plugin.triggerSessionPrompt({ sessionID: 'ses_nometa' })
-      const event: SessionContextEvent = { sessionID: 'ses_nometa', system: [] }
+      const event: SessionContextEvent = {
+        sessionID: 'ses_nometa',
+        system: [],
+      }
 
       await plugin.triggerSessionContext(event)
 
@@ -154,7 +354,10 @@ describe('ocm-manager plugin', () => {
 
     it('leaves sessions prompted from another client without the mobile output instructions', async () => {
       const plugin = await loadManagerPlugin(configHome)
-      await plugin.triggerSessionPrompt({ sessionID: 'ses_mobile', metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'mobile' } })
+      await plugin.triggerSessionPrompt({
+        sessionID: 'ses_mobile',
+        metadata: { [MANAGER_PROMPT_CLIENT_METADATA_KEY]: 'mobile' },
+      })
       const event: SessionContextEvent = { sessionID: 'ses_other', system: [] }
 
       await plugin.triggerSessionContext(event)
@@ -178,8 +381,18 @@ describe('ocm-manager plugin', () => {
     expect(schema.type).toBe('object')
     expect(schema.required).toEqual(['action', 'params'])
     expect(schema.additionalProperties).toBe(false)
-    expect(schema.properties?.action?.enum).toEqual(['send_notification', 'request', 'open_walkthrough', 'show_artifact', 'walkthrough_changes', 'publish_walkthrough'])
-    expect(schema.properties?.params?.anyOf).toHaveLength(6)
+    expect(schema.properties?.action?.enum).toEqual([
+      'send_notification',
+      'request',
+      'open_walkthrough',
+      'show_artifact',
+      'walkthrough_changes',
+      'publish_walkthrough',
+      'learning_search',
+      'learning_record',
+      'report_outcome',
+    ])
+    expect(schema.properties?.params?.anyOf).toHaveLength(9)
     expect(notificationParamsSchema(tool).required).toEqual(['title', 'body'])
     expect(requestParamsSchema(tool).required).toEqual(['method', 'path'])
     expect(walkthroughParamsSchema(tool).required).toBeUndefined()
@@ -190,14 +403,9 @@ describe('ocm-manager plugin', () => {
     expect(artifactParamsSchema(tool).additionalProperties).toBe(false)
     expect(notificationParamsSchema(tool).properties?.priority?.enum).toEqual(['normal', 'high'])
     expect(requestParamsSchema(tool).properties?.method?.enum).toEqual(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
-    expect(walkthroughParamsSchema(tool).properties?.source?.oneOf?.map((variant) => variant.properties?.kind?.const)).toEqual([
-      'session',
-      'uncommitted',
-      'staged',
-      'unstaged',
-      'branch',
-      'pullRequest',
-    ])
+    expect(
+      walkthroughParamsSchema(tool).properties?.source?.oneOf?.map((variant) => variant.properties?.kind?.const),
+    ).toEqual(['session', 'uncommitted', 'staged', 'unstaged', 'branch', 'pullRequest'])
     expect(changesParamsSchema(tool).required).toBeUndefined()
     expect(changesParamsSchema(tool).additionalProperties).toBe(false)
     expect(changesParamsSchema(tool).properties?.file?.maxLength).toBe(1000)
@@ -234,8 +442,14 @@ describe('ocm-manager plugin', () => {
   it('enforces the notification limits the internal API enforces', async () => {
     const tool = await loadTool(configHome)
     const notification = notificationParamsSchema(tool)
-    const withinLimits = { title: 'x'.repeat(ASSISTANT_NOTIFICATION_LIMITS.TITLE_MAX), body: 'b'.repeat(ASSISTANT_NOTIFICATION_LIMITS.BODY_MAX) }
-    const overLimit = { title: 'x'.repeat(ASSISTANT_NOTIFICATION_LIMITS.TITLE_MAX + 1), body: 'b' }
+    const withinLimits = {
+      title: 'x'.repeat(ASSISTANT_NOTIFICATION_LIMITS.TITLE_MAX),
+      body: 'b'.repeat(ASSISTANT_NOTIFICATION_LIMITS.BODY_MAX),
+    }
+    const overLimit = {
+      title: 'x'.repeat(ASSISTANT_NOTIFICATION_LIMITS.TITLE_MAX + 1),
+      body: 'b',
+    }
 
     expect(notification.properties?.title?.maxLength).toBe(ASSISTANT_NOTIFICATION_LIMITS.TITLE_MAX)
     expect(notification.properties?.body?.maxLength).toBe(ASSISTANT_NOTIFICATION_LIMITS.BODY_MAX)
@@ -252,13 +466,22 @@ describe('ocm-manager plugin', () => {
   })
 
   it('sends a notification through the internal API with the host token', async () => {
-    const fetchMock = jsonResponse({ delivered: 2, expired: 0, failed: 0, noSubscriptions: false })
+    const fetchMock = jsonResponse({
+      delivered: 2,
+      expired: 0,
+      failed: 0,
+      noSubscriptions: false,
+    })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
     const result = await runTool(tool, {
       action: 'send_notification',
-      params: { title: 'Storm watch', body: 'Formation odds crossed 40%', priority: 'high' },
+      params: {
+        title: 'Storm watch',
+        body: 'Formation odds crossed 40%',
+        priority: 'high',
+      },
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -266,24 +489,156 @@ describe('ocm-manager plugin', () => {
     expect(url).toBe('http://localhost:5003/api/internal/notifications/send')
     expect(init.method).toBe('POST')
     expect(init.headers.Authorization).toBe('Bearer secret-token')
-    expect(JSON.parse(init.body)).toEqual({ title: 'Storm watch', body: 'Formation odds crossed 40%', priority: 'high' })
+    expect(JSON.parse(init.body)).toEqual({
+      title: 'Storm watch',
+      body: 'Formation odds crossed 40%',
+      priority: 'high',
+    })
     expect(result).toBe('Notification sent: 2 delivered, 0 failed.')
   })
 
   it('reports when the user has no registered devices', async () => {
-    vi.stubGlobal('fetch', jsonResponse({ delivered: 0, expired: 0, failed: 0, noSubscriptions: true }))
+    vi.stubGlobal(
+      'fetch',
+      jsonResponse({
+        delivered: 0,
+        expired: 0,
+        failed: 0,
+        noSubscriptions: true,
+      }),
+    )
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'send_notification', params: { title: 't', body: 'b' } }))
-      .resolves.toBe('No devices are registered for push notifications, so nothing was delivered.')
+    await expect(
+      runTool(tool, {
+        action: 'send_notification',
+        params: { title: 't', body: 'b' },
+      }),
+    ).resolves.toBe('No devices are registered for push notifications, so nothing was delivered.')
+  })
+
+  it('searches learnings through the internal API and returns the JSON body as is', async () => {
+    const payload = '{"results":[],"readOnly":true}'
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => payload })
+    vi.stubGlobal('fetch', fetchMock)
+    const tool = await loadTool(configHome)
+
+    const result = await runTool(
+      tool,
+      { action: 'learning_search', params: { query: '한국어 응답', limit: 3 } },
+      { sessionID: 'ses_abc' },
+    )
+
+    const [url, init] = fetchMock.mock.calls[0] ?? []
+    expect(url).toBe('http://localhost:5003/api/internal/learnings/search')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({ query: '한국어 응답', limit: 3 })
+    expect(result).toBe(payload)
+  })
+
+  it('records a learning with the calling session and agent from the tool context', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      text: async () => '{"id":"a","status":"pending"}',
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const tool = await loadTool(configHome)
+    const params = {
+      title: '한국어 응답 선호',
+      patternKey: 'communication.korean',
+      status: 'pending',
+      kind: 'preference',
+      source: '사용자 교정',
+      conditions: '모든 저장소',
+      evidence: '사용자 확인',
+      lesson: '한국어로 응답한다.',
+      limits: '코드는 원문 유지',
+    }
+
+    await tool.execute!({ action: 'learning_record', params }, {
+      signal: new AbortController().signal,
+      sessionID: 'ses_root',
+      agent: 'assistant',
+    } as never)
+
+    const [url, init] = fetchMock.mock.calls[0] ?? []
+    expect(url).toBe('http://localhost:5003/api/internal/learnings/record')
+    expect(JSON.parse(init.body)).toEqual({
+      ...params,
+      sessionID: 'ses_root',
+      agent: 'assistant',
+    })
+  })
+
+  it('requires only the caller-supplied learning fields in the tool schema', async () => {
+    const tool = await loadTool(configHome)
+    const variants = toolInputSchema(tool).properties?.params?.anyOf ?? []
+
+    expect(variants[6]?.required).toEqual(['query'])
+    expect(variants[7]?.required).toEqual([
+      'title',
+      'patternKey',
+      'status',
+      'kind',
+      'source',
+      'conditions',
+      'evidence',
+      'lesson',
+      'limits',
+    ])
+    expect(variants[7]?.additionalProperties).toBe(false)
+  })
+
+  it('reports the scheduled run outcome with the calling session and agent', async () => {
+    const fetchMock = jsonResponse({ runId: 12, jobId: 3, outcome: 'partial' })
+    vi.stubGlobal('fetch', fetchMock)
+    const tool = await loadTool(configHome)
+    const params = {
+      outcome: 'partial',
+      summary: '2건 중 1건 게시',
+      processed: 1,
+      remaining: 1,
+      unit: 'report',
+    }
+
+    const result = (await tool.execute!({ action: 'report_outcome', params }, {
+      signal: new AbortController().signal,
+      sessionID: 'ses_sched',
+      agent: 'assistant',
+    } as never)) as { content: string }
+
+    const [url, init] = fetchMock.mock.calls[0] ?? []
+    expect(url).toBe('http://localhost:5003/api/internal/schedule-runs/outcome')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({
+      ...params,
+      sessionID: 'ses_sched',
+      agent: 'assistant',
+    })
+    expect(result.content).toBe('Outcome recorded for scheduled run 12: partial.')
+  })
+
+  it('limits report_outcome to the reported outcome values and requires a summary', async () => {
+    const tool = await loadTool(configHome)
+    const variant = toolInputSchema(tool).properties?.params?.anyOf?.[8]
+
+    expect(variant?.required).toEqual(['outcome', 'summary'])
+    expect(variant?.additionalProperties).toBe(false)
+    expect(variant?.properties?.outcome?.enum).toEqual(['succeeded', 'partial', 'failed', 'blocked', 'skipped'])
+    expect(tool.description).toContain('report_outcome: scheduled runs only')
   })
 
   it('surfaces the API status and body when the request is rejected', async () => {
     vi.stubGlobal('fetch', jsonResponse({ error: 'Rate limit exceeded' }, { ok: false, status: 429 }))
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'send_notification', params: { title: 't', body: 'b' } }))
-      .rejects.toThrow(/429.*Rate limit exceeded/)
+    await expect(
+      runTool(tool, {
+        action: 'send_notification',
+        params: { title: 't', body: 'b' },
+      }),
+    ).rejects.toThrow(/429.*Rate limit exceeded/)
   })
 
   it('fails when the internal API is not configured', async () => {
@@ -292,8 +647,12 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'send_notification', params: { title: 't', body: 'b' } }))
-      .rejects.toThrow('The OpenCode Manager internal API is not configured for this OpenCode server.')
+    await expect(
+      runTool(tool, {
+        action: 'send_notification',
+        params: { title: 't', body: 'b' },
+      }),
+    ).rejects.toThrow('The OpenCode Manager internal API is not configured for this OpenCode server.')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -302,8 +661,12 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'constructor', params: {} })).rejects.toThrow(/Unknown OpenCode Manager action/)
-    await expect(runTool(tool, { action: 'send_notification', params: { title: 't' } })).rejects.toThrow(/Invalid parameters/)
+    await expect(runTool(tool, { action: 'constructor', params: {} })).rejects.toThrow(
+      /Unknown OpenCode Manager action/,
+    )
+    await expect(runTool(tool, { action: 'send_notification', params: { title: 't' } })).rejects.toThrow(
+      /Invalid parameters/,
+    )
     await expect(runTool(tool, { action: 'request', params: null })).rejects.toThrow(/Invalid parameters/)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -313,15 +676,26 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'request', params: { title: 't', body: 'b' } }))
-      .rejects.toThrow(/Invalid parameters for OpenCode Manager action: request/)
-    await expect(runTool(tool, { action: 'send_notification', params: { method: 'GET', path: '/settings' } }))
-      .rejects.toThrow(/Invalid parameters for OpenCode Manager action: send_notification/)
+    await expect(runTool(tool, { action: 'request', params: { title: 't', body: 'b' } })).rejects.toThrow(
+      /Invalid parameters for OpenCode Manager action: request/,
+    )
+    await expect(
+      runTool(tool, {
+        action: 'send_notification',
+        params: { method: 'GET', path: '/settings' },
+      }),
+    ).rejects.toThrow(/Invalid parameters for OpenCode Manager action: send_notification/)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('opens the walkthrough for the current session with the requested source and returns immediately when it is ready', async () => {
-    const fetchMock = jsonResponse({ walkthrough: { status: 'ready' }, currentDiffHash: 'h', stale: false, generating: false, error: null })
+    const fetchMock = jsonResponse({
+      walkthrough: { status: 'ready' },
+      currentDiffHash: 'h',
+      stale: false,
+      generating: false,
+      error: null,
+    })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
@@ -350,19 +724,37 @@ describe('ocm-manager plugin', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => JSON.stringify({ walkthrough: null, currentDiffHash: 'h', stale: false, generating: true, error: null }),
+        text: async () =>
+          JSON.stringify({
+            walkthrough: null,
+            currentDiffHash: 'h',
+            stale: false,
+            generating: true,
+            error: null,
+          }),
       })
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => JSON.stringify({ walkthrough: { status: 'ready' }, currentDiffHash: 'h', stale: false, generating: false, error: null }),
+        text: async () =>
+          JSON.stringify({
+            walkthrough: { status: 'ready' },
+            currentDiffHash: 'h',
+            stale: false,
+            generating: false,
+            error: null,
+          }),
       })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
     vi.useFakeTimers()
     try {
-      const pending = runToolResult(tool, { action: 'open_walkthrough', params: { source: { kind: 'staged' } } }, { sessionID: 'ses_abc' })
+      const pending = runToolResult(
+        tool,
+        { action: 'open_walkthrough', params: { source: { kind: 'staged' } } },
+        { sessionID: 'ses_abc' },
+      )
       await vi.advanceTimersByTimeAsync(2000)
       const result = await pending
 
@@ -389,7 +781,12 @@ describe('ocm-manager plugin', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => JSON.stringify({ walkthrough: { status: 'ready' }, generating: false, error: null }),
+        text: async () =>
+          JSON.stringify({
+            walkthrough: { status: 'ready' },
+            generating: false,
+            error: null,
+          }),
       })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
@@ -398,13 +795,18 @@ describe('ocm-manager plugin', () => {
     try {
       const pending = runToolResult(
         tool,
-        { action: 'open_walkthrough', params: { source: { kind: 'branch', base: 'main' } } },
+        {
+          action: 'open_walkthrough',
+          params: { source: { kind: 'branch', base: 'main' } },
+        },
         { sessionID: 'ses_abc' },
       )
       await vi.advanceTimersByTimeAsync(2000)
       await pending
 
-      expect(fetchMock.mock.calls[1]?.[0]).toBe('http://localhost:5003/api/internal/change-walkthroughs/ses_abc?source=branch%3Amain')
+      expect(fetchMock.mock.calls[1]?.[0]).toBe(
+        'http://localhost:5003/api/internal/change-walkthroughs/ses_abc?source=branch%3Amain',
+      )
     } finally {
       vi.useRealTimers()
     }
@@ -421,7 +823,12 @@ describe('ocm-manager plugin', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => JSON.stringify({ walkthrough: { status: 'failed' }, generating: false, error: { message: 'the model crashed' } }),
+        text: async () =>
+          JSON.stringify({
+            walkthrough: { status: 'failed' },
+            generating: false,
+            error: { message: 'the model crashed' },
+          }),
       })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
@@ -438,20 +845,36 @@ describe('ocm-manager plugin', () => {
   })
 
   it('throws when the walkthrough was cancelled before it was ready', async () => {
-    vi.stubGlobal('fetch', jsonResponse({ walkthrough: { status: 'cancelled' }, generating: false, error: null }))
+    vi.stubGlobal(
+      'fetch',
+      jsonResponse({
+        walkthrough: { status: 'cancelled' },
+        generating: false,
+        error: null,
+      }),
+    )
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'open_walkthrough', params: {} }, { sessionID: 'ses_abc' }))
-      .rejects.toThrow('The walkthrough was cancelled before it was ready.')
+    await expect(runTool(tool, { action: 'open_walkthrough', params: {} }, { sessionID: 'ses_abc' })).rejects.toThrow(
+      'The walkthrough was cancelled before it was ready.',
+    )
   })
 
   it('stops waiting when the signal is aborted', async () => {
-    const fetchMock = jsonResponse({ walkthrough: null, generating: true, error: null })
+    const fetchMock = jsonResponse({
+      walkthrough: null,
+      generating: true,
+      error: null,
+    })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
     const controller = new AbortController()
 
-    const pending = runTool(tool, { action: 'open_walkthrough', params: {} }, { sessionID: 'ses_abc', signal: controller.signal })
+    const pending = runTool(
+      tool,
+      { action: 'open_walkthrough', params: {} },
+      { sessionID: 'ses_abc', signal: controller.signal },
+    )
     controller.abort()
 
     await expect(pending).rejects.toThrow(/aborted/)
@@ -459,7 +882,11 @@ describe('ocm-manager plugin', () => {
   })
 
   it('opens the walkthrough without a body when no source is given', async () => {
-    const fetchMock = jsonResponse({ walkthrough: { status: 'ready' }, generating: false, error: null })
+    const fetchMock = jsonResponse({
+      walkthrough: { status: 'ready' },
+      generating: false,
+      error: null,
+    })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
@@ -477,7 +904,9 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'walkthrough_changes', params: {} }, { sessionID: 'ses_abc' })).resolves.toBe('## Outline')
+    await expect(runTool(tool, { action: 'walkthrough_changes', params: {} }, { sessionID: 'ses_abc' })).resolves.toBe(
+      '## Outline',
+    )
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] ?? []
@@ -503,7 +932,9 @@ describe('ocm-manager plugin', () => {
   })
 
   it('publishes the walkthrough through the internal API and reports the path', async () => {
-    const fetchMock = jsonResponse({ path: '/workspace/walkthroughs/ses_abc/gen/index.html' })
+    const fetchMock = jsonResponse({
+      path: '/workspace/walkthroughs/ses_abc/gen/index.html',
+    })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
@@ -516,17 +947,24 @@ describe('ocm-manager plugin', () => {
     expect(result.content).toBe(
       'Published the walkthrough from /workspace/walkthroughs/ses_abc/gen/index.html. The Manager walkthrough panel renders the current file; edit it and call publish_walkthrough again after significant changes.',
     )
-    expect(result.metadata).toEqual({ path: '/workspace/walkthroughs/ses_abc/gen/index.html' })
+    expect(result.metadata).toEqual({
+      path: '/workspace/walkthroughs/ses_abc/gen/index.html',
+    })
   })
 
   it('resolves the artifact file through the internal API and reports the resolved path', async () => {
-    const fetchMock = jsonResponse({ path: '/workspace/repos/app/report.html' })
+    const fetchMock = jsonResponse({
+      path: '/workspace/repos/app/report.html',
+    })
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
     const result = await runToolResult(
       tool,
-      { action: 'show_artifact', params: { title: 'Formation odds', path: 'reports/report.html' } },
+      {
+        action: 'show_artifact',
+        params: { title: 'Formation odds', path: 'reports/report.html' },
+      },
       { sessionID: 'ses_abc' },
     )
 
@@ -540,15 +978,27 @@ describe('ocm-manager plugin', () => {
     expect(result.content).toBe(
       'Showing the artifact "Formation odds" from /workspace/repos/app/report.html in the Manager chat. It renders the current file contents, so after editing the file the user can reload the view; call show_artifact again only to show a different file.',
     )
-    expect(result.metadata).toEqual({ path: '/workspace/repos/app/report.html' })
+    expect(result.metadata).toEqual({
+      path: '/workspace/repos/app/report.html',
+    })
   })
 
   it('surfaces the resolve error when the artifact path is rejected', async () => {
-    vi.stubGlobal('fetch', jsonResponse({ error: 'Artifact file not found: reports/report.html' }, { ok: false, status: 404 }))
+    vi.stubGlobal(
+      'fetch',
+      jsonResponse({ error: 'Artifact file not found: reports/report.html' }, { ok: false, status: 404 }),
+    )
     const tool = await loadTool(configHome)
 
     await expect(
-      runTool(tool, { action: 'show_artifact', params: { title: 'Formation odds', path: 'reports/report.html' } }, { sessionID: 'ses_abc' }),
+      runTool(
+        tool,
+        {
+          action: 'show_artifact',
+          params: { title: 'Formation odds', path: 'reports/report.html' },
+        },
+        { sessionID: 'ses_abc' },
+      ),
     ).rejects.toThrow(/404.*Artifact file not found: reports\/report\.html/)
   })
 
@@ -557,8 +1007,11 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'show_artifact', params: { title: 'Formation odds' } }, { sessionID: 'ses_abc' }))
-      .rejects.toThrow('Invalid parameters for OpenCode Manager action: show_artifact. Missing required parameter: path.')
+    await expect(
+      runTool(tool, { action: 'show_artifact', params: { title: 'Formation odds' } }, { sessionID: 'ses_abc' }),
+    ).rejects.toThrow(
+      'Invalid parameters for OpenCode Manager action: show_artifact. Missing required parameter: path.',
+    )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -567,7 +1020,10 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    const result = await runTool(tool, { action: 'request', params: { method: 'GET', path: '/settings?userId=default' } })
+    const result = await runTool(tool, {
+      action: 'request',
+      params: { method: 'GET', path: '/settings?userId=default' },
+    })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] ?? []
@@ -584,7 +1040,10 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await runTool(tool, { action: 'request', params: { method: 'PATCH', path: '/settings', body: { theme: 'dark' } } })
+    await runTool(tool, {
+      action: 'request',
+      params: { method: 'PATCH', path: '/settings', body: { theme: 'dark' } },
+    })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] ?? []
@@ -600,7 +1059,14 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await runTool(tool, { action: 'request', params: { method: 'PATCH', path: '/opencode-config', body: { patch: { theme: 'dark' } } } })
+    await runTool(tool, {
+      action: 'request',
+      params: {
+        method: 'PATCH',
+        path: '/opencode-config',
+        body: { patch: { theme: 'dark' } },
+      },
+    })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] ?? []
@@ -618,7 +1084,10 @@ describe('ocm-manager plugin', () => {
 
     for (const route of MANAGER_TOOL_ALLOWED_ROUTES) {
       const { method, path: pattern } = parseAllowedRoute(route)
-      const path = pattern.split('/').map((segment) => (segment === '*' ? 'x' : segment)).join('/')
+      const path = pattern
+        .split('/')
+        .map((segment) => (segment === '*' ? 'x' : segment))
+        .join('/')
       const fetchMock = jsonResponse({})
       vi.stubGlobal('fetch', fetchMock)
 
@@ -647,8 +1116,12 @@ describe('ocm-manager plugin', () => {
     const fetchMock = jsonResponse({})
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(runTool(tool, { action: 'request', params: { method: 'DELETE', path: '/sessions/abc' } }))
-      .rejects.toThrow(/is not an allowed OpenCode Manager route/)
+    await expect(
+      runTool(tool, {
+        action: 'request',
+        params: { method: 'DELETE', path: '/sessions/abc' },
+      }),
+    ).rejects.toThrow(/is not an allowed OpenCode Manager route/)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -680,8 +1153,9 @@ describe('ocm-manager plugin', () => {
       const fetchMock = jsonResponse({})
       vi.stubGlobal('fetch', fetchMock)
 
-      await expect(runTool(tool, { action: 'request', params: { method, path } }))
-        .rejects.toThrow(/is not an allowed OpenCode Manager route/)
+      await expect(runTool(tool, { action: 'request', params: { method, path } })).rejects.toThrow(
+        /is not an allowed OpenCode Manager route/,
+      )
       expect(fetchMock).not.toHaveBeenCalled()
     }
   })
@@ -691,13 +1165,20 @@ describe('ocm-manager plugin', () => {
 
     const fetchMock = jsonResponse({})
     vi.stubGlobal('fetch', fetchMock)
-    await runTool(tool, { action: 'request', params: { method: 'GET', path: '/repos/1/schedules/2/worktrees' } })
+    await runTool(tool, {
+      action: 'request',
+      params: { method: 'GET', path: '/repos/1/schedules/2/worktrees' },
+    })
     expect(fetchMock).toHaveBeenCalledTimes(1)
 
     const deleteMock = jsonResponse({})
     vi.stubGlobal('fetch', deleteMock)
-    await expect(runTool(tool, { action: 'request', params: { method: 'DELETE', path: '/repos/1/schedules/2/worktrees' } }))
-      .rejects.toThrow(/is not an allowed OpenCode Manager route/)
+    await expect(
+      runTool(tool, {
+        action: 'request',
+        params: { method: 'DELETE', path: '/repos/1/schedules/2/worktrees' },
+      }),
+    ).rejects.toThrow(/is not an allowed OpenCode Manager route/)
     expect(deleteMock).not.toHaveBeenCalled()
   })
 
@@ -707,7 +1188,10 @@ describe('ocm-manager plugin', () => {
     const tool = await loadTool(configHome)
 
     await expect(
-      runTool(tool, { action: 'request', params: { method: 'GET', path: '/repos/x/../../shell-env' } }),
+      runTool(tool, {
+        action: 'request',
+        params: { method: 'GET', path: '/repos/x/../../shell-env' },
+      }),
     ).rejects.toThrow(/is not an allowed OpenCode Manager route/)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -717,8 +1201,12 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'request', params: { method: 'GET', path: 'http://evil.com/steal' } }))
-      .rejects.toThrow(/resolves outside/)
+    await expect(
+      runTool(tool, {
+        action: 'request',
+        params: { method: 'GET', path: 'http://evil.com/steal' },
+      }),
+    ).rejects.toThrow(/resolves outside/)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -727,22 +1215,33 @@ describe('ocm-manager plugin', () => {
     vi.stubGlobal('fetch', fetchMock)
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'request', params: { method: 'GET', path: '/settings' } }))
-      .resolves.toBe('The request succeeded with an empty response body.')
+    await expect(
+      runTool(tool, {
+        action: 'request',
+        params: { method: 'GET', path: '/settings' },
+      }),
+    ).resolves.toBe('The request succeeded with an empty response body.')
   })
 
   it('surfaces the API status and body when the request action is rejected', async () => {
     vi.stubGlobal('fetch', jsonResponse({ error: 'Rate limit exceeded' }, { ok: false, status: 429 }))
     const tool = await loadTool(configHome)
 
-    await expect(runTool(tool, { action: 'request', params: { method: 'GET', path: '/settings' } }))
-      .rejects.toThrow(/429.*Rate limit exceeded/)
+    await expect(
+      runTool(tool, {
+        action: 'request',
+        params: { method: 'GET', path: '/settings' },
+      }),
+    ).rejects.toThrow(/429.*Rate limit exceeded/)
   })
 })
 
 const SHIPPED_OPENCODE_BIN = resolveOpenCode2Binary()
 
-type ChatRequest = { messages?: unknown[]; tools?: { function?: { name?: string; parameters?: unknown } }[] }
+type ChatRequest = {
+  messages?: unknown[]
+  tools?: { function?: { name?: string; parameters?: unknown } }[]
+}
 
 describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the shipped OpenCode 2 binary', () => {
   let root: string
@@ -757,8 +1256,21 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
         if (req.method === 'POST' && req.url?.endsWith('/notifications/send')) {
           requests.push(JSON.stringify({ auth: req.headers.authorization, body }))
         }
+        if (req.url?.includes('/agent-goals')) {
+          requests.push(JSON.stringify({ auth: req.headers.authorization, method: req.method, url: req.url, body }))
+          res.writeHead(201, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ goal: { id: 1, status: 'active', objective: 'Ship the fix' } }))
+          return
+        }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ delivered: 1, expired: 0, failed: 0, noSubscriptions: false }))
+        res.end(
+          JSON.stringify({
+            delivered: 1,
+            expired: 0,
+            failed: 0,
+            noSubscriptions: false,
+          }),
+        )
       })
     })
     return new Promise<{ server: http.Server; port: number }>((resolve) => {
@@ -766,11 +1278,26 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
     })
   }
 
-  function startLlmServer(offeredTools: ChatRequest['tools'][], toolResults: string[]) {
+  function startLlmServer(
+    offeredTools: ChatRequest['tools'][],
+    toolResults: string[],
+    call: { name: string; args: unknown } = {
+      name: MANAGER_TOOL_NAME,
+      args: {
+        action: 'send_notification',
+        params: { title: 'Storm watch', body: 'Formation odds crossed 40%', priority: 'high' },
+      },
+    },
+  ) {
     const server = http.createServer((req, res) => {
       if (req.method === 'GET' && req.url?.endsWith('/models')) {
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ object: 'list', data: [{ id: 'mock-model', object: 'model' }] }))
+        res.end(
+          JSON.stringify({
+            object: 'list',
+            data: [{ id: 'mock-model', object: 'model' }],
+          }),
+        )
         return
       }
       if (req.method !== 'POST' || !req.url?.endsWith('/chat/completions')) {
@@ -791,16 +1318,21 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
           toolResults.push(String((message as { content?: unknown }).content ?? ''))
         }
 
-        res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
+        res.writeHead(200, {
+          'content-type': 'text/event-stream',
+          'cache-control': 'no-cache',
+        })
         const writeChunk = (obj: unknown) => res.write(`data: ${JSON.stringify(obj)}\n\n`)
-        const base = { id: 'chatcmpl-e2e', object: 'chat.completion.chunk', created: 1, model: 'mock-model' }
+        const base = {
+          id: 'chatcmpl-e2e',
+          object: 'chat.completion.chunk',
+          created: 1,
+          model: 'mock-model',
+        }
         const hasTools = Array.isArray(parsed.tools) && parsed.tools.length > 0
 
         if (hasTools && toolMessages.length === 0) {
-          const args = JSON.stringify({
-            action: 'send_notification',
-            params: { title: 'Storm watch', body: 'Formation odds crossed 40%', priority: 'high' },
-          })
+          const args = JSON.stringify(call.args)
           writeChunk({
             ...base,
             choices: [
@@ -809,7 +1341,14 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
                 delta: {
                   role: 'assistant',
                   content: null,
-                  tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: MANAGER_TOOL_NAME, arguments: '' } }],
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: 'call_1',
+                      type: 'function',
+                      function: { name: call.name, arguments: '' },
+                    },
+                  ],
                 },
                 finish_reason: null,
               },
@@ -817,13 +1356,39 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
           })
           writeChunk({
             ...base,
-            choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }],
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  tool_calls: [{ index: 0, function: { arguments: args } }],
+                },
+                finish_reason: null,
+              },
+            ],
           })
-          writeChunk({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] })
+          writeChunk({
+            ...base,
+            choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }],
+          })
         } else {
-          writeChunk({ ...base, choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] })
-          writeChunk({ ...base, choices: [{ index: 0, delta: { content: 'FINAL' }, finish_reason: null }] })
-          writeChunk({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })
+          writeChunk({
+            ...base,
+            choices: [
+              {
+                index: 0,
+                delta: { role: 'assistant', content: '' },
+                finish_reason: null,
+              },
+            ],
+          })
+          writeChunk({
+            ...base,
+            choices: [{ index: 0, delta: { content: 'FINAL' }, finish_reason: null }],
+          })
+          writeChunk({
+            ...base,
+            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+          })
         }
         res.write('data: [DONE]\n\n')
         res.end()
@@ -842,7 +1407,10 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
           mock: {
             package: '@opencode/ai/providers/openai-compatible',
             name: 'Mock',
-            settings: { baseURL: `http://127.0.0.1:${llmPort}/v1`, apiKey: 'mock-key' },
+            settings: {
+              baseURL: `http://127.0.0.1:${llmPort}/v1`,
+              apiKey: 'mock-key',
+            },
             models: { 'mock-model': { name: 'Mock Model' } },
           },
         },
@@ -858,6 +1426,57 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true })
+  })
+
+  it('offers the goal tools to the model and creates the goal for the calling session', async () => {
+    const configHome = path.join(root, 'config')
+    const workDir = path.join(root, 'work')
+    mkdirSync(path.join(configHome, 'opencode'), { recursive: true })
+    mkdirSync(workDir, { recursive: true })
+    const apiRequests: string[] = []
+    const offeredTools: ChatRequest['tools'][] = []
+    const toolResults: string[] = []
+    const api = await startInternalApiServer(apiRequests)
+    const llm = await startLlmServer(offeredTools, toolResults, {
+      name: 'create_goal',
+      args: { objective: 'Ship the fix' },
+    })
+    writeOpenCodeConfig(configHome, llm.port)
+    await installManagedPlugins(configHome)
+
+    try {
+      const result = await runOpenCodeStandalone({
+        cwd: workDir,
+        env: {
+          ...process.env,
+          HOME: root,
+          XDG_CONFIG_HOME: configHome,
+          XDG_DATA_HOME: path.join(root, 'data'),
+          XDG_STATE_HOME: path.join(root, 'state'),
+          XDG_CACHE_HOME: path.join(root, 'cache'),
+          OPENCODE_DISABLE_MODELS_FETCH: '1',
+          PWD: workDir,
+          OCM_SANDBOX_ENFORCED: 'false',
+          OCM_INTERNAL_API_URL: `http://127.0.0.1:${api.port}/api/internal`,
+          OCM_INTERNAL_TOKEN: 'test-token',
+        },
+        message: 'fix the bug',
+      })
+
+      expect(result.status).toBe(0)
+      const offered = new Set(offeredTools.flatMap((tools) => tools ?? []).map((tool) => tool.function?.name))
+      expect(offered.has('get_goal')).toBe(true)
+      expect(offered.has('create_goal')).toBe(true)
+      expect(offered.has('update_goal')).toBe(true)
+      expect(apiRequests).toHaveLength(1)
+      const request = JSON.parse(apiRequests[0] as string) as { auth: string; method: string; url: string; body: string }
+      expect(request).toMatchObject({ auth: 'Bearer test-token', method: 'POST', url: '/api/internal/agent-goals' })
+      expect(JSON.parse(request.body)).toEqual({ sessionId: expect.stringMatching(/^ses_/), objective: 'Ship the fix' })
+      expect(toolResults.some((output) => output.includes('Ship the fix'))).toBe(true)
+    } finally {
+      api.server.close()
+      llm.server.close()
+    }
   })
 
   it('offers the tool to the model and sends the notification from the Manager process', async () => {
@@ -895,21 +1514,50 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
 
       expect(result.status).toBe(0)
 
-      const managerTool = offeredTools.flatMap((tools) => tools ?? []).find((t) => t.function?.name === MANAGER_TOOL_NAME)
+      const managerTool = offeredTools
+        .flatMap((tools) => tools ?? [])
+        .find((t) => t.function?.name === MANAGER_TOOL_NAME)
       expect(managerTool?.function?.parameters).toMatchObject({
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['send_notification', 'request', 'open_walkthrough', 'show_artifact', 'walkthrough_changes', 'publish_walkthrough'] },
+          action: {
+            type: 'string',
+            enum: [
+              'send_notification',
+              'request',
+              'open_walkthrough',
+              'show_artifact',
+              'walkthrough_changes',
+              'publish_walkthrough',
+              'learning_search',
+              'learning_record',
+              'report_outcome',
+            ],
+          },
           params: {
             anyOf: [
               {
                 type: 'object',
                 required: ['title', 'body'],
                 properties: {
-                  title: { type: 'string', minLength: 1, maxLength: ASSISTANT_NOTIFICATION_LIMITS.TITLE_MAX },
-                  body: { type: 'string', minLength: 1, maxLength: ASSISTANT_NOTIFICATION_LIMITS.BODY_MAX },
-                  url: { type: 'string', maxLength: ASSISTANT_NOTIFICATION_LIMITS.URL_MAX },
-                  tag: { type: 'string', maxLength: ASSISTANT_NOTIFICATION_LIMITS.TAG_MAX },
+                  title: {
+                    type: 'string',
+                    minLength: 1,
+                    maxLength: ASSISTANT_NOTIFICATION_LIMITS.TITLE_MAX,
+                  },
+                  body: {
+                    type: 'string',
+                    minLength: 1,
+                    maxLength: ASSISTANT_NOTIFICATION_LIMITS.BODY_MAX,
+                  },
+                  url: {
+                    type: 'string',
+                    maxLength: ASSISTANT_NOTIFICATION_LIMITS.URL_MAX,
+                  },
+                  tag: {
+                    type: 'string',
+                    maxLength: ASSISTANT_NOTIFICATION_LIMITS.TAG_MAX,
+                  },
                   priority: { type: 'string', enum: ['normal', 'high'] },
                 },
               },
@@ -917,7 +1565,10 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
                 type: 'object',
                 required: ['method', 'path'],
                 properties: {
-                  method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] },
+                  method: {
+                    type: 'string',
+                    enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+                  },
                   path: { type: 'string', minLength: 1, maxLength: 500 },
                   body: { type: 'object' },
                 },
@@ -948,6 +1599,34 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
                 type: 'object',
                 additionalProperties: false,
               },
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: ['query'],
+                properties: {
+                  query: { type: 'string', minLength: 1, maxLength: 500 },
+                },
+              },
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: [
+                  'title',
+                  'patternKey',
+                  'status',
+                  'kind',
+                  'source',
+                  'conditions',
+                  'evidence',
+                  'lesson',
+                  'limits',
+                ],
+              },
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: ['outcome', 'summary'],
+              },
             ],
           },
         },
@@ -955,7 +1634,10 @@ describe.skipIf(SHIPPED_OPENCODE_BIN === null)('ocm-manager plugin against the s
       })
 
       expect(apiRequests).toHaveLength(1)
-      const request = JSON.parse(apiRequests[0] as string) as { auth: string; body: string }
+      const request = JSON.parse(apiRequests[0] as string) as {
+        auth: string
+        body: string
+      }
       expect(request.auth).toBe('Bearer test-token')
       expect(JSON.parse(request.body)).toEqual({
         title: 'Storm watch',

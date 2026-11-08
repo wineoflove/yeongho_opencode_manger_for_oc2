@@ -33,6 +33,7 @@ export type OpenCodeServe = {
   directories: OpenCodeServeDirectories
   readOutput: () => string
   terminate: () => Promise<void>
+  kill: () => Promise<void>
   stop: () => Promise<void>
 }
 
@@ -213,6 +214,13 @@ export async function startOpenCodeServe(options: OpenCodeServeOptions = {}): Pr
     }
   }
 
+  const kill = async (): Promise<void> => {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL')
+      await Promise.race([once(child, 'close'), delay(KILL_CONFIRM_MS)])
+    }
+  }
+
   return {
     baseUrl,
     password,
@@ -222,6 +230,7 @@ export async function startOpenCodeServe(options: OpenCodeServeOptions = {}): Pr
     directories,
     readOutput: () => output,
     terminate,
+    kill,
     stop: async () => {
       try {
         await terminate()

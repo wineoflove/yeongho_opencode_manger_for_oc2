@@ -1,7 +1,11 @@
 import { z } from 'zod'
+import { ANTHROPIC_RATE_LIMIT_HEADERS } from './provider-rate-limits'
 import {
   ASSISTANT_NOTIFICATION_LIMITS,
   DEFAULT_WALKTHROUGH_SOURCE,
+  LearningRecordInputSchema,
+  LearningSearchInputSchema,
+  ScheduleOutcomeReportInputSchema,
   MANAGER_PROMPT_CLIENT_METADATA_KEY,
   MANAGER_PROMPT_CLIENTS,
   MANAGER_TOOL_ACTIONS,
@@ -32,6 +36,7 @@ export const MANAGER_TOOL_ALLOWED_ROUTES = [
   'POST /assistant/reload',
   'GET /repos',
   'POST /repos',
+  'PATCH /repos/*',
   'GET /repos/*/git-info',
   'GET /opencode-workspaces',
   'GET /sessions',
@@ -61,8 +66,17 @@ const ManagerToolNotificationParamsSchema = z
   .object({
     title: z.string().min(1).max(ASSISTANT_NOTIFICATION_LIMITS.TITLE_MAX).describe('The notification title.'),
     body: z.string().min(1).max(ASSISTANT_NOTIFICATION_LIMITS.BODY_MAX).describe('The notification body.'),
-    url: z.string().min(1).max(ASSISTANT_NOTIFICATION_LIMITS.URL_MAX).optional().describe('A deep link to open, such as /repos/my-repo.'),
-    tag: z.string().max(ASSISTANT_NOTIFICATION_LIMITS.TAG_MAX).optional().describe('A deduplication key for replacing an earlier notification.'),
+    url: z
+      .string()
+      .min(1)
+      .max(ASSISTANT_NOTIFICATION_LIMITS.URL_MAX)
+      .optional()
+      .describe('A deep link to open, such as /repos/my-repo.'),
+    tag: z
+      .string()
+      .max(ASSISTANT_NOTIFICATION_LIMITS.TAG_MAX)
+      .optional()
+      .describe('A deduplication key for replacing an earlier notification.'),
     priority: z.enum(['normal', 'high']).optional().describe('Use high for something that should interrupt the user.'),
   })
   .strict()
@@ -71,7 +85,11 @@ const ManagerToolNotificationParamsSchema = z
 const ManagerToolRequestParamsSchema = z
   .object({
     method: z.enum(MANAGER_TOOL_ALLOWED_METHODS).describe('The HTTP method for the internal API route.'),
-    path: z.string().min(1).max(500).describe('The internal API route path, such as /settings or /repos/0/schedules. Query strings are allowed.'),
+    path: z
+      .string()
+      .min(1)
+      .max(500)
+      .describe('The internal API route path, such as /settings or /repos/0/schedules. Query strings are allowed.'),
     body: z.record(z.string(), z.unknown()).optional().describe('The JSON request body, for POST and PATCH routes.'),
   })
   .strict()
@@ -79,23 +97,54 @@ const ManagerToolRequestParamsSchema = z
 
 const ManagerToolWalkthroughParamsSchema = z
   .object({
-    source: WalkthroughSourceSchema.optional().describe('The change source to walk through. Defaults to the changes in this session.'),
+    source: WalkthroughSourceSchema.optional().describe(
+      'The change source to walk through. Defaults to the changes in this session.',
+    ),
   })
   .strict()
-  .describe("Start a separate walkthrough session that builds an interactive walkthrough UI for this session's changes and waits until it is ready, which can take several minutes. It opens in the user's Manager walkthrough panel when this session is open on desktop; otherwise the user can open it from this tool call.")
+  .describe(
+    "Start a separate walkthrough session that builds an interactive walkthrough UI for this session's changes and waits until it is ready, which can take several minutes. It opens in the user's Manager walkthrough panel when this session is open on desktop; otherwise the user can open it from this tool call.",
+  )
+
+const ManagerToolLearningSearchParamsSchema = LearningSearchInputSchema.strict().describe(
+  'Search verified lessons in the shared learning store with 1-3 short keywords or a Pattern-Key; returns bounded JSON with source lines.',
+)
+
+const ManagerToolLearningRecordParamsSchema = LearningRecordInputSchema.strict().describe(
+  'Record a sanitized lesson in the shared learning store after schema and secret checks; allowed only in primary or scheduled-run sessions.',
+)
+
+const ManagerToolReportOutcomeParamsSchema = ScheduleOutcomeReportInputSchema.strict().describe(
+  'Report the real task outcome of this scheduled run once, at the end. Run completion only means the agent turn ended; this records whether the task succeeded.',
+)
 
 const MANAGER_TOOL_ACTION_PARAMS_SCHEMAS: Record<(typeof MANAGER_TOOL_ACTIONS)[number], z.ZodType> = {
   send_notification: ManagerToolNotificationParamsSchema,
   request: ManagerToolRequestParamsSchema,
   open_walkthrough: ManagerToolWalkthroughParamsSchema,
-  show_artifact: ShowArtifactParamsSchema.describe('Show a self-contained HTML file the agent wrote to the user, rendered inline in the Manager chat in a sandboxed frame.'),
-  walkthrough_changes: WalkthroughChangesParamsSchema.describe('Read the changed files of the walkthrough. Omit params.file for an outline of every changed file; pass params.file to get one file\'s full hunks.'),
-  publish_walkthrough: PublishWalkthroughParamsSchema.describe('Publish the walkthrough HTML file you wrote so the Manager walkthrough panel renders it.'),
+  show_artifact: ShowArtifactParamsSchema.describe(
+    'Show a self-contained HTML file the agent wrote to the user, rendered inline in the Manager chat in a sandboxed frame.',
+  ),
+  walkthrough_changes: WalkthroughChangesParamsSchema.describe(
+    "Read the changed files of the walkthrough. Omit params.file for an outline of every changed file; pass params.file to get one file's full hunks.",
+  ),
+  publish_walkthrough: PublishWalkthroughParamsSchema.describe(
+    'Publish the walkthrough HTML file you wrote so the Manager walkthrough panel renders it.',
+  ),
+  learning_search: ManagerToolLearningSearchParamsSchema,
+  learning_record: ManagerToolLearningRecordParamsSchema,
+  report_outcome: ManagerToolReportOutcomeParamsSchema,
 }
 
-export function parseAllowedRoute(route: string): { method: string; path: string } {
+export function parseAllowedRoute(route: string): {
+  method: string
+  path: string
+} {
   const separator = route.indexOf(' ')
-  return { method: route.slice(0, separator), path: route.slice(separator + 1) }
+  return {
+    method: route.slice(0, separator),
+    path: route.slice(separator + 1),
+  }
 }
 
 function buildRouteMatchers(): { method: string; source: string }[] {
@@ -110,7 +159,9 @@ function buildRouteMatchers(): { method: string; source: string }[] {
 }
 
 function requiredKeysOf(schema: z.ZodType): string[] {
-  const jsonSchema = z.toJSONSchema(schema) as { required?: string[] }
+  const jsonSchema = z.toJSONSchema(schema, { io: 'input' }) as {
+    required?: string[]
+  }
   return jsonSchema.required ?? []
 }
 
@@ -127,17 +178,23 @@ function buildManagerToolInputJsonSchema(): Record<string, unknown> {
             MANAGER_TOOL_ACTION_PARAMS_SCHEMAS.show_artifact,
             MANAGER_TOOL_ACTION_PARAMS_SCHEMAS.walkthrough_changes,
             MANAGER_TOOL_ACTION_PARAMS_SCHEMAS.publish_walkthrough,
+            MANAGER_TOOL_ACTION_PARAMS_SCHEMAS.learning_search,
+            MANAGER_TOOL_ACTION_PARAMS_SCHEMAS.learning_record,
+            MANAGER_TOOL_ACTION_PARAMS_SCHEMAS.report_outcome,
           ])
           .describe('The parameters for the chosen action.'),
       })
       .strict(),
+    { io: 'input' },
   )
   delete jsonSchema.$schema
   return jsonSchema
 }
 
 function buildManagerToolActionRequiredKeys(): Record<string, string[]> {
-  return Object.fromEntries(MANAGER_TOOL_ACTIONS.map((name) => [name, requiredKeysOf(MANAGER_TOOL_ACTION_PARAMS_SCHEMAS[name])]))
+  return Object.fromEntries(
+    MANAGER_TOOL_ACTIONS.map((name) => [name, requiredKeysOf(MANAGER_TOOL_ACTION_PARAMS_SCHEMAS[name])]),
+  )
 }
 
 function buildManagerToolDescription(): string {
@@ -150,12 +207,62 @@ function buildManagerToolDescription(): string {
     "- open_walkthrough: start a separate walkthrough session that builds an interactive walkthrough UI for the current session's changes and waits until it is ready (this can take several minutes), then it opens in the Manager walkthrough panel when this session is open on desktop; otherwise the user opens it from this tool call. Use when the user asks to walk through, review or explain the changes.",
     "- walkthrough_changes: only valid inside a walkthrough session. Call it with no arguments for an outline of the changed files, or with { file } for one file's full hunks.",
     '- publish_walkthrough: only valid inside a walkthrough session. Call it after writing the walkthrough HTML to publish it to the Manager walkthrough panel.',
-    '- show_artifact: write a self-contained .html file with your file tools, then call show_artifact with its path to show it to the user, rendered inline in this session\'s Manager chat inside a sandboxed frame. Edit the file to fix or change it (no need to resend content). Inline your own CSS and JavaScript; libraries may load from public CDNs. Forms, popups, cookies and local storage are blocked. Single file only: sibling .js and .css files will not load.',
+    "- show_artifact: write a self-contained .html file with your file tools, then call show_artifact with its path to show it to the user, rendered inline in this session's Manager chat inside a sandboxed frame. Edit the file to fix or change it (no need to resend content). Inline your own CSS and JavaScript; libraries may load from public CDNs. Forms, popups, cookies and local storage are blocked. Single file only: sibling .js and .css files will not load.",
+    '- learning_search: search verified lessons with 1-3 short keywords or a Pattern-Key; set includePending only for explicit candidate review. Read the returned source lines and Conditions/Evidence/Limits before applying a lesson.',
+    '- learning_record: record a sanitized lesson after an explicit user correction, a recurring failure or a verified non-obvious solution. Only primary or scheduled-run sessions may record; subagents return candidates to their parent instead.',
+    '- report_outcome: scheduled runs only. Call it exactly once at the end with the real outcome (succeeded, partial, failed, blocked or skipped) and a short summary; run completion alone does not mean the task succeeded.',
     'Allowed request routes:',
   ]
     .concat(MANAGER_TOOL_ALLOWED_ROUTES.map((route) => `- ${route}`))
     .join('\n')
 }
+
+const GOAL_SESSION_ID_PROPERTY = {
+  type: 'string',
+  description: 'Must be the current session ID when given; other sessions are rejected.',
+}
+
+/** Agent-facing goal tools with the same names and arguments the OpenCode 1 goal tools used. */
+export const MANAGER_GOAL_TOOLS = [
+  {
+    name: 'get_goal',
+    description:
+      'Read the goal of the current session: objective, status (active, paused, completed, blocked or stopped), progress and usage. Returns null when the session has no goal.',
+    input: {
+      type: 'object',
+      properties: { session_id: GOAL_SESSION_ID_PROPERTY },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'create_goal',
+    description:
+      'Create a goal for the current session. OpenCode Manager keeps the session working toward it: after each turn an independent audit decides whether the objective is met, needs more work, or is blocked. Fails when the session already has an open goal, for scheduled runs and for subagent sessions.',
+    input: {
+      type: 'object',
+      properties: {
+        objective: { type: 'string', minLength: 1, description: 'Concise outcome the session should achieve.' },
+        session_id: GOAL_SESSION_ID_PROPERTY,
+      },
+      required: ['objective'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'update_goal',
+    description:
+      'Pause or resume the current session goal. Status complete does not complete the goal: the independent audit decides completion when the turn ends, so finish the work and verify it instead. Changing the objective is not supported.',
+    input: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['active', 'paused', 'complete'] },
+        objective: { type: 'string', minLength: 1 },
+        session_id: GOAL_SESSION_ID_PROPERTY,
+      },
+      additionalProperties: false,
+    },
+  },
+] as const
 
 /** Builds the standalone manager plugin with API actions and mobile session hooks. */
 export function buildManagerToolPluginSource(id: string): string {
@@ -176,6 +283,8 @@ var ACTION_REQUIRED_KEYS = ${JSON.stringify(buildManagerToolActionRequiredKeys()
 var INPUT_SCHEMA = ${JSON.stringify(buildManagerToolInputJsonSchema(), null, 2)}
 
 var DESCRIPTION = ${JSON.stringify(buildManagerToolDescription())}
+
+var GOAL_TOOLS = ${JSON.stringify(MANAGER_GOAL_TOOLS, null, 2)}
 
 var CLIENT_METADATA_KEY = ${JSON.stringify(MANAGER_PROMPT_CLIENT_METADATA_KEY)}
 
@@ -371,6 +480,24 @@ var ACTIONS = {
       }
     },
   },
+  learning_search: {
+    run: async function (params, context) {
+      return await requestInternalApi('POST', '/learnings/search', params, context.signal)
+    },
+  },
+  learning_record: {
+    run: async function (params, context) {
+      var body = Object.assign({}, params, { sessionID: context.sessionID, agent: context.agent === undefined ? null : context.agent })
+      return await requestInternalApi('POST', '/learnings/record', body, context.signal)
+    },
+  },
+  report_outcome: {
+    run: async function (params, context) {
+      var body = Object.assign({}, params, { sessionID: context.sessionID, agent: context.agent === undefined ? null : context.agent })
+      var result = await postInternalApi('/schedule-runs/outcome', body, context.signal)
+      return 'Outcome recorded for scheduled run ' + result.runId + ': ' + result.outcome + '.'
+    },
+  },
 }
 
 function assertParams(actionName, params) {
@@ -385,6 +512,39 @@ function assertParams(actionName, params) {
       )
     }
   }
+}
+
+/** Resolves the goal session from the tool context, rejecting any other session ID. */
+function goalSessionId(input, context) {
+  var requested = input !== null && typeof input === 'object' ? input.session_id : undefined
+  if (!context.sessionID) {
+    throw new Error('The goal tools need a session.')
+  }
+  if (requested !== undefined && requested !== context.sessionID) {
+    throw new Error('Goal tools may only manage the current session goal.')
+  }
+  return context.sessionID
+}
+
+var GOAL_RUNNERS = {
+  get_goal: async function (input, context) {
+    var sessionId = goalSessionId(input, context)
+    var result = await getInternalApi('/agent-goals?sessionId=' + encodeURIComponent(sessionId), context.signal)
+    return JSON.stringify(result.goal === undefined ? null : result.goal)
+  },
+  create_goal: async function (input, context) {
+    var sessionId = goalSessionId(input, context)
+    var result = await postInternalApi('/agent-goals', { sessionId: sessionId, objective: input.objective }, context.signal)
+    return JSON.stringify(result.goal)
+  },
+  update_goal: async function (input, context) {
+    var sessionId = goalSessionId(input, context)
+    var body = { sessionId: sessionId }
+    if (input.status !== undefined) body.status = input.status
+    if (input.objective !== undefined) body.objective = input.objective
+    var result = await postInternalApi('/agent-goals/update', body, context.signal)
+    return JSON.stringify(result)
+  },
 }
 
 async function runAction(input, context) {
@@ -403,6 +563,28 @@ export default {
   async setup(ctx) {
     await ctx.session.hook('prompt', trackMobileSession)
     await ctx.session.hook('context', addMobileOutputInstructions)
+    await ctx.session.hook('http.response', async function (event) {
+      var headers = {}
+      var names = ${JSON.stringify(ANTHROPIC_RATE_LIMIT_HEADERS)}
+      var hasRateLimit = false
+      for (var name of names) {
+        var value = event.response.headers.get(name)
+        if (value !== null && value.length <= 128) {
+          headers[name] = value
+          if (name !== 'retry-after') hasRateLimit = true
+        }
+      }
+      if (!hasRateLimit) return
+      try {
+        await requestInternalApi('POST', '/provider-rate-limits', {
+          providerId: event.model.providerID,
+          modelId: event.model.id,
+          headers: headers,
+        }, AbortSignal.timeout(1000))
+      } catch {
+        return
+      }
+    })
     await ctx.tool.transform(function (editor) {
       editor.add({
         name: ${JSON.stringify(MANAGER_TOOL_NAME)},
@@ -417,6 +599,20 @@ export default {
           return { content: result }
         },
       })
+      for (var goalTool of GOAL_TOOLS) {
+        var run = GOAL_RUNNERS[goalTool.name]
+        editor.add({
+          name: goalTool.name,
+          description: goalTool.description,
+          input: goalTool.input,
+          options: { codemode: false },
+          execute: (function (runner) {
+            return async function (input, context) {
+              return { content: await runner(input, context) }
+            }
+          })(run),
+        })
+      }
     })
   },
 }

@@ -857,12 +857,12 @@ Only changes to how the OpenCode process is launched need a user restart from Se
 export function buildReposSkill(): string {
   return `---
 name: repo-management
-description: List and clone repos in OpenCode Manager with the ${MANAGER_TOOL_NAME} tool
+description: List, clone, register and rename repos in OpenCode Manager with the ${MANAGER_TOOL_NAME} tool
 ---
 
 ## When to Load
 
-Load this skill when you need to discover repos, look up repo IDs, add a repo by cloning a git URL, or need to reference repo information before managing schedules. Load it before the schedule-management skill if you don't know the repo ID.
+Load this skill when you need to discover repos, look up repo IDs, add a repo by cloning a git URL or registering an existing local checkout, rename a repo, or need to reference repo information before managing schedules. Load it before the schedule-management skill if you don't know the repo ID.
 
 ## Tool
 
@@ -945,11 +945,19 @@ Clone a git repository into the repos root and register it with OpenCode Manager
 
 **Response:** the repo object (same shape as an entry in \`GET /repos\`) with \`cloneStatus: 'ready'\` when the clone has finished, or \`'cloning'\` when an identical clone is still running. When it is \`'cloning'\`, poll \`GET /repos\` until it becomes \`'ready'\` before using the repo.
 
+HTTPS URLs must not contain credentials, a query or a fragment; Manager's stored Git credentials are used, so never put tokens in the URL or body.
+
+Alternatively use body \`{ "localPath": "/absolute/path/to/existing/git-repo" }\` to register an existing local checkout instead of cloning. Relative paths are rejected.
+
+### PATCH /repos/:repoId
+
+Use body \`{ "name": "통합 예약 시스템" }\` to change only the display name after registration. Names are trimmed and limited to 100 characters; null or an empty name resets the display name. Repository 0 (Assistant) cannot be renamed. The response is the updated repo object.
+
 ## Notes
 
 - Use \`id\` as \`:repoId\` in other API endpoints (e.g., \`/repos/:repoId/schedules\`)
 - \`fullPath\` is the absolute local path - use it for file operations
-- Only clone a repo the user asked for; there is no delete or update operation for repos through this tool
+- Only clone or register a repo the user asked for; renaming the display name is the only update, and there is no delete operation for repos through this tool
 - Large clones can outlast the tool request timeout while the clone keeps running; if the request times out, poll \`GET /repos\` until the repo shows \`cloneStatus: 'ready'\`
 - A \`409\` means the target directory already holds a different repository; retry with a different \`directoryName\`
 - \`currentBranch\` is not included in the response - it requires git operations to determine

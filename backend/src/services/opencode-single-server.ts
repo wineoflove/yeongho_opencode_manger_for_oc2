@@ -12,7 +12,7 @@ import {
   writeSSHConfig,
   generateSSHConfig,
   cleanupPersistentSSHKeys,
-  parseSSHHost
+  parseSSHHost,
 } from '../utils/ssh-key-manager'
 import { decryptSecret } from '../utils/crypto'
 import { BLOCKED_SERVER_ENV_KEYS } from '@opencode-manager/shared'
@@ -47,7 +47,6 @@ import { mkdirSafe, writeFileAtomic } from '../utils/fs-safe'
 import { createProcessLogForwarder } from '../utils/log-buffer'
 import { OPENCODE_SERVICE_SERVE_ARGS, prepareOpenCodeServiceLaunch } from './opencode-service-mode'
 
-
 const MAX_STDERR_SIZE = 10240
 const STARTUP_HEALTH_TIMEOUT_MS = 30000
 const HEALTH_POLL_INTERVAL_MS = 500
@@ -81,7 +80,9 @@ export class NonRecoverableStartupError extends Error {
 
 export class OpenCodeOperationBusyError extends Error {
   constructor() {
-    super('Another OpenCode server operation is already in progress; refusing to treat a contended transition as completed')
+    super(
+      'Another OpenCode server operation is already in progress; refusing to treat a contended transition as completed',
+    )
     this.name = 'OpenCodeOperationBusyError'
   }
 }
@@ -121,7 +122,8 @@ function processGroupExists(pgid: number): boolean {
 }
 
 const CHILD_STATE_MARKER_FILENAME = 'opencode-server-child.json'
-const getChildStateMarkerPath = () => path.join(getOpenCodeServerDirectory(), '.opencode', 'state', CHILD_STATE_MARKER_FILENAME)
+const getChildStateMarkerPath = () =>
+  path.join(getOpenCodeServerDirectory(), '.opencode', 'state', CHILD_STATE_MARKER_FILENAME)
 const RESTART_GENERATION_KEY = 'opencode_restart_generation'
 
 type ChildStateMarker = {
@@ -200,7 +202,8 @@ function waitForPollInterval(signal: AbortSignal, ms: number): Promise<boolean> 
 function readDurableRestartGeneration(db: Database | null): number {
   if (!db) return 0
   try {
-    const row = db.prepare('SELECT value FROM app_secrets WHERE key = ?').get(RESTART_GENERATION_KEY) as { value: string } | undefined
+    const row = db.prepare('SELECT value FROM app_secrets WHERE key = ?').get(RESTART_GENERATION_KEY) as
+      { value: string } | undefined
     if (row === undefined) return 0
     const parsed = Number(row.value)
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0
@@ -214,10 +217,12 @@ function advanceDurableRestartGeneration(db: Database | null): void {
   const next = readDurableRestartGeneration(db) + 1
   const now = Date.now()
   try {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO app_secrets (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-    `).run(RESTART_GENERATION_KEY, String(next), now, now)
+    `,
+    ).run(RESTART_GENERATION_KEY, String(next), now, now)
   } catch (error) {
     logger.warn('Failed to persist the OpenCode restart generation:', error)
   }
@@ -239,13 +244,13 @@ async function readChildStateMarker(): Promise<ChildStateMarker | null> {
       const pgid = typeof parsed.pgid === 'number' && parsed.pgid > 0 ? parsed.pgid : null
       const groupMembers = Array.isArray(parsed.groupMembers)
         ? parsed.groupMembers.filter(
-          (member): member is { pid: number; startToken: string } =>
-            member !== null &&
-            typeof member === 'object' &&
-            !Array.isArray(member) &&
-            typeof (member as { pid?: unknown }).pid === 'number' &&
-            typeof (member as { startToken?: unknown }).startToken === 'string',
-        )
+            (member): member is { pid: number; startToken: string } =>
+              member !== null &&
+              typeof member === 'object' &&
+              !Array.isArray(member) &&
+              typeof (member as { pid?: unknown }).pid === 'number' &&
+              typeof (member as { startToken?: unknown }).startToken === 'string',
+          )
         : []
       return {
         pid: parsed.pid,
@@ -386,505 +391,528 @@ class OpenCodeServerManager {
         return
       }
 
-    const isDevelopment = ENV.SERVER.NODE_ENV !== 'production'
-    let sandboxEnforced = false
-    if (this.db) {
-      try {
-        sandboxEnforced = new SandboxRuntimeService(this.db).isEnabled()
-      } catch (error) {
-        sandboxEnforced = true
-        this.sandboxEnforced = true
-        const message = `Failed to determine sandbox enforcement state: ${error instanceof Error ? error.message : String(error)}`
-        let existingProcesses: Array<{pid: number}> = []
+      const isDevelopment = ENV.SERVER.NODE_ENV !== 'production'
+      let sandboxEnforced = false
+      if (this.db) {
         try {
-          existingProcesses = await this.findProcessesByPort(getOpenCodeServerPort())
-        } catch (inspectionError) {
-          this.failNonRecoverable(
-            `${message}; port-owner inspection failed: ${inspectionError instanceof Error ? inspectionError.message : String(inspectionError)}`,
-          )
-        }
-        try {
-          await this.terminateAttestedPredecessor()
-          if (existingProcesses.length > 0) {
-            await this.terminatePortOwners(existingProcesses)
-          }
-        } catch (cleanupError) {
-          this.failNonRecoverable(
-            `${message}; the previous OpenCode server could not be proven terminated and may still be reachable: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
-          )
-        }
-        this.failNonRecoverable(message)
-      }
-      if (!sandboxEnforced && this.sandboxEnforced) {
-        try {
-          await new SandboxRuntimeService(this.db).stopAllSandboxesForToggle()
-          logger.info('Sandbox enforcement disabled: stopped all sandbox microVMs')
+          sandboxEnforced = new SandboxRuntimeService(this.db).isEnabled()
         } catch (error) {
-          this.failNonRecoverable(`Failed to stop the workspace sandbox while disabling enforcement: ${error instanceof Error ? error.message : String(error)}`)
-        }
-      }
-      if (sandboxEnforced && !this.sandboxEnforced) {
-        void new SandboxRuntimeService(this.db).prepareSandboxOnBoot().catch((error) => {
-          logger.warn('Sandbox enforcement enabled but preparing the guest image failed:', error)
-        })
-      }
-      logger.info(`OpenCode sandbox enforcement: ${sandboxEnforced ? 'enabled' : 'disabled'}`)
-    }
-
-    const password = this.getResolvedPassword()
-    const openCodeServerHost = getOpenCodeServerHost()
-
-    let credentialProvider: CredentialProvider | null = null
-    let userEnvVars: Record<string, string> = {}
-    if (this.db) {
-      try {
-        credentialProvider = new CredentialProvider(this.db)
-        const settingsService = new SettingsService(this.db)
-        const settings = settingsService.getSettings('default')
-        const rawEnvVars = settings.preferences.serverEnvVars || []
-        if (rawEnvVars.length > 0) {
-          userEnvVars = Object.fromEntries(
-            rawEnvVars
-              .filter(({ key }) => {
-                const normalizedKey = key.trim()
-                return (
-                  normalizedKey !== '' &&
-                  !(BLOCKED_SERVER_ENV_KEYS as readonly string[]).includes(normalizedKey) &&
-                  !normalizedKey.startsWith('MSB_')
-                )
-              })
-              .map(({ key, value }) => [key.trim(), value])
-          )
-          logger.info(`Injecting ${Object.keys(userEnvVars).length} custom server env vars`)
-        }
-
-        await syncManagerGitIdentityConfig(this.db)
-      } catch (error) {
-        logger.warn('Failed to get git settings:', error)
-      }
-    }
-
-    this.sandboxEnforced = sandboxEnforced
-    if (sandboxEnforced && !resolveProcessIdentityProvider().attested) {
-      this.failNonRecoverable(
-        'Sandbox enforcement requires process identity attestation, which is unavailable on this platform; refusing to run an enforced server',
-      )
-    }
-    await this.rebuildClient()
-    const durableRestartGeneration = readDurableRestartGeneration(this.db)
-
-    const openCodeServerPort = getOpenCodeServerPort()
-    let existingProcesses: Array<{pid: number}> = []
-    try {
-      existingProcesses = await this.findProcessesByPort(openCodeServerPort)
-    } catch (inspectionError) {
-      const inspectionMessage = `Cannot inspect port ${openCodeServerPort} ownership: ${inspectionError instanceof Error ? inspectionError.message : String(inspectionError)}`
-      if (sandboxEnforced) {
-        this.failNonRecoverable(inspectionMessage)
-      }
-      logger.warn(inspectionMessage)
-    }
-    let replacingExistingServer = false
-    if (sandboxEnforced) {
-      await this.terminateAttestedPredecessor()
-      if (existingProcesses.length > 0) {
-        logger.warn('Sandbox enforcement enabled: killing existing OpenCode server to guarantee a sandboxed startup')
-        await this.terminatePortOwners(existingProcesses)
-        replacingExistingServer = true
-      }
-    } else if (existingProcesses.length > 0) {
-      logger.info(`OpenCode server already running on port ${openCodeServerPort}`)
-      const healthy = await this.checkHealth()
-      if (healthy) {
-        if (isDevelopment) {
-          logger.warn('Development mode: Killing existing server for hot reload')
-          await this.terminatePortOwners(existingProcesses)
-          replacingExistingServer = true
-        } else {
-          const childState = await readChildStateMarker()
-          const attestedUnenforced = childState !== null
-            && childState.enforced === false
-            && childState.generation === durableRestartGeneration
-            && childState.startToken !== ''
-            && childState.startToken === readProcessStartToken(childState.pid)
-            && existingProcesses.some((proc) => proc.pid === childState.pid)
-          if (attestedUnenforced) {
-            this.isHealthy = true
-            this.serverPid = childState.pid
-            return
-          }
-          logger.warn(`Existing OpenCode server on port ${openCodeServerPort} is not attested as a matching unenforced child; terminating it to guarantee consistent sandbox enforcement`)
-          await this.terminatePortOwners(existingProcesses)
-          replacingExistingServer = true
-        }
-      } else {
-        logger.warn('Killing unhealthy OpenCode server')
-        await this.terminatePortOwners(existingProcesses)
-        replacingExistingServer = true
-      }
-    }
-
-    await this.reconcileExitedChildMarker()
-
-    const openCodeServerDirectory = getOpenCodeServerDirectory()
-    const openCodeConfigPath = getOpenCodeConfigPath()
-    logger.info(`OpenCode server working directory: ${openCodeServerDirectory}`)
-    logger.info(`OpenCode XDG_CONFIG_HOME: ${getOpenCodeConfigHome()}`)
-    logger.info(`OpenCode will use ?directory= parameter for session isolation`)
-
-    const gitEnv = credentialProvider?.getGitEnv() ?? {}
-    const knownHostsPath = path.join(getWorkspacePath(), 'config', 'known_hosts')
-    let gitSshCommand: string
-    let sshConfigPath: string | null = null
-
-    const sshCredentials = credentialProvider?.getSshCredentialsWithPrivateKey() ?? []
-    if (sshCredentials.length > 0) {
-      logger.info(`Setting up ${sshCredentials.length} SSH credential(s) for OpenCode server`)
-
-      const sshConfigEntries: Array<{ hostname: string, port: string, keyPath: string }> = []
-
-      for (const cred of sshCredentials) {
-        try {
-          const { host, port } = parseSSHHost(cred.host)
-          const privateKey = decryptSecret(cred.sshPrivateKeyEncrypted!)
-          const keyPath = await writePersistentSSHKey(privateKey, cred.name)
-
-          if (cred.passphrase) {
-            const passphrase = decryptSecret(cred.passphrase)
-            await stripKeyPassphrase(keyPath, passphrase)
-            logger.info(`Stripped passphrase from SSH key for ${cred.name} (${host}:${port})`)
-          } else {
-            logger.info(`Setup SSH key for ${cred.name} (${host}:${port}): ${keyPath}`)
-          }
-
-          sshConfigEntries.push({ hostname: host, port, keyPath })
-        } catch (error) {
-          logger.error(`Failed to setup SSH key for ${cred.name}:`, error)
-        }
-      }
-
-      if (sshConfigEntries.length > 0) {
-        const sshConfigContent = generateSSHConfig(sshConfigEntries)
-        sshConfigPath = path.join(getWorkspacePath(), 'config', 'ssh_config')
-        await writeSSHConfig(sshConfigPath, sshConfigContent)
-        gitSshCommand = buildSSHCommandWithConfig(sshConfigPath, knownHostsPath)
-        logger.info(`OpenCode server SSH config written to ${sshConfigPath} with ${sshConfigEntries.length} host(s)`)
-      } else {
-        gitSshCommand = buildSSHCommandWithKnownHosts(knownHostsPath)
-        logger.warn(`No SSH credentials could be set up, using default known_hosts only`)
-      }
-    } else {
-      gitSshCommand = buildSSHCommandWithKnownHosts(knownHostsPath)
-    }
-
-    logger.info(`OpenCode server GIT_SSH_COMMAND: ${gitSshCommand}`)
-
-    await this.fetchVersion()
-    if (this.version && !this.isVersionSupported()) {
-      this.failNonRecoverable(
-        `${describeUnsupportedOpenCodeVersion(this.version)}. Install a supported version from Settings → OpenCode.`,
-      )
-    }
-    await this.resetAgentTmpDirectory()
-    const pluginConfigHome = getOpenCodeConfigHome()
-    try {
-      await restoreQuarantinedOpenCodePlugins(pluginConfigHome, openCodeConfigPath)
-    } catch (error) {
-      this.failNonRecoverable(
-        `Failed to restore legacy quarantined OpenCode plugins before startup: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
-    try {
-      await installManagedPlugins(pluginConfigHome)
-    } catch (error) {
-      if (sandboxEnforced) {
-        logger.error('Failed to install a generated OpenCode plugin; refusing to start an enforced server', error)
-        this.failNonRecoverable(error instanceof Error ? error.message : String(error))
-      }
-      logger.warn('Failed to install a generated OpenCode plugin (sandboxing is disabled):', error)
-    }
-    const openCodeExecutable = resolveOpenCodeExecutable() ?? 'opencode'
-
-    let stderrOutput = ''
-    const stderrDecoder = new StringDecoder('utf8')
-    const appendStderrOutput = (chunk: string) => {
-      stderrOutput += chunk
-      if (stderrOutput.length > MAX_STDERR_SIZE) {
-        stderrOutput = stderrOutput.slice(-MAX_STDERR_SIZE)
-      }
-    }
-
-    const microsandboxEnv = resolveManagerMicrosandboxEnv()
-
-    const cleanEnv = { ...process.env }
-    delete cleanEnv.OPENCODE_PASSWORD
-    delete cleanEnv.OPENCODE_SERVER_PASSWORD
-    delete cleanEnv.OPENCODE_RUN_ID
-    delete cleanEnv.OPENCODE_PROCESS_ROLE
-    delete cleanEnv.OPENCODE_PID
-    delete cleanEnv.OPENCODE
-    delete cleanEnv.OPENCODE_CONFIG
-    delete cleanEnv.OPENCODE_CONFIG_DIR
-    delete cleanEnv.OPENCODE_CONFIG_CONTENT
-    delete userEnvVars.OPENCODE_CONFIG
-    delete userEnvVars.OPENCODE_CONFIG_DIR
-    delete userEnvVars.OPENCODE_CONFIG_CONTENT
-
-    const serverEnv = {
-      ...cleanEnv,
-      ...userEnvVars,
-      ...microsandboxEnv,
-      ...gitEnv,
-      ...(this.db
-        ? {
-          OCM_INTERNAL_API_URL: `http://localhost:${ENV.SERVER.PORT}/api/internal`,
-          OCM_INTERNAL_TOKEN: getOrCreateInternalToken(this.db),
-        }
-        : {}),
-      OCM_SANDBOX_ENFORCED: sandboxEnforced ? 'true' : 'false',
-      GIT_SSH_COMMAND: gitSshCommand,
-      XDG_DATA_HOME: getOpenCodeStateHome(),
-      XDG_STATE_HOME: getOpenCodeStateHome(),
-      XDG_CONFIG_HOME: getOpenCodeConfigHome(),
-      TMPDIR: getOpenCodeTmpHome(),
-    }
-
-    try {
-      await prepareOpenCodeServiceLaunch(serverEnv, password)
-    } catch (error) {
-      const message = `Failed to prepare the OpenCode service settings: ${error instanceof Error ? error.message : String(error)}`
-      this.recordStartupError(message)
-      throw new Error(message)
-    }
-
-    this.serverProcess = spawn(
-      openCodeExecutable,
-      [...OPENCODE_SERVICE_SERVE_ARGS, '--port', openCodeServerPort.toString(), '--hostname', openCodeServerHost],
-      {
-        cwd: openCodeServerDirectory,
-        detached: !isDevelopment,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env: serverEnv,
-      }
-    )
-
-    const openCodeStdoutLog = createProcessLogForwarder({ source: 'opencode', defaultLevel: 'info' })
-    const openCodeStderrLog = createProcessLogForwarder({ source: 'opencode', defaultLevel: 'error' })
-
-    const spawnedServerPid = this.serverProcess.pid
-    const spawnedServerStderr = this.serverProcess.stderr
-    const spawnedGeneration = ++this.processGeneration
-    const childExitController = new AbortController()
-
-    let spawnedProcessExitError: string | null = null
-    let stderrEnded = false
-    let stderrDecoderFlushed = false
-    let exitDiagnosticFinalized = false
-    let exitDiagnosticCode: number | null = null
-    let exitDiagnosticSignal: NodeJS.Signals | null = null
-    let exitDiagnosticExitedBeforeHealthy = false
-    let exitDiagnosticIntentionalStop = false
-    let exitDiagnosticDrainTimer: ReturnType<typeof setTimeout> | null = null
-    let exitDiagnosticDrainResolve: (() => void) | null = null
-
-    const flushStderrDecoder = () => {
-      if (stderrDecoderFlushed) return
-      stderrDecoderFlushed = true
-      appendStderrOutput(stderrDecoder.end())
-    }
-
-    const clearExitDiagnosticDrainTimer = () => {
-      if (exitDiagnosticDrainTimer !== null) {
-        clearTimeout(exitDiagnosticDrainTimer)
-        exitDiagnosticDrainTimer = null
-      }
-    }
-
-    const finalizeExitDiagnostic = (message: string | null) => {
-      if (exitDiagnosticFinalized) return
-      exitDiagnosticFinalized = true
-      clearExitDiagnosticDrainTimer()
-      if (message !== null) {
-        spawnedProcessExitError = message
-        if (this.processGeneration === spawnedGeneration) {
-          this.recordStartupError(message)
-        }
-      }
-      const resolve = exitDiagnosticDrainResolve
-      exitDiagnosticDrainResolve = null
-      if (resolve) resolve()
-    }
-
-    const buildExitDiagnostic = (): string | null => {
-      if (exitDiagnosticIntentionalStop) return null
-      if (exitDiagnosticCode !== null && exitDiagnosticCode !== 0) {
-        return `OpenCode server exited with code ${exitDiagnosticCode}${stderrOutput ? `: ${stderrOutput.slice(-500)}` : ''}`
-      }
-      if (exitDiagnosticSignal !== null) {
-        return `OpenCode server terminated by signal ${exitDiagnosticSignal}`
-      }
-      if (exitDiagnosticExitedBeforeHealthy) {
-        return 'OpenCode server exited with code 0 before becoming healthy'
-      }
-      return null
-    }
-
-    const finalizeExitDiagnosticFromState = () => {
-      flushStderrDecoder()
-      finalizeExitDiagnostic(buildExitDiagnostic())
-    }
-
-    const awaitExitDiagnostic = (): Promise<void> => {
-      if (exitDiagnosticFinalized) return Promise.resolve()
-      return new Promise<void>((resolve) => {
-        exitDiagnosticDrainResolve = resolve
-      })
-    }
-
-    this.serverProcess.stderr?.on('data', (data) => {
-      if (isDevelopment) process.stderr.write(data)
-      appendStderrOutput(stderrDecoder.write(data))
-      openCodeStderrLog.write(data)
-    })
-    this.serverProcess.stderr?.on('end', () => {
-      stderrEnded = true
-      flushStderrDecoder()
-      openCodeStderrLog.flush()
-      if (childExitController.signal.aborted) {
-        finalizeExitDiagnosticFromState()
-      }
-    })
-
-    this.serverProcess.stdout?.on('data', (data) => {
-      if (isDevelopment) process.stdout.write(data)
-      openCodeStdoutLog.write(data)
-    })
-    this.serverProcess.stdout?.on('end', () => openCodeStdoutLog.flush())
-
-    this.serverProcess.on('error', (error) => {
-      childExitController.abort()
-      finalizeExitDiagnostic(`Failed to launch the OpenCode server (${openCodeExecutable}): ${error.message}`)
-    })
-
-    this.serverProcess.on('exit', (code, signal) => {
-      childExitController.abort()
-      const exitedBeforeHealthy = !this.isHealthy
-      if (spawnedServerPid !== undefined && this.serverPid === spawnedServerPid) {
-        this.serverPid = null
-        this.isHealthy = false
-        this.stopChildStateMarkerRefresh()
-      }
-      exitDiagnosticCode = code
-      exitDiagnosticSignal = signal
-      exitDiagnosticExitedBeforeHealthy = exitedBeforeHealthy
-      const intentionalStop = this.intentionalStop
-      exitDiagnosticIntentionalStop = intentionalStop !== null
-        && intentionalStop.pid === spawnedServerPid
-        && intentionalStop.generation === spawnedGeneration
-        && (signal === 'SIGTERM' || signal === 'SIGKILL' || code === 0)
-      if (exitDiagnosticFinalized) return
-      const hasDiagnostic = (code !== null && code !== 0) || signal !== null || exitedBeforeHealthy
-      if (!hasDiagnostic) {
-        finalizeExitDiagnostic(null)
-        return
-      }
-      if (spawnedServerStderr == null || stderrEnded) {
-        finalizeExitDiagnosticFromState()
-        return
-      }
-      exitDiagnosticDrainTimer = setTimeout(() => {
-        exitDiagnosticDrainTimer = null
-        finalizeExitDiagnosticFromState()
-      }, CHILD_EXIT_DIAGNOSTIC_DRAIN_MS)
-    })
-
-    this.serverProcess.on('close', () => {
-      if (childExitController.signal.aborted) {
-        finalizeExitDiagnosticFromState()
-      }
-    })
-
-    this.serverPid = this.serverProcess.pid ?? null
-    if (this.serverPid !== null) {
-      if (!isDevelopment) {
-        if (!resolveProcessIdentityProvider().attested) {
-          logger.warn('Process identity attestation is unavailable on this platform; tracking the OpenCode server as a direct child without PID-reuse attestation')
-        } else {
-          const startToken = await readProcessStartTokenWithRetry(this.serverPid)
-          if (startToken === null) {
-            const message = 'Failed to read the process identity of the freshly spawned OpenCode server; refusing to detach an unattestable child'
-            this.recordStartupError(message)
-            await this.stop(true)
-            throw new Error(message)
+          sandboxEnforced = true
+          this.sandboxEnforced = true
+          const message = `Failed to determine sandbox enforcement state: ${error instanceof Error ? error.message : String(error)}`
+          let existingProcesses: Array<{ pid: number }> = []
+          try {
+            existingProcesses = await this.findProcessesByPort(getOpenCodeServerPort())
+          } catch (inspectionError) {
+            this.failNonRecoverable(
+              `${message}; port-owner inspection failed: ${inspectionError instanceof Error ? inspectionError.message : String(inspectionError)}`,
+            )
           }
           try {
-            const processGroup = await readProcessGroupIdWithRetry(this.serverPid)
-            const groupMembers = processGroup !== null && processGroup === this.serverPid
-              ? resolveProcessIdentityProvider().readProcessGroupMembers(processGroup)
-              : []
-            await writeChildStateMarker({
-              pid: this.serverPid,
-              pgid: processGroup !== null && processGroup === this.serverPid ? processGroup : null,
-              enforced: sandboxEnforced,
-              startToken,
-              generation: durableRestartGeneration,
-              groupMembers,
-            })
-          } catch (error) {
-            const message = `Failed to persist the OpenCode child state marker: ${error instanceof Error ? error.message : String(error)}`
-            this.recordStartupError(message)
-            await this.stop(true)
-            throw new Error(message)
+            await this.terminateAttestedPredecessor()
+            if (existingProcesses.length > 0) {
+              await this.terminatePortOwners(existingProcesses)
+            }
+          } catch (cleanupError) {
+            this.failNonRecoverable(
+              `${message}; the previous OpenCode server could not be proven terminated and may still be reachable: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+            )
           }
-          this.startChildStateMarkerRefresh()
+          this.failNonRecoverable(message)
+        }
+        if (!sandboxEnforced && this.sandboxEnforced) {
+          try {
+            await new SandboxRuntimeService(this.db).stopAllSandboxesForToggle()
+            logger.info('Sandbox enforcement disabled: stopped all sandbox microVMs')
+          } catch (error) {
+            this.failNonRecoverable(
+              `Failed to stop the workspace sandbox while disabling enforcement: ${error instanceof Error ? error.message : String(error)}`,
+            )
+          }
+        }
+        if (sandboxEnforced && !this.sandboxEnforced) {
+          void new SandboxRuntimeService(this.db).prepareSandboxOnBoot().catch((error) => {
+            logger.warn('Sandbox enforcement enabled but preparing the guest image failed:', error)
+          })
+        }
+        logger.info(`OpenCode sandbox enforcement: ${sandboxEnforced ? 'enabled' : 'disabled'}`)
+      }
+
+      const password = this.getResolvedPassword()
+      const openCodeServerHost = getOpenCodeServerHost()
+
+      let credentialProvider: CredentialProvider | null = null
+      let userEnvVars: Record<string, string> = {}
+      if (this.db) {
+        try {
+          credentialProvider = new CredentialProvider(this.db)
+          const settingsService = new SettingsService(this.db)
+          const settings = settingsService.getSettings('default')
+          const rawEnvVars = settings.preferences.serverEnvVars || []
+          if (rawEnvVars.length > 0) {
+            userEnvVars = Object.fromEntries(
+              rawEnvVars
+                .filter(({ key }) => {
+                  const normalizedKey = key.trim()
+                  return (
+                    normalizedKey !== '' &&
+                    !(BLOCKED_SERVER_ENV_KEYS as readonly string[]).includes(normalizedKey) &&
+                    !normalizedKey.startsWith('MSB_')
+                  )
+                })
+                .map(({ key, value }) => [key.trim(), value]),
+            )
+            logger.info(`Injecting ${Object.keys(userEnvVars).length} custom server env vars`)
+          }
+
+          await syncManagerGitIdentityConfig(this.db)
+        } catch (error) {
+          logger.warn('Failed to get git settings:', error)
         }
       }
-    }
 
-    logger.info(`OpenCode server started with PID ${this.serverPid}`)
-
-    const healthy = await this.waitForHealth(STARTUP_HEALTH_TIMEOUT_MS, childExitController.signal)
-    if (!healthy) {
-      if (childExitController.signal.aborted) {
-        await awaitExitDiagnostic()
+      this.sandboxEnforced = sandboxEnforced
+      if (sandboxEnforced && !resolveProcessIdentityProvider().attested) {
+        this.failNonRecoverable(
+          'Sandbox enforcement requires process identity attestation, which is unavailable on this platform; refusing to run an enforced server',
+        )
       }
-      if (spawnedProcessExitError !== null) {
-        throw new Error(spawnedProcessExitError)
-      }
-      const message = `OpenCode server failed to become healthy after ${Math.round(STARTUP_HEALTH_TIMEOUT_MS / 1000)}s${stderrOutput ? `. Last error: ${stderrOutput.slice(-500)}` : ''}`
-      this.recordStartupError(message)
-      throw new Error(message)
-    }
+      await this.rebuildClient()
+      const durableRestartGeneration = readDurableRestartGeneration(this.db)
 
-    if (sandboxEnforced || replacingExistingServer) {
-      let portOwners: Array<{pid: number}> = []
+      const openCodeServerPort = getOpenCodeServerPort()
+      let existingProcesses: Array<{ pid: number }> = []
       try {
-        portOwners = await this.findProcessesByPort(openCodeServerPort)
+        existingProcesses = await this.findProcessesByPort(openCodeServerPort)
       } catch (inspectionError) {
-        const message = `Could not verify port ${openCodeServerPort} ownership after health; refusing to mark the server healthy: ${inspectionError instanceof Error ? inspectionError.message : String(inspectionError)}`
+        const inspectionMessage = `Cannot inspect port ${openCodeServerPort} ownership: ${inspectionError instanceof Error ? inspectionError.message : String(inspectionError)}`
+        if (sandboxEnforced) {
+          this.failNonRecoverable(inspectionMessage)
+        }
+        logger.warn(inspectionMessage)
+      }
+      let replacingExistingServer = false
+      if (sandboxEnforced) {
+        await this.terminateAttestedPredecessor()
+        if (existingProcesses.length > 0) {
+          logger.warn('Sandbox enforcement enabled: killing existing OpenCode server to guarantee a sandboxed startup')
+          await this.terminatePortOwners(existingProcesses)
+          replacingExistingServer = true
+        }
+      } else if (existingProcesses.length > 0) {
+        logger.info(`OpenCode server already running on port ${openCodeServerPort}`)
+        const healthy = await this.checkHealth()
+        if (healthy) {
+          if (isDevelopment) {
+            logger.warn('Development mode: Killing existing server for hot reload')
+            await this.terminatePortOwners(existingProcesses)
+            replacingExistingServer = true
+          } else {
+            const childState = await readChildStateMarker()
+            const attestedUnenforced =
+              childState !== null &&
+              childState.enforced === false &&
+              childState.generation === durableRestartGeneration &&
+              childState.startToken !== '' &&
+              childState.startToken === readProcessStartToken(childState.pid) &&
+              existingProcesses.some((proc) => proc.pid === childState.pid)
+            if (attestedUnenforced) {
+              this.isHealthy = true
+              this.serverPid = childState.pid
+              return
+            }
+            logger.warn(
+              `Existing OpenCode server on port ${openCodeServerPort} is not attested as a matching unenforced child; terminating it to guarantee consistent sandbox enforcement`,
+            )
+            await this.terminatePortOwners(existingProcesses)
+            replacingExistingServer = true
+          }
+        } else {
+          logger.warn('Killing unhealthy OpenCode server')
+          await this.terminatePortOwners(existingProcesses)
+          replacingExistingServer = true
+        }
+      }
+
+      await this.reconcileExitedChildMarker()
+
+      const openCodeServerDirectory = getOpenCodeServerDirectory()
+      const openCodeConfigPath = getOpenCodeConfigPath()
+      logger.info(`OpenCode server working directory: ${openCodeServerDirectory}`)
+      logger.info(`OpenCode XDG_CONFIG_HOME: ${getOpenCodeConfigHome()}`)
+      logger.info(`OpenCode will use ?directory= parameter for session isolation`)
+
+      const gitEnv = credentialProvider?.getGitEnv() ?? {}
+      const knownHostsPath = path.join(getWorkspacePath(), 'config', 'known_hosts')
+      let gitSshCommand: string
+      let sshConfigPath: string | null = null
+
+      const sshCredentials = credentialProvider?.getSshCredentialsWithPrivateKey() ?? []
+      if (sshCredentials.length > 0) {
+        logger.info(`Setting up ${sshCredentials.length} SSH credential(s) for OpenCode server`)
+
+        const sshConfigEntries: Array<{
+          hostname: string
+          port: string
+          keyPath: string
+        }> = []
+
+        for (const cred of sshCredentials) {
+          try {
+            const { host, port } = parseSSHHost(cred.host)
+            const privateKey = decryptSecret(cred.sshPrivateKeyEncrypted!)
+            const keyPath = await writePersistentSSHKey(privateKey, cred.name)
+
+            if (cred.passphrase) {
+              const passphrase = decryptSecret(cred.passphrase)
+              await stripKeyPassphrase(keyPath, passphrase)
+              logger.info(`Stripped passphrase from SSH key for ${cred.name} (${host}:${port})`)
+            } else {
+              logger.info(`Setup SSH key for ${cred.name} (${host}:${port}): ${keyPath}`)
+            }
+
+            sshConfigEntries.push({ hostname: host, port, keyPath })
+          } catch (error) {
+            logger.error(`Failed to setup SSH key for ${cred.name}:`, error)
+          }
+        }
+
+        if (sshConfigEntries.length > 0) {
+          const sshConfigContent = generateSSHConfig(sshConfigEntries)
+          sshConfigPath = path.join(getWorkspacePath(), 'config', 'ssh_config')
+          await writeSSHConfig(sshConfigPath, sshConfigContent)
+          gitSshCommand = buildSSHCommandWithConfig(sshConfigPath, knownHostsPath)
+          logger.info(`OpenCode server SSH config written to ${sshConfigPath} with ${sshConfigEntries.length} host(s)`)
+        } else {
+          gitSshCommand = buildSSHCommandWithKnownHosts(knownHostsPath)
+          logger.warn(`No SSH credentials could be set up, using default known_hosts only`)
+        }
+      } else {
+        gitSshCommand = buildSSHCommandWithKnownHosts(knownHostsPath)
+      }
+
+      logger.info(`OpenCode server GIT_SSH_COMMAND: ${gitSshCommand}`)
+
+      await this.fetchVersion()
+      if (this.version && !this.isVersionSupported()) {
+        this.failNonRecoverable(
+          `${describeUnsupportedOpenCodeVersion(this.version)}. Install a supported version from Settings → OpenCode.`,
+        )
+      }
+      await this.resetAgentTmpDirectory()
+      const pluginConfigHome = getOpenCodeConfigHome()
+      try {
+        await restoreQuarantinedOpenCodePlugins(pluginConfigHome, openCodeConfigPath)
+      } catch (error) {
+        this.failNonRecoverable(
+          `Failed to restore legacy quarantined OpenCode plugins before startup: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+      try {
+        await installManagedPlugins(pluginConfigHome)
+      } catch (error) {
+        if (sandboxEnforced) {
+          logger.error('Failed to install a generated OpenCode plugin; refusing to start an enforced server', error)
+          this.failNonRecoverable(error instanceof Error ? error.message : String(error))
+        }
+        logger.warn('Failed to install a generated OpenCode plugin (sandboxing is disabled):', error)
+      }
+      const openCodeExecutable = resolveOpenCodeExecutable() ?? 'opencode'
+
+      let stderrOutput = ''
+      const stderrDecoder = new StringDecoder('utf8')
+      const appendStderrOutput = (chunk: string) => {
+        stderrOutput += chunk
+        if (stderrOutput.length > MAX_STDERR_SIZE) {
+          stderrOutput = stderrOutput.slice(-MAX_STDERR_SIZE)
+        }
+      }
+
+      const microsandboxEnv = resolveManagerMicrosandboxEnv()
+
+      const cleanEnv = { ...process.env }
+      delete cleanEnv.OPENCODE_PASSWORD
+      delete cleanEnv.OPENCODE_SERVER_PASSWORD
+      delete cleanEnv.OPENCODE_RUN_ID
+      delete cleanEnv.OPENCODE_PROCESS_ROLE
+      delete cleanEnv.OPENCODE_PID
+      delete cleanEnv.OPENCODE
+      delete cleanEnv.OPENCODE_CONFIG
+      delete cleanEnv.OPENCODE_CONFIG_DIR
+      delete cleanEnv.OPENCODE_CONFIG_CONTENT
+      delete userEnvVars.OPENCODE_CONFIG
+      delete userEnvVars.OPENCODE_CONFIG_DIR
+      delete userEnvVars.OPENCODE_CONFIG_CONTENT
+
+      const serverEnv = {
+        ...cleanEnv,
+        ...userEnvVars,
+        ...microsandboxEnv,
+        ...gitEnv,
+        ...(this.db
+          ? {
+              OCM_INTERNAL_API_URL: `http://localhost:${ENV.SERVER.PORT}/api/internal`,
+              OCM_INTERNAL_TOKEN: getOrCreateInternalToken(this.db),
+            }
+          : {}),
+        OCM_SANDBOX_ENFORCED: sandboxEnforced ? 'true' : 'false',
+        GIT_SSH_COMMAND: gitSshCommand,
+        XDG_DATA_HOME: getOpenCodeStateHome(),
+        XDG_STATE_HOME: getOpenCodeStateHome(),
+        XDG_CONFIG_HOME: getOpenCodeConfigHome(),
+        TMPDIR: getOpenCodeTmpHome(),
+      }
+
+      try {
+        await prepareOpenCodeServiceLaunch(serverEnv, password)
+      } catch (error) {
+        const message = `Failed to prepare the OpenCode service settings: ${error instanceof Error ? error.message : String(error)}`
         this.recordStartupError(message)
-        await this.stop(true)
         throw new Error(message)
       }
-      if (this.serverPid === null || !portOwners.some((proc) => proc.pid === this.serverPid)) {
-        const owners = portOwners.length > 0 ? `; port ${openCodeServerPort} is owned by PID(s) ${portOwners.map((proc) => proc.pid).join(', ')}` : `; no process owns port ${openCodeServerPort}`
-        const message = `The newly started OpenCode server (PID ${this.serverPid ?? 'unknown'}) does not own the OpenCode port${owners}; refusing to mark the server healthy`
+
+      this.serverProcess = spawn(
+        openCodeExecutable,
+        [...OPENCODE_SERVICE_SERVE_ARGS, '--port', openCodeServerPort.toString(), '--hostname', openCodeServerHost],
+        {
+          cwd: openCodeServerDirectory,
+          detached: !isDevelopment,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: serverEnv,
+        },
+      )
+
+      const openCodeStdoutLog = createProcessLogForwarder({
+        source: 'opencode',
+        defaultLevel: 'info',
+      })
+      const openCodeStderrLog = createProcessLogForwarder({
+        source: 'opencode',
+        defaultLevel: 'error',
+      })
+
+      const spawnedServerPid = this.serverProcess.pid
+      const spawnedServerStderr = this.serverProcess.stderr
+      const spawnedGeneration = ++this.processGeneration
+      const childExitController = new AbortController()
+
+      let spawnedProcessExitError: string | null = null
+      let stderrEnded = false
+      let stderrDecoderFlushed = false
+      let exitDiagnosticFinalized = false
+      let exitDiagnosticCode: number | null = null
+      let exitDiagnosticSignal: NodeJS.Signals | null = null
+      let exitDiagnosticExitedBeforeHealthy = false
+      let exitDiagnosticIntentionalStop = false
+      let exitDiagnosticDrainTimer: ReturnType<typeof setTimeout> | null = null
+      let exitDiagnosticDrainResolve: (() => void) | null = null
+
+      const flushStderrDecoder = () => {
+        if (stderrDecoderFlushed) return
+        stderrDecoderFlushed = true
+        appendStderrOutput(stderrDecoder.end())
+      }
+
+      const clearExitDiagnosticDrainTimer = () => {
+        if (exitDiagnosticDrainTimer !== null) {
+          clearTimeout(exitDiagnosticDrainTimer)
+          exitDiagnosticDrainTimer = null
+        }
+      }
+
+      const finalizeExitDiagnostic = (message: string | null) => {
+        if (exitDiagnosticFinalized) return
+        exitDiagnosticFinalized = true
+        clearExitDiagnosticDrainTimer()
+        if (message !== null) {
+          spawnedProcessExitError = message
+          if (this.processGeneration === spawnedGeneration) {
+            this.recordStartupError(message)
+          }
+        }
+        const resolve = exitDiagnosticDrainResolve
+        exitDiagnosticDrainResolve = null
+        if (resolve) resolve()
+      }
+
+      const buildExitDiagnostic = (): string | null => {
+        if (exitDiagnosticIntentionalStop) return null
+        if (exitDiagnosticCode !== null && exitDiagnosticCode !== 0) {
+          return `OpenCode server exited with code ${exitDiagnosticCode}${stderrOutput ? `: ${stderrOutput.slice(-500)}` : ''}`
+        }
+        if (exitDiagnosticSignal !== null) {
+          return `OpenCode server terminated by signal ${exitDiagnosticSignal}`
+        }
+        if (exitDiagnosticExitedBeforeHealthy) {
+          return 'OpenCode server exited with code 0 before becoming healthy'
+        }
+        return null
+      }
+
+      const finalizeExitDiagnosticFromState = () => {
+        flushStderrDecoder()
+        finalizeExitDiagnostic(buildExitDiagnostic())
+      }
+
+      const awaitExitDiagnostic = (): Promise<void> => {
+        if (exitDiagnosticFinalized) return Promise.resolve()
+        return new Promise<void>((resolve) => {
+          exitDiagnosticDrainResolve = resolve
+        })
+      }
+
+      this.serverProcess.stderr?.on('data', (data) => {
+        if (isDevelopment) process.stderr.write(data)
+        appendStderrOutput(stderrDecoder.write(data))
+        openCodeStderrLog.write(data)
+      })
+      this.serverProcess.stderr?.on('end', () => {
+        stderrEnded = true
+        flushStderrDecoder()
+        openCodeStderrLog.flush()
+        if (childExitController.signal.aborted) {
+          finalizeExitDiagnosticFromState()
+        }
+      })
+
+      this.serverProcess.stdout?.on('data', (data) => {
+        if (isDevelopment) process.stdout.write(data)
+        openCodeStdoutLog.write(data)
+      })
+      this.serverProcess.stdout?.on('end', () => openCodeStdoutLog.flush())
+
+      this.serverProcess.on('error', (error) => {
+        childExitController.abort()
+        finalizeExitDiagnostic(`Failed to launch the OpenCode server (${openCodeExecutable}): ${error.message}`)
+      })
+
+      this.serverProcess.on('exit', (code, signal) => {
+        childExitController.abort()
+        const exitedBeforeHealthy = !this.isHealthy
+        if (spawnedServerPid !== undefined && this.serverPid === spawnedServerPid) {
+          this.serverPid = null
+          this.isHealthy = false
+          this.stopChildStateMarkerRefresh()
+        }
+        exitDiagnosticCode = code
+        exitDiagnosticSignal = signal
+        exitDiagnosticExitedBeforeHealthy = exitedBeforeHealthy
+        const intentionalStop = this.intentionalStop
+        exitDiagnosticIntentionalStop =
+          intentionalStop !== null &&
+          intentionalStop.pid === spawnedServerPid &&
+          intentionalStop.generation === spawnedGeneration &&
+          (signal === 'SIGTERM' || signal === 'SIGKILL' || code === 0 || code === 130)
+        if (exitDiagnosticFinalized) return
+        const hasDiagnostic = (code !== null && code !== 0) || signal !== null || exitedBeforeHealthy
+        if (!hasDiagnostic) {
+          finalizeExitDiagnostic(null)
+          return
+        }
+        if (spawnedServerStderr == null || stderrEnded) {
+          finalizeExitDiagnosticFromState()
+          return
+        }
+        exitDiagnosticDrainTimer = setTimeout(() => {
+          exitDiagnosticDrainTimer = null
+          finalizeExitDiagnosticFromState()
+        }, CHILD_EXIT_DIAGNOSTIC_DRAIN_MS)
+      })
+
+      this.serverProcess.on('close', () => {
+        if (childExitController.signal.aborted) {
+          finalizeExitDiagnosticFromState()
+        }
+      })
+
+      this.serverPid = this.serverProcess.pid ?? null
+      if (this.serverPid !== null) {
+        if (!isDevelopment) {
+          if (!resolveProcessIdentityProvider().attested) {
+            logger.warn(
+              'Process identity attestation is unavailable on this platform; tracking the OpenCode server as a direct child without PID-reuse attestation',
+            )
+          } else {
+            const startToken = await readProcessStartTokenWithRetry(this.serverPid)
+            if (startToken === null) {
+              const message =
+                'Failed to read the process identity of the freshly spawned OpenCode server; refusing to detach an unattestable child'
+              this.recordStartupError(message)
+              await this.stop(true)
+              throw new Error(message)
+            }
+            try {
+              const processGroup = await readProcessGroupIdWithRetry(this.serverPid)
+              const groupMembers =
+                processGroup !== null && processGroup === this.serverPid
+                  ? resolveProcessIdentityProvider().readProcessGroupMembers(processGroup)
+                  : []
+              await writeChildStateMarker({
+                pid: this.serverPid,
+                pgid: processGroup !== null && processGroup === this.serverPid ? processGroup : null,
+                enforced: sandboxEnforced,
+                startToken,
+                generation: durableRestartGeneration,
+                groupMembers,
+              })
+            } catch (error) {
+              const message = `Failed to persist the OpenCode child state marker: ${error instanceof Error ? error.message : String(error)}`
+              this.recordStartupError(message)
+              await this.stop(true)
+              throw new Error(message)
+            }
+            this.startChildStateMarkerRefresh()
+          }
+        }
+      }
+
+      logger.info(`OpenCode server started with PID ${this.serverPid}`)
+
+      const healthy = await this.waitForHealth(STARTUP_HEALTH_TIMEOUT_MS, childExitController.signal)
+      if (!healthy) {
+        if (childExitController.signal.aborted) {
+          await awaitExitDiagnostic()
+        }
+        if (spawnedProcessExitError !== null) {
+          throw new Error(spawnedProcessExitError)
+        }
+        const message = `OpenCode server failed to become healthy after ${Math.round(STARTUP_HEALTH_TIMEOUT_MS / 1000)}s${stderrOutput ? `. Last error: ${stderrOutput.slice(-500)}` : ''}`
         this.recordStartupError(message)
-        await this.stop(true)
         throw new Error(message)
       }
-    }
 
-    this.isHealthy = true
-    if (this.restartPendingGeneration === restartGenerationAtStart) {
-      this.restartPending = false
-    }
-    logger.info('OpenCode server is healthy')
+      if (sandboxEnforced || replacingExistingServer) {
+        let portOwners: Array<{ pid: number }> = []
+        try {
+          portOwners = await this.findProcessesByPort(openCodeServerPort)
+        } catch (inspectionError) {
+          const message = `Could not verify port ${openCodeServerPort} ownership after health; refusing to mark the server healthy: ${inspectionError instanceof Error ? inspectionError.message : String(inspectionError)}`
+          this.recordStartupError(message)
+          await this.stop(true)
+          throw new Error(message)
+        }
+        if (this.serverPid === null || !portOwners.some((proc) => proc.pid === this.serverPid)) {
+          const owners =
+            portOwners.length > 0
+              ? `; port ${openCodeServerPort} is owned by PID(s) ${portOwners.map((proc) => proc.pid).join(', ')}`
+              : `; no process owns port ${openCodeServerPort}`
+          const message = `The newly started OpenCode server (PID ${this.serverPid ?? 'unknown'}) does not own the OpenCode port${owners}; refusing to mark the server healthy`
+          this.recordStartupError(message)
+          await this.stop(true)
+          throw new Error(message)
+        }
+      }
 
-    await this.fetchVersion()
-    if (this.version) {
-      logger.info(`OpenCode version: ${this.version}`)
-    }
+      this.isHealthy = true
+      if (this.restartPendingGeneration === restartGenerationAtStart) {
+        this.restartPending = false
+      }
+      logger.info('OpenCode server is healthy')
+
+      await this.fetchVersion()
+      if (this.version) {
+        logger.info(`OpenCode version: ${this.version}`)
+      }
     } finally {
       this.releaseOp(acquired)
     }
@@ -929,7 +957,9 @@ class OpenCodeServerManager {
       }
 
       if (groupTarget !== null) {
-        logger.info(`Terminating OpenCode process group ${groupTarget} so host-executed descendants do not survive the stop`)
+        logger.info(
+          `Terminating OpenCode process group ${groupTarget} so host-executed descendants do not survive the stop`,
+        )
       }
       this.intentionalStop = { pid, generation: this.processGeneration }
       try {
@@ -1100,19 +1130,26 @@ class OpenCodeServerManager {
       if (errorCode === 'ESRCH') {
         logger.debug(`Process ${pid} already stopped`)
       } else {
-        logger.warn(`Failed to send ${signal} to ${groupTarget !== null ? `process group ${groupTarget}` : `process ${pid}`}:`, error)
+        logger.warn(
+          `Failed to send ${signal} to ${groupTarget !== null ? `process group ${groupTarget}` : `process ${pid}`}:`,
+          error,
+        )
       }
     }
   }
 
-  private async waitForProcessOrGroupExit(pid: number, groupTarget: number | null, timeoutMs: number): Promise<boolean> {
+  private async waitForProcessOrGroupExit(
+    pid: number,
+    groupTarget: number | null,
+    timeoutMs: number,
+  ): Promise<boolean> {
     const start = Date.now()
     while (Date.now() - start < timeoutMs) {
       const alive = groupTarget !== null ? processGroupExists(groupTarget) : this.processExists(pid)
       if (!alive) {
         return true
       }
-      await new Promise(r => setTimeout(r, PROCESS_EXIT_POLL_MS))
+      await new Promise((r) => setTimeout(r, PROCESS_EXIT_POLL_MS))
     }
     return false
   }
@@ -1135,10 +1172,13 @@ class OpenCodeServerManager {
     }
   }
 
-  private async terminatePortOwners(processes: Array<{pid: number}>): Promise<void> {
+  private async terminatePortOwners(processes: Array<{ pid: number }>): Promise<void> {
     const targets = processes.map((proc) => {
       const pgid = readProcessGroupId(proc.pid)
-      return { pid: proc.pid, groupTarget: pgid !== null && pgid === proc.pid ? proc.pid : null }
+      return {
+        pid: proc.pid,
+        groupTarget: pgid !== null && pgid === proc.pid ? proc.pid : null,
+      }
     })
     for (const target of targets) {
       this.signalProcessOrGroup(target.pid, target.groupTarget, 'SIGKILL')
@@ -1174,11 +1214,13 @@ class OpenCodeServerManager {
       }
     } else if (marker.pgid !== null) {
       const currentMembers = resolveProcessIdentityProvider().readProcessGroupMembers(marker.pgid)
-      groupAttested = marker.groupMembers.length > 0 && currentMembers.some(
-        (member) => marker.groupMembers.some(
-          (recorded) => recorded.pid === member.pid && recorded.startToken === member.startToken,
-        ),
-      )
+      groupAttested =
+        marker.groupMembers.length > 0 &&
+        currentMembers.some((member) =>
+          marker.groupMembers.some(
+            (recorded) => recorded.pid === member.pid && recorded.startToken === member.startToken,
+          ),
+        )
       if (groupAttested) {
         groupTarget = marker.pgid
       }
@@ -1201,7 +1243,9 @@ class OpenCodeServerManager {
     const pidAlive = target.pidAttested
     const groupAlive = target.groupTarget !== null && processGroupExists(target.groupTarget)
     if (!pidAlive && !groupAlive) return
-    logger.warn(`Sandbox enforcement enabled: terminating the previous OpenCode process group (leader PID ${marker.pid}) so host-executed descendants cannot survive`)
+    logger.warn(
+      `Sandbox enforcement enabled: terminating the previous OpenCode process group (leader PID ${marker.pid}) so host-executed descendants cannot survive`,
+    )
     await this.terminateAndConfirm(
       target.pid,
       target.groupTarget,
@@ -1219,7 +1263,9 @@ class OpenCodeServerManager {
     }
     const target = this.resolveAttestedProcessTarget(marker)
     if (target.pidAttested) {
-      logger.warn(`Stopping OpenCode server leader PID ${target.pid} that was attested by the child state marker but is no longer tracked`)
+      logger.warn(
+        `Stopping OpenCode server leader PID ${target.pid} that was attested by the child state marker but is no longer tracked`,
+      )
       await this.terminateAndConfirm(
         target.pid,
         target.groupTarget,
@@ -1309,12 +1355,13 @@ class OpenCodeServerManager {
     return false
   }
 
-  private async findProcessesByPort(port: number): Promise<Array<{pid: number}>> {
+  private async findProcessesByPort(port: number): Promise<Array<{ pid: number }>> {
     let output: string
     try {
       output = execSync(`lsof -nP -t -iTCP:${port} -sTCP:LISTEN`).toString().trim()
     } catch (error) {
-      const status = error && typeof error === 'object' && 'status' in error ? (error as { status: number | null }).status : null
+      const status =
+        error && typeof error === 'object' && 'status' in error ? (error as { status: number | null }).status : null
       if (status === 1) {
         return []
       }
@@ -1323,7 +1370,10 @@ class OpenCodeServerManager {
     if (output === '') {
       return []
     }
-    return output.split('\n').filter(Boolean).map(pid => ({ pid: parseInt(pid) }))
+    return output
+      .split('\n')
+      .filter(Boolean)
+      .map((pid) => ({ pid: parseInt(pid) }))
   }
 }
 

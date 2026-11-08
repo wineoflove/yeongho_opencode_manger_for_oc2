@@ -316,7 +316,8 @@ describe('ensureAssistantMode', () => {
 
     const reposSkillContent = await readFile(reposSkillPath, 'utf8')
     expect(reposSkillContent).toContain('name: repo-management')
-    expect(reposSkillContent).toContain('List and clone repos')
+    expect(reposSkillContent).toContain('### POST /repos')
+    expect(reposSkillContent).toContain('### PATCH /repos/:repoId')
 
     const sessionsSkillContent = await readFile(sessionsSkillPath, 'utf8')
     expect(sessionsSkillContent).toContain('name: session-management')

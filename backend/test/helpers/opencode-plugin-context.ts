@@ -13,6 +13,14 @@ export type ToolResult = {
   [key: string]: unknown
 }
 
+export type ToolExecuteBeforeEvent = {
+  tool: string
+  sessionID?: string
+  id?: string
+  input: unknown
+  [key: string]: unknown
+}
+
 export type ToolExecuteAfterEvent = {
   tool: string
   status: 'completed' | 'error'
@@ -65,8 +73,10 @@ export type SessionContextEvent = {
 }
 
 export type GeneratedPlugin = {
+  triggerHttpResponse: (event: SessionHttpResponseEvent) => Promise<void>
   id: string
   triggerShellCreateBefore: (event: ShellCreateBeforeEvent) => Promise<void>
+  triggerToolExecuteBefore: (event: ToolExecuteBeforeEvent) => Promise<void>
   triggerToolExecuteAfter: (event: ToolExecuteAfterEvent) => Promise<void>
   triggerPermissionEvaluate: (event: PermissionEvaluateEvent) => Promise<void>
   triggerSessionPrompt: (event: SessionPromptEvent) => Promise<void>
@@ -81,11 +91,22 @@ export type LoadGeneratedPluginOptions = {
 }
 
 type ShellHookCallback = (event: ShellCreateBeforeEvent) => Promise<void> | void
-type ToolHookCallback = (event: ToolExecuteAfterEvent) => Promise<void> | void
+type ToolExecuteBeforeCallback = (event: ToolExecuteBeforeEvent) => Promise<void> | void
+type ToolExecuteAfterCallback = (event: ToolExecuteAfterEvent) => Promise<void> | void
+type ToolHookCallback = ToolExecuteBeforeCallback | ToolExecuteAfterCallback
 type PermissionHookCallback = (event: PermissionEvaluateEvent) => Promise<void> | void
 type SessionPromptHookCallback = (event: SessionPromptEvent) => Promise<void> | void
 type SessionContextHookCallback = (event: SessionContextEvent) => Promise<void> | void
-type SessionHookCallback = SessionPromptHookCallback | SessionContextHookCallback
+type SessionHttpResponseEvent = {
+  readonly sessionID: string
+  readonly agent: string
+  readonly model: { providerID: string; id: string }
+  readonly kind: 'primary'
+  readonly request: Request
+  response: Response
+}
+type SessionHttpResponseCallback = (event: SessionHttpResponseEvent) => Promise<void> | void
+type SessionHookCallback = SessionPromptHookCallback | SessionContextHookCallback | SessionHttpResponseCallback
 
 type ToolEditor = {
   list: () => GeneratedTool[]
@@ -136,10 +157,12 @@ function createRegistry<Event>(name: string) {
 /** Creates a test plugin context with hook registries, event triggers, and tool transforms. */
 function createPluginContext(location: { directory: string }) {
   const shellCreateBefore = createRegistry<ShellCreateBeforeEvent>('create.before')
+  const toolExecuteBefore = createRegistry<ToolExecuteBeforeEvent>('execute.before')
   const toolExecuteAfter = createRegistry<ToolExecuteAfterEvent>('execute.after')
   const permissionEvaluate = createRegistry<PermissionEvaluateEvent>('evaluate')
   const sessionPrompt = createRegistry<SessionPromptEvent>('prompt')
   const sessionContext = createRegistry<SessionContextEvent>('context')
+  const httpResponse = createRegistry<SessionHttpResponseEvent>('http.response')
   const transforms: ToolTransformCallback[] = []
 
   const context: PluginContext = {
@@ -151,9 +174,11 @@ function createPluginContext(location: { directory: string }) {
       },
     },
     tool: {
+      /** Registers execute.before or execute.after callbacks, rejecting unsupported tool hook names. */
       hook: async (name, callback) => {
-        if (name !== 'execute.after') throw new Error(`unexpected tool hook ${name}`)
-        return toolExecuteAfter.register(callback)
+        if (name === 'execute.before') return toolExecuteBefore.register(callback as ToolExecuteBeforeCallback)
+        if (name === 'execute.after') return toolExecuteAfter.register(callback as ToolExecuteAfterCallback)
+        throw new Error(`unexpected tool hook ${name}`)
       },
       transform: async (callback) => {
         transforms.push(callback)
@@ -171,6 +196,7 @@ function createPluginContext(location: { directory: string }) {
       hook: async (name, callback) => {
         if (name === 'prompt') return sessionPrompt.register(callback as SessionPromptHookCallback)
         if (name === 'context') return sessionContext.register(callback as SessionContextHookCallback)
+        if (name === 'http.response') return httpResponse.register(callback as SessionHttpResponseCallback)
         throw new Error(`unexpected session hook ${name}`)
       },
     },
@@ -200,7 +226,9 @@ function createPluginContext(location: { directory: string }) {
 
   return {
     context,
+    triggerHttpResponse: (event: SessionHttpResponseEvent) => httpResponse.trigger(event),
     triggerShellCreateBefore: (event: ShellCreateBeforeEvent) => shellCreateBefore.trigger(event),
+    triggerToolExecuteBefore: (event: ToolExecuteBeforeEvent) => toolExecuteBefore.trigger(event),
     triggerToolExecuteAfter: (event: ToolExecuteAfterEvent) => toolExecuteAfter.trigger(event),
     triggerPermissionEvaluate: (event: PermissionEvaluateEvent) => permissionEvaluate.trigger(event),
     /** Dispatches a prompt event to the registered session callbacks. */
@@ -215,7 +243,10 @@ function createPluginContext(location: { directory: string }) {
 let importCount = 0
 
 /** Imports a fresh plugin instance, validates its definition, and runs setup in the test context. */
-export async function loadGeneratedPlugin(file: string, options: LoadGeneratedPluginOptions = {}): Promise<GeneratedPlugin> {
+export async function loadGeneratedPlugin(
+  file: string,
+  options: LoadGeneratedPluginOptions = {},
+): Promise<GeneratedPlugin> {
   importCount += 1
   const imported = (await import(`${pathToFileURL(file).href}?ocm-test=${importCount}`)) as { default?: unknown }
   const definition = imported.default
@@ -231,11 +262,17 @@ export async function loadGeneratedPlugin(file: string, options: LoadGeneratedPl
     throw new Error(`${file} must default-export a setup function`)
   }
 
-  const registrations = createPluginContext({ directory: options.location?.directory ?? process.cwd() })
-  const cleanup = (await (setup as (context: PluginContext) => Promise<PluginCleanup | void> | PluginCleanup | void)(registrations.context)) as PluginCleanup | void
+  const registrations = createPluginContext({
+    directory: options.location?.directory ?? process.cwd(),
+  })
+  const cleanup = (await (setup as (context: PluginContext) => Promise<PluginCleanup | void> | PluginCleanup | void)(
+    registrations.context,
+  )) as PluginCleanup | void
   return {
     id,
+    triggerHttpResponse: registrations.triggerHttpResponse,
     triggerShellCreateBefore: registrations.triggerShellCreateBefore,
+    triggerToolExecuteBefore: registrations.triggerToolExecuteBefore,
     triggerToolExecuteAfter: registrations.triggerToolExecuteAfter,
     triggerPermissionEvaluate: registrations.triggerPermissionEvaluate,
     triggerSessionPrompt: registrations.triggerSessionPrompt,
