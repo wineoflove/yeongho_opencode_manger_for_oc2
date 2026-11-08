@@ -1,0 +1,97 @@
+import type { WorkflowStatsResponse, WorkflowSessionTimeline, WorkflowTotals } from '@opencode-manager/shared/schemas'
+
+const current: WorkflowTotals = {
+  toolCalls: 20,
+  statusErrors: 2,
+  errorRate: 0.1,
+  bashCalls: 8,
+  bashNonzero: 2,
+  bashTimeouts: 1,
+  repeatedGroups: 1,
+  repeatedCalls: 3,
+  compactions: 1,
+  compactionErrors: 0,
+  avgRereadsAfterCompaction: 2,
+  userMessages: 4,
+  inputContextTokens: 12000,
+  tokensPerUserMessage: 3000,
+  guardBlocked: 1,
+  guardAdjusted: 2,
+}
+
+export const workflowFixture: WorkflowStatsResponse = {
+  generatedAt: 1700000000000,
+  range: '30d',
+  window: { from: 1000, to: 2000 },
+  previousWindow: { from: 0, to: 1000 },
+  totals: { current, previous: { ...current, errorRate: 0.2, repeatedCalls: 2, tokensPerUserMessage: 2000 } },
+  tools: [{ tool: 'read', calls: 10, errors: 1, errorRate: 0.1 }],
+  agents: [],
+  kinds: [{ kind: 'interactive', sessions: 2, calls: 20, errors: 2, errorRate: 0.1 }],
+  bashFamilies: [{ family: 'pnpm', calls: 8, nonzero: 2, timeouts: 1 }],
+  errorSignatures: [
+    { signature: 'ENOENT', count: 1, tools: ['read'], relatedLessonIds: [] },
+    { signature: 'TIMEOUT', count: 1, tools: ['bash'], relatedLessonIds: null },
+    { signature: 'INVALID', count: 1, tools: ['edit'], relatedLessonIds: ['lesson-123'] },
+  ],
+  repeats: [
+    {
+      sessionId: 'ses_example123',
+      title: 'Workflow investigation',
+      tool: 'read',
+      count: 3,
+      inputPreview: 'src/index.ts',
+    },
+  ],
+  mcp: [{ prefix: 'context7', calls: 2, errors: 0, errorRate: 0, status: 'connected' }],
+  mcpStatusSource: '/workspace/assistant',
+  lsp: {
+    byExtension: [{ extension: '.ts', calls: 4, errors: 1, timeout: 1, outsideCwd: 0, enoent: 0, other: 0 }],
+    timeoutMs: [{ value: 3000, count: 1 }],
+  },
+  firstCall: [{ agent: 'build', sessions: 2, medianTokens: 4000 }],
+  guards: [{ id: 'G1', blocked: 1, adjusted: 0 }],
+}
+
+export const workflowTimelineFixture: WorkflowSessionTimeline = {
+  sessionId: 'ses_example123',
+  title: 'Workflow investigation',
+  directory: '/workspace/assistant',
+  parentId: null,
+  steps: [
+    {
+      at: 1700000000000,
+      messageId: 'msg_1',
+      agent: 'build',
+      model: 'provider/model',
+      contextTokens: 3000,
+      outputTokens: 100,
+      toolCalls: 2,
+      toolErrors: 1,
+      guardEvents: 1,
+    },
+    {
+      at: 1700000060000,
+      messageId: 'msg_2',
+      agent: 'build',
+      model: 'provider/model',
+      contextTokens: 6000,
+      outputTokens: 200,
+      toolCalls: 1,
+      toolErrors: 0,
+      guardEvents: 0,
+    },
+    {
+      at: 1700000120000,
+      messageId: 'msg_3',
+      agent: 'build',
+      model: 'provider/model',
+      contextTokens: 1500,
+      outputTokens: 100,
+      toolCalls: 1,
+      toolErrors: 0,
+      guardEvents: 0,
+    },
+  ],
+  compactions: [{ at: 1700000120000, messageId: 'msg_3' }],
+}
