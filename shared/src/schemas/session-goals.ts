@@ -75,3 +75,23 @@ export const StartSessionGoalRequestSchema = z.object({
 });
 
 export type StartSessionGoalRequest = z.infer<typeof StartSessionGoalRequestSchema>;
+
+export const AGENT_GOAL_STATUSES = ["active", "paused", "complete"] as const;
+
+export const AgentGoalCreateRequestSchema = z
+  .object({
+    sessionId: z.string().min(1),
+    objective: z.string().trim().min(1).max(SESSION_PROMPT_MAX_LENGTH),
+  })
+  .strict();
+
+export const AgentGoalUpdateRequestSchema = z
+  .object({
+    sessionId: z.string().min(1),
+    status: z.enum(AGENT_GOAL_STATUSES).optional(),
+    objective: z.string().trim().min(1).max(SESSION_PROMPT_MAX_LENGTH).optional(),
+  })
+  .strict();
+
+export type AgentGoalCreateRequest = z.infer<typeof AgentGoalCreateRequestSchema>;
+export type AgentGoalUpdateRequest = z.infer<typeof AgentGoalUpdateRequestSchema>;
