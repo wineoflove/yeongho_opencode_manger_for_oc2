@@ -3,6 +3,7 @@ import { Combobox, type ComboboxOption } from '@/components/ui/combobox'
 import type { GitBranch } from '@/api/repos'
 import { useRepoBranches } from '@/hooks/useRepoBranches'
 import { getOriginOnlyBranchNames } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 type RemoteBranchValue = 'none' | 'origin-prefixed' | 'bare'
 
@@ -47,7 +48,7 @@ export function BranchCombobox({
         value: branch.name,
         label: branch.name,
         description: branch.current ? 'current' : undefined,
-        group: 'Local',
+        group: t('Local'),
       }))
     if (remotes === 'none') return localOptions
     return [
@@ -55,7 +56,7 @@ export function BranchCombobox({
       ...getOriginOnlyBranchNames(branches).map((name) => ({
         value: remotes === 'origin-prefixed' ? `origin/${name}` : name,
         label: name,
-        group: 'Remote',
+        group: t('Remote'),
       })),
     ]
   }, [branchesData, include, remotes])
@@ -66,7 +67,7 @@ export function BranchCombobox({
       value={value}
       onChange={onValueChange}
       options={options}
-      placeholder={isLoading ? 'Loading branches...' : placeholder}
+      placeholder={isLoading ? t('Loading branches...') : placeholder}
       disabled={isLoading}
       allowCustomValue={false}
       showClear={clearable}

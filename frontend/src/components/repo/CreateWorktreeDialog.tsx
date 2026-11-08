@@ -13,6 +13,7 @@ import { invalidateRepoGitCaches } from '@/lib/queryInvalidation'
 import { getOriginOnlyBranchNames } from '@/lib/utils'
 import { useRepoBranches } from '@/hooks/useRepoBranches'
 import { BranchCombobox } from './BranchCombobox'
+import { t } from '@/i18n/translate'
 
 function isCheckoutCandidate(branch: RepoBranch): boolean {
   return !branch.current && !branch.isWorktree
@@ -95,7 +96,7 @@ export function CreateWorktreeDialog({
     },
     onSuccess: (repo) => {
       invalidateRepoGitCaches(queryClient, repoId)
-      showToast.success('Worktree created')
+      showToast.success(t('Worktree created'))
       onCreated?.()
       onOpenChange(false)
       notifyWorktreeSetup(repo.worktreeSetup)
@@ -104,14 +105,14 @@ export function CreateWorktreeDialog({
       }
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'Failed to create worktree')
+      setError(err instanceof Error ? err.message : t('Failed to create worktree'))
     },
   })
 
   const handleCreate = () => {
     if (mode === 'existing') {
       if (!existingBranch) {
-        setError('Select a branch to check out')
+        setError(t('Select a branch to check out'))
         return
       }
       setError(null)
@@ -120,15 +121,15 @@ export function CreateWorktreeDialog({
     }
 
     if (!trimmedBranchName) {
-      setError('Branch name is required')
+      setError(t('Branch name is required'))
       return
     }
     if (newBranchConflict) {
-      setError('Use Existing branch instead')
+      setError(t('Use Existing branch instead'))
       return
     }
     if (!baseBranch) {
-      setError('Base branch is required')
+      setError(t('Base branch is required'))
       return
     }
     setError(null)
@@ -153,10 +154,10 @@ export function CreateWorktreeDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitBranch className="w-4 h-4" />
-            Create Worktree
+            {t('Create Worktree')}
           </DialogTitle>
           <DialogDescription>
-            Create a separate workspace for a new or existing branch. The worktree is managed as its own repo entry.
+            {t('Create a separate workspace for a new or existing branch. The worktree is managed as its own repo entry.')}
           </DialogDescription>
         </DialogHeader>
 
@@ -165,7 +166,7 @@ export function CreateWorktreeDialog({
             <div className="flex items-start gap-2 bg-warning/10 border border-warning/30 rounded p-3">
               <AlertCircle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
               <p className="text-sm text-warning">
-                Worktrees can only be created for repositories with a remote URL.
+                {t('Worktrees can only be created for repositories with a remote URL.')}
               </p>
             </div>
           ) : (
@@ -178,7 +179,7 @@ export function CreateWorktreeDialog({
                   aria-pressed={mode === 'new'}
                   onClick={() => selectMode('new')}
                 >
-                  New branch
+                  {t('New branch')}
                 </Button>
                 <Button
                   type="button"
@@ -187,14 +188,14 @@ export function CreateWorktreeDialog({
                   aria-pressed={mode === 'existing'}
                   onClick={() => selectMode('existing')}
                 >
-                  Existing branch
+                  {t('Existing branch')}
                 </Button>
               </div>
 
               {mode === 'new' ? (
                 <>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">New branch name</label>
+                    <label className="text-sm font-medium">{t('New branch name')}</label>
                     <Input
                       placeholder="feature/my-branch"
                       value={branchName}
@@ -205,40 +206,40 @@ export function CreateWorktreeDialog({
                       }}
                     />
                     {newBranchConflict && (
-                      <p className="text-xs text-destructive">Use Existing branch instead</p>
+                      <p className="text-xs text-destructive">{t('Use Existing branch instead')}</p>
                     )}
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Base branch</label>
+                    <label className="text-sm font-medium">{t('Base branch')}</label>
                     <BranchCombobox
                       repoId={repoId}
                       enabled={open && canCreate}
                       value={baseBranch}
                       onValueChange={setBaseBranch}
-                      placeholder="Select a base branch"
-                      ariaLabel="Base branch"
+                      placeholder={t('Select a base branch')}
+                      ariaLabel={t('Base branch')}
                     />
                     <p className="text-xs text-muted-foreground">
-                      The new branch will be created from this branch.
+                      {t('The new branch will be created from this branch.')}
                     </p>
                   </div>
                 </>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Branch to check out</label>
+                  <label className="text-sm font-medium">{t('Branch to check out')}</label>
                   <BranchCombobox
                     repoId={repoId}
                     enabled={open && canCreate}
                     value={existingBranch}
                     onValueChange={setExistingBranch}
-                    placeholder="Select a branch to check out"
+                    placeholder={t('Select a branch to check out')}
                     include={isCheckoutCandidate}
                     remotes="bare"
-                    ariaLabel="Branch to check out"
+                    ariaLabel={t('Branch to check out')}
                   />
                   <p className="text-xs text-muted-foreground">
-                    The worktree will check out the selected branch. Remote branches are limited to origin.
+                    {t('The worktree will check out the selected branch. Remote branches are limited to origin.')}
                   </p>
                 </div>
               )}
@@ -258,7 +259,7 @@ export function CreateWorktreeDialog({
               onClick={() => onOpenChange(false)}
               className="border-border hover:bg-accent"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               onClick={handleCreate}
@@ -268,10 +269,10 @@ export function CreateWorktreeDialog({
               {worktreeMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  {t('Creating...')}
                 </>
               ) : (
-                'Create Worktree'
+                t('Create Worktree')
               )}
             </Button>
           </div>

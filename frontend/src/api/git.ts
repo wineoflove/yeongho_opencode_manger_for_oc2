@@ -3,6 +3,7 @@ import { fetchWrapper, FetchError } from './fetchWrapper'
 import { API_BASE_URL } from '@/config'
 import type { DeleteBranchRequest, DeleteBranchResult, GitStashEntry, IntegrateBranchRequest, IntegrateBranchResult, RenameBranchRequest, StashApplyRequest, StashDropRequest, StashPushRequest } from '@opencode-manager/shared'
 import type { GitStatusResponse, FileDiffResponse, GitCommit, CommitDetails } from '@/types/git'
+import { t } from '@/i18n/translate'
 
 export async function fetchGitStatus(repoId: number): Promise<GitStatusResponse> {
   return fetchWrapper(`${API_BASE_URL}/api/repos/${repoId}/git/status`)
@@ -237,22 +238,22 @@ export function useCommitDetails(repoId: number | undefined, hash: string | unde
 
 function parseGitErrorMessage(message: string): string {
   if (message.includes('no upstream') || message.includes('does not have any commits yet')) {
-    return 'No upstream branch configured. Push with --set-upstream or create commits first.'
+    return t('No upstream branch configured. Push with --set-upstream or create commits first.')
   }
   if (message.includes('non-fast-forward') || message.includes('rejected')) {
-    return 'Push rejected. Pull changes first, then push again.'
+    return t('Push rejected. Pull changes first, then push again.')
   }
   if (message.includes('CONFLICT') || message.includes('Merge conflict')) {
-    return 'Merge conflict detected. Resolve conflicts before continuing.'
+    return t('Merge conflict detected. Resolve conflicts before continuing.')
   }
   if (message.includes('Authentication failed') || message.includes('could not read Username')) {
-    return 'Git authentication failed. Check your credentials in Settings.'
+    return t('Git authentication failed. Check your credentials in Settings.')
   }
   if (message.includes('Permission denied')) {
-    return 'Permission denied. Check your repository access.'
+    return t('Permission denied. Check your repository access.')
   }
   if (message.includes('not a git repository')) {
-    return 'Not a valid Git repository.'
+    return t('Not a valid Git repository.')
   }
   return message
 }
@@ -260,17 +261,17 @@ function parseGitErrorMessage(message: string): string {
 export function getApiErrorMessage(error: unknown): string {
   if (error instanceof FetchError) {
     if (error.code === 'AUTH_FAILED') {
-      return 'Git authentication failed. Check your credentials in Settings.'
+      return t('Git authentication failed. Check your credentials in Settings.')
     }
     if (error.code === 'CONFLICT') {
-      return 'Merge conflict detected. Resolve conflicts before continuing.'
+      return t('Merge conflict detected. Resolve conflicts before continuing.')
     }
     if (error.code === 'NOT_FOUND') {
-      return 'Repository or file not found.'
+      return t('Repository or file not found.')
     }
-    if (error.statusCode === 401) return 'Git authentication failed. Check your credentials in Settings.'
-    if (error.statusCode === 409) return 'Merge conflict detected. Resolve conflicts before continuing.'
-    if (error.statusCode === 404) return 'Repository or file not found.'
+    if (error.statusCode === 401) return t('Git authentication failed. Check your credentials in Settings.')
+    if (error.statusCode === 409) return t('Merge conflict detected. Resolve conflicts before continuing.')
+    if (error.statusCode === 404) return t('Repository or file not found.')
     return parseGitErrorMessage(error.message)
   }
   if (error instanceof Error) {
@@ -280,6 +281,6 @@ export function getApiErrorMessage(error: unknown): string {
     return parseGitErrorMessage(error)
   }
   const err = error as { status?: number; message?: string; error?: string }
-  const message = err?.message || err?.error || String(error) || 'An error occurred'
+  const message = err?.message || err?.error || String(error) || t('An error occurred')
   return parseGitErrorMessage(message)
 }

@@ -18,12 +18,13 @@ import { useMobile } from '@/hooks/useMobile'
 import { useVcsInfo } from '@/hooks/useVcsInfo'
 import { GIT_UI_COLORS } from '@/lib/git-status-styles'
 import type { GitFileStatus } from '@/types/git'
+import { msg, t } from '@/i18n/translate'
 
 type VcsMode = 'working' | 'branch'
 
 const MODES: ReadonlyArray<{ id: VcsMode; label: string }> = [
-  { id: 'working', label: 'Working changes' },
-  { id: 'branch', label: 'Branch changes' },
+  { id: 'working', label: msg('Working changes') },
+  { id: 'branch', label: msg('Branch changes') },
 ]
 
 interface RemoteSourceControlContentProps {
@@ -43,7 +44,7 @@ function toGitFileStatus(entry: VcsFileStatus | VcsFileDiff): GitFileStatus {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Failed to load source control'
+  return error instanceof Error ? error.message : t('Failed to load source control')
 }
 
 export function RemoteSourceControlContent({
@@ -119,7 +120,7 @@ export function RemoteSourceControlContent({
             size="sm"
             onClick={() => setSelectedFile(undefined)}
             className="h-7 w-7 p-0"
-            aria-label="Back to changed files"
+            aria-label={t('Back to changed files')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -135,7 +136,7 @@ export function RemoteSourceControlContent({
           ) : diffQuery.error ? (
             <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground">
               <FileText className="mb-2 h-8 w-8 opacity-50" />
-              <p className="text-sm">Failed to load diff</p>
+              <p className="text-sm">{t('Failed to load diff')}</p>
               <p className="text-xs mt-1">{errorMessage(diffQuery.error)}</p>
             </div>
           ) : (
@@ -168,8 +169,8 @@ export function RemoteSourceControlContent({
             onClick={refresh}
             disabled={isRefreshing}
             className="h-7 w-7 p-0"
-            aria-label="Refresh source control"
-            title="Refresh"
+            aria-label={t('Refresh source control')}
+            title={t('Refresh')}
           >
             <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
           </Button>
@@ -190,7 +191,7 @@ export function RemoteSourceControlContent({
                 : 'border-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >
-            {entry.label}
+            {t(entry.label)}
           </button>
         ))}
       </div>
@@ -204,18 +205,18 @@ export function RemoteSourceControlContent({
           <div className="flex flex-col items-center justify-center gap-3 px-4 py-8 text-center text-muted-foreground">
             <FileText className="h-8 w-8 opacity-50" />
             <div>
-              <p className="text-sm">Failed to load changes</p>
+              <p className="text-sm">{t('Failed to load changes')}</p>
               <p className="text-xs mt-1">{errorMessage(listQuery.error)}</p>
             </div>
             <Button variant="outline" size="sm" onClick={refresh}>
               <RefreshCw className="mr-1 h-4 w-4" />
-              Retry
+              {t('Retry')}
             </Button>
           </div>
         ) : files.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-8 text-center text-muted-foreground">
             <p className="text-sm">
-              {mode === 'working' ? 'No working changes' : 'No branch changes'}
+              {mode === 'working' ? t('No working changes') : t('No branch changes')}
             </p>
           </div>
         ) : (
@@ -247,7 +248,7 @@ export function RemoteSourceControlPanel({
   const isMobile = useMobile()
 
   return (
-    <SourceControlDialog isOpen={isOpen} onClose={onClose} title="Source Control">
+    <SourceControlDialog isOpen={isOpen} onClose={onClose} title={t('Source Control')}>
       <RemoteSourceControlContent serverId={serverId} directory={directory} compact={isMobile} />
     </SourceControlDialog>
   )

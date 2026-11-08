@@ -7,6 +7,7 @@ import { useSettings } from '@/hooks/useSettings'
 import { showToast } from '@/lib/toast'
 import { formatGitIdentity } from '@/lib/git-identity'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { t } from '@/i18n/translate'
 
 const DEFAULT_VALUE = 'default'
 const CUSTOM_VALUE = 'custom'
@@ -16,10 +17,10 @@ interface RepoGitIdentitySelectProps {
 }
 
 function defaultIdentityLabel(identity: RepoGitIdentity): string {
-  if (identity.scope === 'none') return 'Default — not configured'
-  if (identity.scope === 'default') return `Default — ${formatGitIdentity(identity)} (Manager default)`
-  if (identity.scope === 'global') return `Default — ${formatGitIdentity(identity)} (git global config)`
-  return 'Default'
+  if (identity.scope === 'none') return t('Default — not configured')
+  if (identity.scope === 'default') return t('Default — {identity} (Manager default)', { identity: formatGitIdentity(identity) })
+  if (identity.scope === 'global') return t('Default — {identity} (git global config)', { identity: formatGitIdentity(identity) })
+  return t('Default')
 }
 
 export function RepoGitIdentitySelect({ repoId }: RepoGitIdentitySelectProps) {
@@ -50,7 +51,7 @@ export function RepoGitIdentitySelect({ repoId }: RepoGitIdentitySelectProps) {
 
   const handleValueChange = (value: string) => {
     if (value === CUSTOM_VALUE) return
-    if (isCustom && identity && !window.confirm(`Replace this repository's custom commit identity ${formatGitIdentity(identity)}?`)) {
+    if (isCustom && identity && !window.confirm(t("Replace this repository's custom commit identity {identity}?", { identity: formatGitIdentity(identity) }))) {
       return
     }
     mutation.mutate(value === DEFAULT_VALUE ? null : value)
@@ -59,22 +60,22 @@ export function RepoGitIdentitySelect({ repoId }: RepoGitIdentitySelectProps) {
   return (
     <div className="flex items-center gap-2">
       <UserCog className="w-4 h-4 shrink-0 text-muted-foreground" />
-      <span className="text-xs text-muted-foreground shrink-0">Commit as</span>
+      <span className="text-xs text-muted-foreground shrink-0">{t('Commit as')}</span>
       <Select
         value={selectedValue}
         onValueChange={handleValueChange}
         disabled={mutation.isPending}
       >
-        <SelectTrigger className="h-8 text-xs" aria-label="Commit identity">
+        <SelectTrigger className="h-8 text-xs" aria-label={t('Commit identity')}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={DEFAULT_VALUE}>
-            {identity ? defaultIdentityLabel(identity) : 'Default'}
+            {identity ? defaultIdentityLabel(identity) : t('Default')}
           </SelectItem>
           {isCustom && identity && (
             <SelectItem value={CUSTOM_VALUE} disabled>
-              Custom ({formatGitIdentity(identity)})
+              {t('Custom ({identity})', { identity: formatGitIdentity(identity) })}
             </SelectItem>
           )}
           {identities.map((preset) => (

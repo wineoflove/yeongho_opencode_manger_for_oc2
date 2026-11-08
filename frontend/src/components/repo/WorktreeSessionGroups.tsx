@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { CalendarClock, ChevronRight, Columns3, Layers, Plus, SquareTerminal, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { workspaceLabel, worktreeSourceLabel, type RepoSibling } from '@/api/repos'
 import type { Session } from '@/api/types'
 import type { MultiRun } from '@opencode-manager/shared/schemas'
 import type { RepoWorktreeSource } from '@opencode-manager/shared/utils'
+import { msg, t, tn } from '@/i18n/translate'
 
 type OwnerFilter = 'all' | RepoWorktreeSource
 
@@ -37,9 +39,9 @@ type GroupEntry =
   | { kind: 'multiRun'; key: string; runId: number; name: string; groups: WorktreeGroup[]; lastActive: number }
 
 const OWNER_FILTERS: Array<{ value: OwnerFilter; label: string }> = [
-  { value: 'all', label: 'All' },
+  { value: 'all', label: msg('All') },
   { value: 'opencode', label: 'OpenCode' },
-  { value: 'schedule', label: 'Schedules' },
+  { value: 'schedule', label: msg('Schedules') },
   { value: 'git', label: 'Git' },
 ]
 
@@ -49,7 +51,7 @@ const OWNER_BADGE_CLASS: Record<RepoWorktreeSource, string> = {
   git: 'border-border bg-muted text-muted-foreground',
 }
 
-const WORKTREE_REMOVAL_NOTE = 'OpenCode worktrees are removed with their sessions. Schedule worktrees have pending changes committed to their branch first. Other git worktrees are only removed when they have no uncommitted changes.'
+const WORKTREE_REMOVAL_NOTE = msg('OpenCode worktrees are removed with their sessions. Schedule worktrees have pending changes committed to their branch first. Other git worktrees are only removed when they have no uncommitted changes.')
 
 /**
  * The Worktrees tab body: every worktree of the repo as a collapsible section of its sessions,
@@ -74,6 +76,8 @@ export function WorktreeSessionGroups({
   const [collapsed, setCollapsed] = useCollapsedGroups(repoId)
   const [expandedSchedule, setExpandedSchedule] = useState<Set<string>>(new Set())
   const [pendingDelete, setPendingDelete] = useState<{ directories: string[]; label: string } | null>(null)
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const isSearching = searchQuery.trim().length > 0
 
   const scheduleWorktreeDirectories = useMemo(
@@ -128,6 +132,32 @@ export function WorktreeSessionGroups({
     toggle(groupKey(group.directory))
   }
 
+  const selectableDirectories = entries
+    .flatMap((entry) => (entry.kind === 'worktree' ? [entry.group] : entry.groups))
+    .filter((group) => group.worktree.schedule?.inUse !== true)
+    .map((group) => group.directory)
+  const selectedDirectories = selectableDirectories.filter((directory) => selected.has(directory))
+  const allSelectableSelected =
+    selectableDirectories.length > 0 && selectedDirectories.length === selectableDirectories.length
+
+  const toggleSelected = (directory: string) => {
+    setSelected((current) => {
+      const next = new Set(current)
+      if (next.has(directory)) next.delete(directory)
+      else next.add(directory)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    setSelected(allSelectableSelected ? new Set() : new Set(selectableDirectories))
+  }
+
+  const toggleSelecting = () => {
+    setSelecting((current) => !current)
+    setSelected(new Set())
+  }
+
   const scheduleGroupDirectories = entries.flatMap((entry) => (
     entry.kind === 'schedule' ? entry.groups.map((group) => group.directory) : []
   ))
@@ -153,11 +183,11 @@ export function WorktreeSessionGroups({
   if (worktrees.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border p-6 text-center">
-        <p className="font-medium">No worktrees yet</p>
-        <p className="text-sm text-muted-foreground">Create a worktree to work on a branch without touching the main checkout.</p>
+        <p className="font-medium">{t('No worktrees yet')}</p>
+        <p className="text-sm text-muted-foreground">{t('Create a worktree to work on a branch without touching the main checkout.')}</p>
         <Button size="sm" onClick={onCreateWorktree}>
           <Plus className="mr-1 h-4 w-4" />
-          New worktree
+          {t('New worktree')}
         </Button>
       </div>
     )
@@ -167,13 +197,26 @@ export function WorktreeSessionGroups({
     const isInUse = group.worktree.schedule?.inUse === true
     const buttonSize = compact ? 'size-7' : 'size-8'
     const iconSize = compact ? 'h-3.5 w-3.5' : 'h-4 w-4'
+    if (selecting) {
+      return (
+        <span className={`${buttonSize} flex shrink-0 items-center justify-center`}>
+          <Checkbox
+            checked={selected.has(group.directory)}
+            disabled={isInUse || isDeleting}
+            onCheckedChange={() => toggleSelected(group.directory)}
+            aria-label={t('Select worktree {name}', { name: label })}
+            title={isInUse ? t('In use by a running scheduled run') : undefined}
+          />
+        </span>
+      )
+    }
     return (
       <>
         <Button
           variant="ghost"
           size="icon"
           className={`${buttonSize} shrink-0`}
-          aria-label={`New session in ${label}`}
+          aria-label={t('New session in {name}', { name: label })}
           onClick={() => onNewSession(group.directory)}
         >
           <Plus className={iconSize} />
@@ -182,7 +225,7 @@ export function WorktreeSessionGroups({
           variant="ghost"
           size="icon"
           className={`${buttonSize} shrink-0`}
-          aria-label={`Open terminal in ${label}`}
+          aria-label={t('Open terminal in {name}', { name: label })}
           onClick={() => onOpenTerminal(group.directory)}
         >
           <SquareTerminal className={iconSize} />
@@ -191,8 +234,8 @@ export function WorktreeSessionGroups({
           variant="ghost"
           size="icon"
           className={`${buttonSize} shrink-0 text-muted-foreground hover:text-destructive`}
-          aria-label={`Delete worktree ${label}`}
-          title={isInUse ? 'In use by a running scheduled run' : undefined}
+          aria-label={t('Delete worktree {name}', { name: label })}
+          title={isInUse ? t('In use by a running scheduled run') : undefined}
           disabled={isInUse || isDeleting}
           onClick={() => setPendingDelete({ directories: [group.directory], label })}
         >
@@ -209,7 +252,7 @@ export function WorktreeSessionGroups({
         onClick={() => onNewSession(group.directory)}
         className="rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground"
       >
-        No sessions in {label} · Start one
+        {t('No sessions in {label} · Start one', { label })}
       </button>
     )
   )
@@ -240,11 +283,11 @@ export function WorktreeSessionGroups({
                 {isInUse && (
                   <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success/40 bg-success/15 px-1.5 text-[10px] leading-4 text-success">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
-                    in use
+                    {t('in use')}
                   </span>
                 )}
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {group.sessions.length} {group.sessions.length === 1 ? 'session' : 'sessions'}
+                  {tn('{count} session', '{count} sessions', group.sessions.length)}
                 </span>
               </div>
               <div className="truncate font-mono text-[11px] text-muted-foreground" title={group.directory}>{group.directory}</div>
@@ -268,7 +311,7 @@ export function WorktreeSessionGroups({
         <div className="flex items-center gap-2">
           <span className="truncate font-mono text-xs text-muted-foreground" title={group.directory}>{label}</span>
           {group.sessions.length > 1 && (
-            <span className="shrink-0 text-xs text-muted-foreground">· {group.sessions.length} sessions</span>
+            <span className="shrink-0 text-xs text-muted-foreground">· {tn('{count} session', '{count} sessions', group.sessions.length)}</span>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {renderWorktreeActions(group, label, true)}
@@ -297,7 +340,7 @@ export function WorktreeSessionGroups({
             <Columns3 className="h-4 w-4 shrink-0 text-primary" />
             <span className="truncate text-sm font-medium">{entry.name}</span>
             <span className="shrink-0 text-xs text-muted-foreground">
-              {entry.groups.length} {entry.groups.length === 1 ? 'worktree' : 'worktrees'}
+              {tn('{count} worktree', '{count} worktrees', entry.groups.length)}
             </span>
           </button>
           <Button
@@ -305,9 +348,9 @@ export function WorktreeSessionGroups({
             size="sm"
             className="h-8 shrink-0 text-xs text-muted-foreground hover:text-destructive"
             disabled={removable.length === 0 || isDeleting}
-            onClick={() => setPendingDelete({ directories: removable, label: `${entry.name} worktrees` })}
+            onClick={() => setPendingDelete({ directories: removable, label: t('{name} worktrees', { name: entry.name }) })}
           >
-            Clean up
+            {t('Clean up')}
           </Button>
         </div>
         {isOpen && (
@@ -337,7 +380,7 @@ export function WorktreeSessionGroups({
             <CalendarClock className="h-4 w-4 shrink-0 text-highlight" />
             <span className="truncate font-medium">{entry.name}</span>
             <span className="shrink-0 text-xs text-muted-foreground">
-              · {entry.groups.length} {entry.groups.length === 1 ? 'worktree' : 'worktrees'}
+              · {tn('{count} worktree', '{count} worktrees', entry.groups.length)}
             </span>
           </button>
           <Button
@@ -345,9 +388,9 @@ export function WorktreeSessionGroups({
             size="sm"
             className="h-8 shrink-0 text-xs text-muted-foreground hover:text-destructive"
             disabled={removable.length === 0 || isDeleting}
-            onClick={() => setPendingDelete({ directories: removable, label: `${entry.name} worktrees` })}
+            onClick={() => setPendingDelete({ directories: removable, label: t('{name} worktrees', { name: entry.name }) })}
           >
-            Clean up
+            {t('Clean up')}
           </Button>
         </div>
         {isOpen && entry.groups.map((group) => renderWorktree(group, true))}
@@ -368,23 +411,60 @@ export function WorktreeSessionGroups({
               ? 'border-primary/50 bg-primary/15 text-foreground'
               : 'border-border text-muted-foreground hover:text-foreground'}`}
           >
-            {filter.label} {ownerCounts[filter.value]}
+            {t(filter.label)} {ownerCounts[filter.value]}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
+          {selecting && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={toggleSelectAll}
+                disabled={selectableDirectories.length === 0 || isDeleting}
+              >
+                {allSelectableSelected ? t('Clear selection') : t('Select all')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-destructive hover:text-destructive"
+                disabled={selectedDirectories.length === 0 || isDeleting}
+                onClick={() =>
+                  setPendingDelete({
+                    directories: selectedDirectories,
+                    label: t('{count} selected', { count: selectedDirectories.length }),
+                  })
+                }
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                {t('Delete selected')}
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs"
+            aria-pressed={selecting}
+            onClick={toggleSelecting}
+          >
+            {selecting ? t('Done') : t('Manage worktrees')}
+          </Button>
           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={toggleAll}>
-            {allCollapsed ? 'Expand all' : 'Collapse all'}
+            {allCollapsed ? t('Expand all') : t('Collapse all')}
           </Button>
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={onCreateWorktree}>
             <Layers className="mr-1 h-3.5 w-3.5 text-primary" />
-            New worktree
+            {t('New worktree')}
           </Button>
         </div>
       </div>
 
       {entries.length === 0 ? (
         <div className="py-4 text-center text-sm text-muted-foreground">
-          {isSearching ? 'No sessions found' : 'No worktrees match this filter'}
+          {isSearching ? t('No sessions found') : t('No worktrees match this filter')}
         </div>
       ) : entries.map((entry) => {
         if (entry.kind === 'worktree') return renderWorktree(entry.group, false)
@@ -397,13 +477,24 @@ export function WorktreeSessionGroups({
         onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => {
-          if (pendingDelete) onDelete(pendingDelete.directories)
+          if (pendingDelete) {
+            const removable = new Set(
+              worktrees.filter((worktree) => worktree.schedule?.inUse !== true).map((worktree) => worktree.fullPath),
+            )
+            const directories = pendingDelete.directories.filter((directory) => removable.has(directory))
+            if (directories.length > 0) onDelete(directories)
+            setSelected((current) => {
+              const next = new Set(current)
+              pendingDelete.directories.forEach((directory) => next.delete(directory))
+              return next
+            })
+          }
           setPendingDelete(null)
         }}
-        title={pendingDelete && pendingDelete.directories.length > 1 ? 'Delete Worktrees' : 'Delete Worktree'}
+        title={pendingDelete && pendingDelete.directories.length > 1 ? t('Delete Worktrees') : t('Delete Worktree')}
         description={pendingDelete && pendingDelete.directories.length > 1
-          ? `Delete ${pendingDelete.directories.length} worktrees? ${WORKTREE_REMOVAL_NOTE}`
-          : `Delete this worktree? ${WORKTREE_REMOVAL_NOTE}`}
+          ? `${t('Delete {count} worktrees?', { count: pendingDelete.directories.length })} ${t(WORKTREE_REMOVAL_NOTE)}`
+          : `${t('Delete this worktree?')} ${t(WORKTREE_REMOVAL_NOTE)}`}
         itemName={pendingDelete?.label}
         isDeleting={isDeleting}
       />

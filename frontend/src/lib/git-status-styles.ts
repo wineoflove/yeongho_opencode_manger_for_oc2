@@ -1,3 +1,5 @@
+import { msg } from '@/i18n/translate'
+
 export const GIT_STATUS_COLORS = {
   modified: 'text-warning',
   added: 'text-success',
@@ -20,10 +22,10 @@ export const GIT_UI_COLORS = {
 } as const
 
 export const GIT_STATUS_LABELS = {
-  modified: 'Modified',
-  added: 'Added',
-  deleted: 'Deleted',
-  renamed: 'Renamed',
-  untracked: 'Untracked',
-  copied: 'Copied',
+  modified: msg('Modified'),
+  added: msg('Added'),
+  deleted: msg('Deleted'),
+  renamed: msg('Renamed'),
+  untracked: msg('Untracked'),
+  copied: msg('Copied'),
 } as const

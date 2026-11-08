@@ -2,6 +2,7 @@ import { useGitLog } from '@/api/git'
 import { Loader2, GitCommit, AlertCircle, ArrowUp } from 'lucide-react'
 import { cn, formatShortRelativeTime } from '@/lib/utils'
 import { GIT_UI_COLORS } from '@/lib/git-status-styles'
+import { t } from '@/i18n/translate'
 
 interface CommitsTabProps {
   repoId: number
@@ -24,7 +25,7 @@ export function CommitsTab({ repoId, branch, onSelectCommit }: CommitsTabProps) 
     return (
       <div className="text-center py-12 text-muted-foreground">
         <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Failed to load commits</p>
+        <p className="text-sm">{t('Failed to load commits')}</p>
         <p className="text-xs mt-1">{error.message}</p>
       </div>
     )
@@ -34,7 +35,7 @@ export function CommitsTab({ repoId, branch, onSelectCommit }: CommitsTabProps) 
     return (
       <div className="text-center py-12 text-muted-foreground">
         <GitCommit className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">No commits found</p>
+        <p className="text-sm">{t('No commits found')}</p>
       </div>
     )
   }
@@ -62,12 +63,12 @@ export function CommitsTab({ repoId, branch, onSelectCommit }: CommitsTabProps) 
                 {commit.unpushed && (
                   <span className={cn('flex items-center gap-0.5 px-1 rounded', GIT_UI_COLORS.unpushed)}>
                     <ArrowUp className="w-3 h-3" />
-                    Local
+                    {t('Local')}
                   </span>
                 )}
                 {!commit.unpushed && (
                   <span className={cn('flex items-center gap-0.5 px-1 rounded', GIT_UI_COLORS.pushed)}>
-                    Remote
+                    {t('Remote')}
                   </span>
                 )}
               </div>

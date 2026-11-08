@@ -14,12 +14,13 @@ import { BranchCombobox } from '@/components/repo/BranchCombobox'
 import { setRepoGitStatusCaches } from '@/lib/queryInvalidation'
 import { GitOperationBanner } from './GitOperationBanner'
 import type { GitOperationState } from '@opencode-manager/shared'
+import { msg, t } from '@/i18n/translate'
 
 type IntegrateStrategy = 'merge' | 'cherry-pick'
 
 const INTEGRATE_STRATEGY_OPTIONS: Array<RadioOption<IntegrateStrategy>> = [
-  { value: 'merge', label: 'Merge commit', description: 'Integrate all commits with a merge commit.' },
-  { value: 'cherry-pick', label: 'Cherry-pick commits', description: 'Replay each commit onto the target branch.' },
+  { value: 'merge', label: msg('Merge commit'), description: msg('Integrate all commits with a merge commit.') },
+  { value: 'cherry-pick', label: msg('Cherry-pick commits'), description: msg('Replay each commit onto the target branch.') },
 ]
 
 const CONFLICT_STATUS_POLL_INTERVAL_MS = 2000
@@ -115,10 +116,10 @@ export function IntegrateBranchDialog({ repoId, sourceBranch, open, onOpenChange
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitMerge className="w-4 h-4" />
-            Integrate {sourceBranch}
+            {t('Integrate {branch}', { branch: sourceBranch })}
           </DialogTitle>
           <DialogDescription>
-            Integrate the commits from {sourceBranch} into another checked-out branch.
+            {t('Integrate the commits from {branch} into another checked-out branch.', { branch: sourceBranch })}
           </DialogDescription>
         </DialogHeader>
 
@@ -127,7 +128,7 @@ export function IntegrateBranchDialog({ repoId, sourceBranch, open, onOpenChange
             <GitOperationBanner repoId={conflictTargetRepoId} operation={activeOperation} />
             <div className="flex justify-end">
               <Button variant="outline" className="border-border hover:bg-accent" onClick={() => onOpenChange(false)}>
-                Close
+                {t('Close')}
               </Button>
             </div>
           </div>
@@ -135,7 +136,7 @@ export function IntegrateBranchDialog({ repoId, sourceBranch, open, onOpenChange
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="integrate-target-branch">
-                Target branch
+                {t('Target branch')}
               </label>
               <BranchCombobox
                 id="integrate-target-branch"
@@ -143,30 +144,30 @@ export function IntegrateBranchDialog({ repoId, sourceBranch, open, onOpenChange
                 enabled={open}
                 value={targetBranch}
                 onValueChange={setTargetBranch}
-                placeholder="Select a target branch"
+                placeholder={t('Select a target branch')}
                 include={isTargetCandidate}
                 remotes="none"
               />
               {!branchesLoading && candidates.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No other local branches are available to integrate into.
+                  {t('No other local branches are available to integrate into.')}
                 </p>
               )}
             </div>
 
             <fieldset className="space-y-2">
-              <legend className="text-sm font-medium">Strategy</legend>
+              <legend className="text-sm font-medium">{t('Strategy')}</legend>
               <RadioOptionGroup
                 name="integrate-strategy"
                 value={strategy}
                 onChange={setStrategy}
-                options={INTEGRATE_STRATEGY_OPTIONS}
+                options={INTEGRATE_STRATEGY_OPTIONS.map((option) => ({ ...option, label: t(option.label), description: option.description === undefined ? undefined : t(option.description) }))}
               />
             </fieldset>
 
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border hover:bg-accent">
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button
                 onClick={handleIntegrate}
@@ -176,10 +177,10 @@ export function IntegrateBranchDialog({ repoId, sourceBranch, open, onOpenChange
                 {git.integrateBranch.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Integrating...
+                    {t('Integrating...')}
                   </>
                 ) : (
-                  'Integrate'
+                  t('Integrate')
                 )}
               </Button>
             </div>

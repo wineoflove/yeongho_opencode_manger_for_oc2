@@ -7,7 +7,19 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDestructiveDialog } from '@/components/ui/confirm-destructive-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Loader2, GitBranch, GitBranchPlus, GitMerge, Check, Plus, AlertCircle, Globe, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import {
+  Loader2,
+  GitBranch,
+  GitBranchPlus,
+  GitMerge,
+  Check,
+  Plus,
+  AlertCircle,
+  Globe,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { showToast } from '@/lib/toast'
 import { useGit } from '@/hooks/useGit'
@@ -15,6 +27,7 @@ import { GIT_UI_COLORS } from '@/lib/git-status-styles'
 import { CreateWorktreeDialog } from '@/components/repo/CreateWorktreeDialog'
 import { IntegrateBranchDialog } from '@/components/source-control/IntegrateBranchDialog'
 import { invalidateRepoGitCaches, invalidateVcsInfoCache, setRepoGitStatusCaches } from '@/lib/queryInvalidation'
+import { t } from '@/i18n/translate'
 
 interface BranchesTabProps {
   repoId: number
@@ -40,7 +53,12 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
   const [deleteRemote, setDeleteRemote] = useState(false)
   const git = useGit(repoId)
 
-  const { data: branches, isLoading, error, refetch } = useQuery({
+  const {
+    data: branches,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['branches', repoId],
     queryFn: () => listBranches(repoId),
     staleTime: 30000,
@@ -74,13 +92,17 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false })
       invalidateVcsInfoCache(queryClient, updatedRepo.fullPath)
       refetch()
-      showToast.success(`Switched to branch: ${updatedRepo.currentBranch}`)
+      showToast.success(
+        t('Switched to branch: {branch}', {
+          branch: String(updatedRepo.currentBranch),
+        }),
+      )
     },
     onError: (error) => {
       if (error instanceof GitAuthError) {
-        showToast.error('Authentication failed. Please update your Git token in Settings.')
+        showToast.error(t('Authentication failed. Please update your Git token in Settings.'))
       } else {
-        showToast.error(error.message || 'Failed to switch branch')
+        showToast.error(error.message || t('Failed to switch branch'))
       }
     },
   })
@@ -116,7 +138,10 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
     }
 
     try {
-      await git.renameBranch.mutateAsync({ from: renamingBranch, to: nextName })
+      await git.renameBranch.mutateAsync({
+        from: renamingBranch,
+        to: nextName,
+      })
       cancelRename()
     } catch {
       // Error handled by mutation
@@ -162,13 +187,13 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Failed to load branches</p>
+        <p className="text-sm">{t('Failed to load branches')}</p>
         <p className="text-xs mt-1">{error.message}</p>
       </div>
     )
   }
 
-  const activeBranch = branches?.branches?.find(b => b.current)?.name || currentBranch
+  const activeBranch = branches?.branches?.find((b) => b.current)?.name || currentBranch
   const hasBranches = (branches?.branches?.length ?? 0) > 0
 
   return (
@@ -177,7 +202,7 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
         {isCreating ? (
           <div className="flex items-center gap-2">
             <Input
-              placeholder="New branch name..."
+              placeholder={t('New branch name...')}
               value={newBranchName}
               onChange={(e) => setNewBranchName(e.target.value)}
               className="h-10 md:h-8 md:text-sm"
@@ -196,11 +221,7 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
               onClick={handleCreateBranch}
               disabled={!newBranchName.trim() || git.createBranch.isPending}
             >
-              {git.createBranch.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                'Create'
-              )}
+              {git.createBranch.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t('Create')}
             </Button>
             <Button
               size="sm"
@@ -211,14 +232,14 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
                 setNewBranchName('')
               }}
             >
-              Cancel
+              {t('Cancel')}
             </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             {hasBranches && (
               <Input
-                placeholder="Search branches..."
+                placeholder={t('Search branches...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-10 md:h-8 md:text-sm flex-1 min-w-0"
@@ -229,10 +250,10 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
               variant="outline"
               className="h-10 md:h-8 flex-shrink-0"
               onClick={() => setIsCreating(true)}
-              title="Create branch"
+              title={t('Create branch')}
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline ml-1">Branch</span>
+              <span className="hidden sm:inline ml-1">{t('Branch')}</span>
             </Button>
             {repoUrl && (
               <Button
@@ -240,10 +261,10 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
                 variant="outline"
                 className="h-10 md:h-8 flex-shrink-0"
                 onClick={() => setWorktreeDialogOpen(true)}
-                title="Create as a separate worktree workspace"
+                title={t('Create as a separate worktree workspace')}
               >
                 <GitBranchPlus className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1">Worktree</span>
+                <span className="hidden sm:inline ml-1">{t('Worktree')}</span>
               </Button>
             )}
             {isRepoWorktree && (
@@ -252,10 +273,10 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
                 variant="outline"
                 className="h-10 md:h-8 flex-shrink-0"
                 onClick={() => setIntegrateDialogOpen(true)}
-                title="Integrate this worktree branch into another branch"
+                title={t('Integrate this worktree branch into another branch')}
               >
                 <GitMerge className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1">Integrate</span>
+                <span className="hidden sm:inline ml-1">{t('Integrate')}</span>
               </Button>
             )}
           </div>
@@ -289,7 +310,9 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
                       value={renameValue}
                       onChange={(e) => setRenameValue(e.target.value)}
                       className="h-10 md:h-8 md:text-sm flex-1 min-w-0"
-                      aria-label={`New name for branch ${renamingBranch}`}
+                      aria-label={t('New name for branch {branch}', {
+                        branch: renamingBranch,
+                      })}
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleRename()
@@ -302,10 +325,10 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
                       onClick={handleRename}
                       disabled={!renameValue.trim() || git.renameBranch.isPending}
                     >
-                      {git.renameBranch.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Rename'}
+                      {git.renameBranch.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t('Rename')}
                     </Button>
                     <Button size="sm" variant="ghost" className="h-10 md:h-8" onClick={cancelRename}>
-                      Cancel
+                      {t('Cancel')}
                     </Button>
                   </div>
                 )
@@ -317,27 +340,36 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
                   className={cn(
                     'flex items-center gap-1 px-3 py-2 w-full transition-colors',
                     isCurrent && 'bg-highlight/10',
-                    isCheckedOutElsewhere ? 'opacity-60' : 'hover:bg-accent/50'
+                    isCheckedOutElsewhere ? 'opacity-60' : 'hover:bg-accent/50',
                   )}
                 >
                   <button
                     className="flex items-center gap-2 flex-1 min-w-0 text-left"
                     onClick={handleClick}
                     disabled={isCurrent || isCheckedOutElsewhere || switchBranchMutation.isPending}
-                    title={isCheckedOutElsewhere ? 'Branch is checked out in another worktree' : undefined}
+                    title={isCheckedOutElsewhere ? t('Branch is checked out in another worktree') : undefined}
                   >
                     {isRemote ? (
                       <Globe className="w-4 h-4 text-info" />
                     ) : (
-                      <GitBranch className={cn('w-4 h-4', isCurrent ? GIT_UI_COLORS.current : 'text-muted-foreground')} />
+                      <GitBranch
+                        className={cn('w-4 h-4', isCurrent ? GIT_UI_COLORS.current : 'text-muted-foreground')}
+                      />
                     )}
                     <span className="flex-1 text-sm truncate">{branch.name}</span>
                     {(isCheckedOutElsewhere || (isCurrent && isRepoWorktree)) && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">worktree</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">
+                        {t('worktree')}
+                      </span>
                     )}
-                    {branch.type === 'local' && !branch.upstream && !branch.isWorktree && !(isCurrent && isRepoWorktree) && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">local</span>
-                    )}
+                    {branch.type === 'local' &&
+                      !branch.upstream &&
+                      !branch.isWorktree &&
+                      !(isCurrent && isRepoWorktree) && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                          {t('local')}
+                        </span>
+                      )}
                     {isCurrent && <Check className={`w-4 h-4 ${GIT_UI_COLORS.current}`} />}
                   </button>
                   {!isRemote && (
@@ -346,7 +378,9 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
                         <button
                           type="button"
                           className="p-1 rounded text-muted-foreground hover:bg-accent"
-                          aria-label={`Actions for ${branch.name}`}
+                          aria-label={t('Actions for {name}', {
+                            name: branch.name,
+                          })}
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
@@ -354,14 +388,14 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onSelect={() => startRename(branch)} disabled={isCheckedOutElsewhere}>
                           <Pencil className="w-4 h-4 mr-2" />
-                          Rename
+                          {t('Rename')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onSelect={() => startDelete(branch)}
                           disabled={isCurrent || !!branch.isWorktree}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
+                          {t('Delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -374,9 +408,13 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
           <div className="text-center py-12 text-muted-foreground">
             <GitBranch className="w-8 h-8 mx-auto mb-2 opacity-50" />
             {searchQuery.trim() ? (
-              <p className="text-sm">No branches match "{searchQuery.trim()}"</p>
+              <p className="text-sm">
+                {t('No branches match "{query}"', {
+                  query: searchQuery.trim(),
+                })}
+              </p>
             ) : (
-              <p className="text-sm">No branches found</p>
+              <p className="text-sm">{t('No branches found')}</p>
             )}
           </div>
         )}
@@ -404,28 +442,23 @@ export function BranchesTab({ repoId, currentBranch }: BranchesTabProps) {
         }}
         onConfirm={handleDelete}
         onCancel={closeDelete}
-        title={`Delete branch "${branchToDelete?.name ?? ''}"?`}
-        description="This removes the local branch. This action cannot be undone."
-        confirmLabel="Delete"
-        pendingLabel="Deleting..."
+        title={t('Delete branch "{branch}"?', {
+          branch: branchToDelete?.name ?? '',
+        })}
+        description={t('This removes the local branch. This action cannot be undone.')}
+        confirmLabel={t('Delete')}
+        pendingLabel={t('Deleting...')}
         isPending={git.deleteBranch.isPending}
       >
         <div className="space-y-3">
           <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <Checkbox
-              checked={forceDelete}
-              onCheckedChange={(checked) => setForceDelete(checked === true)}
-            />
-            Force delete unmerged branch
+            <Checkbox checked={forceDelete} onCheckedChange={(checked) => setForceDelete(checked === true)} />
+            {t('Force delete unmerged branch')}
           </label>
           {branchToDelete?.upstream && (
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox
-                checked={deleteRemote}
-                onCheckedChange={(checked) => setDeleteRemote(checked === true)}
-              />
-              Also delete remote branch{' '}
-              <span className="font-mono">{branchToDelete.upstream}</span>
+              <Checkbox checked={deleteRemote} onCheckedChange={(checked) => setDeleteRemote(checked === true)} />
+              {t('Also delete remote branch')} <span className="font-mono">{branchToDelete.upstream}</span>
             </label>
           )}
         </div>

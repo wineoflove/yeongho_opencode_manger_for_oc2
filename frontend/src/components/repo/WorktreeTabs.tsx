@@ -2,6 +2,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GitBranch, Layers, Plus } from 'lucide-react'
 import type { RepoSibling } from '@/api/repos'
 import type { WorktreeTabValue } from '@/hooks/useWorktreeTab'
+import { t } from '@/i18n/translate'
 
 interface WorktreeTabsProps {
   workspaces: RepoSibling[]
@@ -34,7 +35,7 @@ export function WorktreeTabs({
           {hasWorkspaces ? (
             <TabsTrigger value="workspaces" className={tabClassName}>
               <Layers className="h-3 w-3 shrink-0 text-primary" />
-              <span className={`min-w-0 truncate ${activeLabelClassName}`}>Worktrees</span>
+              <span className={`min-w-0 truncate ${activeLabelClassName}`}>{t('Worktrees')}</span>
               <span className="shrink-0 rounded-full border border-border bg-card px-1.5 text-[11px] leading-4 text-muted-foreground">
                 {workspaces.length}
               </span>
@@ -46,7 +47,7 @@ export function WorktreeTabs({
               className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-t-md rounded-b-none border border-transparent border-b-0 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground sm:flex-none"
             >
               <Layers className="h-3 w-3 shrink-0 text-primary" />
-              <span className="min-w-0 truncate">Worktree</span>
+              <span className="min-w-0 truncate">{t('Worktree')}</span>
               <Plus className="h-3.5 w-3.5 shrink-0" />
             </button>
           )}

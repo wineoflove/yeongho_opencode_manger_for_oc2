@@ -200,6 +200,56 @@ describe('WorktreeSessionGroups', () => {
     expect(onDelete).toHaveBeenCalledWith(['/s/job-14-run-340'])
   })
 
+  it('selects several worktrees in manage mode, skips the in-use one and deletes them together', async () => {
+    renderGroups()
+
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Manage worktrees' }))
+
+    expect(screen.queryByRole('button', { name: /^Delete worktree/ })).toBeNull()
+    expect(screen.getByRole('checkbox', { name: 'Select worktree schedule/14/shared' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Delete selected' })).toBeDisabled()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select worktree feature/auth' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select worktree manual' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete selected' }))
+    const dialog = screen.getByRole('dialog', { name: 'Delete Worktrees' })
+    expect(dialog).toHaveTextContent('2 selected')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+
+    expect(onDelete).toHaveBeenCalledWith(['/w/feature', '/w/manual'])
+    expect(screen.getByRole('button', { name: 'Delete selected' })).toBeDisabled()
+  })
+
+  it('selects every visible removable worktree and clears the selection when leaving manage mode', async () => {
+    renderGroups()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Manage worktrees' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Select all' }))
+    expect(screen.getByRole('button', { name: 'Clear selection' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Delete selected' }))
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete Worktrees' })).getByRole('button', { name: 'Delete' }))
+    expect(onDelete).toHaveBeenCalledWith(['/w/feature', '/s/job-14-run-340', '/w/manual'])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Select all' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Manage worktrees' }))
+    expect(screen.getByRole('button', { name: 'Delete selected' })).toBeDisabled()
+  })
+
+  it('only deletes selected worktrees that remain visible under the owner filter', async () => {
+    renderGroups()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Manage worktrees' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select worktree feature/auth' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select worktree manual' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Git 1' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete selected' }))
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete Worktree' })).getByRole('button', { name: 'Delete' }))
+
+    expect(onDelete).toHaveBeenCalledWith(['/w/manual'])
+  })
+
   it('filters to only the git worktree when the Git owner chip is selected', async () => {
     renderGroups()
 

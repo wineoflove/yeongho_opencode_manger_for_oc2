@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 import { useMobile } from '@/hooks/useMobile'
 import { invalidateRepoGitCaches } from '@/lib/queryInvalidation'
 import { useRefreshOnOpen } from '@/hooks/useRefreshOnOpen'
+import { t } from '@/i18n/translate'
 
 interface SourceControlPanelProps {
   repoId: number
@@ -108,10 +109,10 @@ export function SourceControlContent({
   }
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'changes', label: 'Changes', icon: FileCode },
-    { id: 'commits', label: 'Commits', icon: History },
-    { id: 'branches', label: 'Branches', icon: GitBranch },
-    { id: 'stash', label: 'Stash', icon: Archive },
+    { id: 'changes', label: t('Changes'), icon: FileCode },
+    { id: 'commits', label: t('Commits'), icon: History },
+    { id: 'branches', label: t('Branches'), icon: GitBranch },
+    { id: 'stash', label: t('Stash'), icon: Archive },
   ]
 
   const changesCount = status?.files.length || 0
@@ -147,7 +148,7 @@ export function SourceControlContent({
             onClick={() => handleGitAction(() => git.fetch.mutateAsync())}
             disabled={git.fetch.isPending}
             className="h-7 w-7 p-0"
-            title="Fetch from remote"
+            title={t('Fetch from remote')}
           >
             {git.fetch.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -161,7 +162,7 @@ export function SourceControlContent({
             onClick={() => handleGitAction(() => git.pull.mutateAsync())}
             disabled={git.pull.isPending}
             className="h-7 w-7 p-0"
-            title="Pull"
+            title={t('Pull')}
           >
             {git.pull.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -175,7 +176,7 @@ export function SourceControlContent({
             onClick={() => handleGitAction(() => git.push.mutateAsync(undefined))}
             disabled={git.push.isPending}
             className="h-7 w-7 p-0"
-            title="Push"
+            title={t('Push')}
           >
             {git.push.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -292,7 +293,7 @@ export function SourceControlPanel({
     <SourceControlDialog
       isOpen={isOpen}
       onClose={onClose}
-      title={isMobile && repoName ? repoName : 'Source Control'}
+      title={isMobile && repoName ? repoName : t('Source Control')}
     >
       <SourceControlContent
         repoId={repoId}

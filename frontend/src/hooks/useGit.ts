@@ -7,6 +7,7 @@ import type { Repo } from '@/api/types'
 import type { GitStatusResponse } from '@/types/git'
 import { showToast } from '@/lib/toast'
 import { invalidateRepoGitCaches, invalidateVcsInfoCache, setRepoGitStatusCaches } from '@/lib/queryInvalidation'
+import { t, tn } from '@/i18n/translate'
 
 interface RepoGitMutationConfig<TData, TVariables> {
   mutationFn: (repoId: number, variables: TVariables) => Promise<TData>
@@ -24,7 +25,7 @@ function useRepoGitMutation<TData, TVariables>(
 ) {
   return useMutation({
     mutationFn: (variables: TVariables) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return mutationFn(repoId, variables)
     },
     onSuccess: (data, variables) => {
@@ -54,85 +55,85 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
 
   const fetch = useMutation({
     mutationFn: () => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitFetch(repoId)
     },
     onSuccess: (data) => {
       if (repoId) setRepoGitStatusCaches(queryClient, repoId, data)
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false })
-      showToast.success('Fetch completed')
+      showToast.success(t('Fetch completed'))
     },
     onError: handleError,
   })
 
   const pull = useMutation({
     mutationFn: () => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitPull(repoId)
     },
     onSuccess: (data) => {
       if (repoId) setRepoGitStatusCaches(queryClient, repoId, data)
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false })
-      showToast.success('Pull completed')
+      showToast.success(t('Pull completed'))
     },
     onError: handleError,
   })
 
   const push = useMutation({
     mutationFn: (options?: { setUpstream?: boolean }) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitPush(repoId, options?.setUpstream ?? false)
     },
     onSuccess: (data) => {
       if (repoId) setRepoGitStatusCaches(queryClient, repoId, data)
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false, invalidateRepoMeta: false })
-      showToast.success('Push completed')
+      showToast.success(t('Push completed'))
     },
     onError: handleError,
   })
 
   const commit = useMutation({
     mutationFn: ({ message, stagedPaths }: { message: string; stagedPaths?: string[] }) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitCommit(repoId, message, stagedPaths)
     },
     onSuccess: (data) => {
       if (repoId) setRepoGitStatusCaches(queryClient, repoId, data)
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false, invalidateRepoMeta: false })
-      showToast.success('Commit created')
+      showToast.success(t('Commit created'))
     },
     onError: handleError,
   })
 
   const stageFilesMutation = useMutation({
     mutationFn: (paths: string[]) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitStageFiles(repoId, paths)
     },
     onSuccess: (data) => {
       if (repoId) setRepoGitStatusCaches(queryClient, repoId, data)
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false, invalidateRepoMeta: false })
-      showToast.success('Files staged')
+      showToast.success(t('Files staged'))
     },
     onError: handleError,
   })
 
   const unstageFilesMutation = useMutation({
     mutationFn: (paths: string[]) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitUnstageFiles(repoId, paths)
     },
     onSuccess: (data) => {
       if (repoId) setRepoGitStatusCaches(queryClient, repoId, data)
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false, invalidateRepoMeta: false })
-      showToast.success('Files unstaged')
+      showToast.success(t('Files unstaged'))
     },
     onError: handleError,
   })
 
   const discardFilesMutation = useMutation({
     mutationFn: ({ paths, staged }: { paths: string[]; staged: boolean }) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitDiscardFiles(repoId, paths, staged)
     },
     onSuccess: (data) => {
@@ -144,7 +145,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
 
   const log = useMutation({
     mutationFn: ({ limit }: { limit?: number }) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return fetchGitLog(repoId, limit)
     },
     onError: handleError,
@@ -152,7 +153,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
 
   const diff = useMutation({
     mutationFn: (path: string) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return fetchGitDiff(repoId, path)
     },
     onError: handleError,
@@ -160,7 +161,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
 
   const createBranchMutation = useMutation({
     mutationFn: async (branchName: string) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       const createdRepo = await createBranch(repoId, branchName)
       return { createdRepo, status: await fetchGitStatus(repoId) }
     },
@@ -168,20 +169,20 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
       if (repoId) setRepoGitStatusCaches(queryClient, repoId, status)
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false })
       invalidateVcsInfoCache(queryClient, createdRepo.fullPath)
-      showToast.success('Branch created')
+      showToast.success(t('Branch created'))
     },
     onError: handleError,
   })
 
   const resetMutation = useMutation({
     mutationFn: (commitHash: string) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitReset(repoId, commitHash)
     },
     onSuccess: (data) => {
       if (repoId) setRepoGitStatusCaches(queryClient, repoId, data)
       invalidateRepoGitCaches(queryClient, repoId, { invalidateStatus: false, invalidateRepoMeta: false })
-      showToast.success('Reset to commit')
+      showToast.success(t('Reset to commit'))
     },
     onError: handleError,
   })
@@ -197,7 +198,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
         invalidateRepoGitCaches(client, id, { invalidateStatus: false })
         invalidateVcsInfoCache(client, client.getQueryData<Repo>(['repo', id])?.fullPath)
       },
-      successMessage: 'Branch renamed',
+      successMessage: t('Branch renamed'),
     },
   )
 
@@ -212,7 +213,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
         client.invalidateQueries({ queryKey: ['branches', id] })
         invalidateRepoGitCaches(client, id, { invalidateStatus: false, invalidateRepoMeta: false })
       },
-      successMessage: 'Branch deleted',
+      successMessage: t('Branch deleted'),
     },
   )
 
@@ -228,7 +229,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
         invalidateRepoMeta: false,
         invalidateStashes: true,
       }),
-      successMessage: 'Changes stashed',
+      successMessage: t('Changes stashed'),
     },
   )
 
@@ -254,7 +255,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
         invalidateRepoMeta: false,
         invalidateStashes: true,
       }),
-      successMessage: (_data, variables) => (variables.pop ? 'Stash popped' : 'Stash applied'),
+      successMessage: (_data, variables) => (variables.pop ? t('Stash popped') : t('Stash applied')),
       onError: handleStashActionError,
     },
   )
@@ -271,7 +272,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
         invalidateRepoMeta: false,
         invalidateStashes: true,
       }),
-      successMessage: 'Stash dropped',
+      successMessage: t('Stash dropped'),
       onError: handleStashActionError,
     },
   )
@@ -284,7 +285,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
       mutationFn: (id) => gitContinueOperation(id),
       statusFromData: (data) => data,
       invalidate: (client, id) => invalidateRepoGitCaches(client, id, { invalidateStatus: false }),
-      successMessage: 'Operation continued',
+      successMessage: t('Operation continued'),
       onError: (error) => {
         if (repoId) invalidateRepoGitCaches(queryClient, repoId, { invalidateRepoListStatus: true })
         handleError(error)
@@ -300,7 +301,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
       mutationFn: (id) => gitAbortOperation(id),
       statusFromData: (data) => data,
       invalidate: (client, id) => invalidateRepoGitCaches(client, id, { invalidateStatus: false }),
-      successMessage: 'Operation aborted',
+      successMessage: t('Operation aborted'),
     },
   )
 
@@ -315,7 +316,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
 
   const integrateBranchMutation = useMutation({
     mutationFn: (request: IntegrateBranchRequest) => {
-      if (!repoId) throw new Error('No repo ID')
+      if (!repoId) throw new Error(t('No repo ID'))
       return gitIntegrateBranch(repoId, request)
     },
     onSuccess: (data, request) => {
@@ -325,8 +326,7 @@ export function useGit(repoId: number | undefined, onError?: (error: unknown) =>
         invalidateRepoMeta: false,
       })
       queryClient.invalidateQueries({ queryKey: ['repos'] })
-      const noun = data.integratedCommits === 1 ? 'commit' : 'commits'
-      showToast.success(`Integrated ${data.integratedCommits} ${noun} into ${request.targetBranch}`)
+      showToast.success(tn('Integrated {count} commit into {branch}', 'Integrated {count} commits into {branch}', data.integratedCommits, { branch: request.targetBranch }))
     },
   })
 

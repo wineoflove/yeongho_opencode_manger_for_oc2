@@ -8,17 +8,25 @@ import { Textarea } from '@/components/ui/textarea'
 import { FileDiffView } from '@/components/file-browser/FileDiffView'
 import { DiscardDialog } from '@/components/ui/discard-dialog'
 import { Loader2, GitCommit, FileText, AlertCircle, Bot } from 'lucide-react'
+import { t } from '@/i18n/translate'
 
 interface ChangesTabProps {
   repoId: number
   onFileSelect: (path: string, staged: boolean) => void
   onClearFileSelection?: () => void
-  selectedFile?: {path: string, staged: boolean}
+  selectedFile?: { path: string; staged: boolean }
   isMobile: boolean
   onError?: (error: unknown) => void
 }
 
-export function ChangesTab({ repoId, onFileSelect, onClearFileSelection, selectedFile, isMobile, onError }: ChangesTabProps) {
+export function ChangesTab({
+  repoId,
+  onFileSelect,
+  onClearFileSelection,
+  selectedFile,
+  isMobile,
+  onError,
+}: ChangesTabProps) {
   const { data: status, isLoading, error } = useGitStatus(repoId)
   const git = useGit(repoId, onError)
   const [commitMessage, setCommitMessage] = useState('')
@@ -27,8 +35,8 @@ export function ChangesTab({ repoId, onFileSelect, onClearFileSelection, selecte
   const [discardPaths, setDiscardPaths] = useState<string[]>([])
   const [discardStaged, setDiscardStaged] = useState(false)
 
-  const stagedFiles = status?.files.filter(f => f.staged) || []
-  const unstagedFiles = status?.files.filter(f => !f.staged) || []
+  const stagedFiles = status?.files.filter((f) => f.staged) || []
+  const unstagedFiles = status?.files.filter((f) => !f.staged) || []
   const canCommit = commitMessage.trim() && stagedFiles.length > 0 && !git.commit.isPending
 
   const handleStage = (paths: string[]) => {
@@ -57,16 +65,13 @@ export function ChangesTab({ repoId, onFileSelect, onClearFileSelection, selecte
   }
 
   const handleCommit = () => {
-    git.commit.mutate(
-      { message: commitMessage.trim() },
-      { onSuccess: () => setCommitMessage('') },
-    )
+    git.commit.mutate({ message: commitMessage.trim() }, { onSuccess: () => setCommitMessage('') })
   }
 
   const handleGenerateMessage = () => {
     git.generateCommitMessage.mutate(undefined, {
       onSuccess: ({ message }) => {
-        if (commitMessage.trim() === '' || window.confirm('Replace the current commit message?')) {
+        if (commitMessage.trim() === '' || window.confirm(t('Replace the current commit message?'))) {
           setCommitMessage(message)
         }
       },
@@ -85,7 +90,7 @@ export function ChangesTab({ repoId, onFileSelect, onClearFileSelection, selecte
     return (
       <div className="text-center py-12 text-muted-foreground">
         <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Failed to load git status</p>
+        <p className="text-sm">{t('Failed to load git status')}</p>
         <p className="text-xs mt-1">{error.message}</p>
       </div>
     )
@@ -135,7 +140,7 @@ export function ChangesTab({ repoId, onFileSelect, onClearFileSelection, selecte
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No uncommitted changes</p>
+              <p className="text-sm">{t('No uncommitted changes')}</p>
             </div>
           )}
         </div>
@@ -145,7 +150,7 @@ export function ChangesTab({ repoId, onFileSelect, onClearFileSelection, selecte
             <RepoGitIdentitySelect repoId={repoId} />
             <div className="relative">
               <Textarea
-                placeholder="Commit message..."
+                placeholder={t('Commit message...')}
                 value={commitMessage}
                 onChange={(e) => setCommitMessage(e.target.value)}
                 className="min-h-[80px] md:text-sm resize-none pr-10"
@@ -162,8 +167,8 @@ export function ChangesTab({ repoId, onFileSelect, onClearFileSelection, selecte
                 className="absolute top-1 right-1 h-7 w-7 p-0"
                 onClick={handleGenerateMessage}
                 disabled={stagedFiles.length === 0 || git.generateCommitMessage.isPending}
-                aria-label="Generate commit message"
-                title="Generate commit message with AI"
+                aria-label={t('Generate commit message')}
+                title={t('Generate commit message with AI')}
               >
                 {git.generateCommitMessage.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -172,20 +177,18 @@ export function ChangesTab({ repoId, onFileSelect, onClearFileSelection, selecte
                 )}
               </Button>
             </div>
-            <Button
-              onClick={handleCommit}
-              disabled={!canCommit}
-              className="w-full h-9"
-            >
+            <Button onClick={handleCommit} disabled={!canCommit} className="w-full h-9">
               {git.commit.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : (
                 <GitCommit className="w-4 h-4 mr-2" />
               )}
-              Commit {stagedFiles.length > 0 && `(${stagedFiles.length} staged)`}
+              {stagedFiles.length > 0 ? t('Commit ({count} staged)', { count: stagedFiles.length }) : t('Commit')}
             </Button>
             <p className="text-[10px] text-muted-foreground text-center">
-              {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to commit
+              {t('{shortcut}+Enter to commit', {
+                shortcut: navigator.platform.includes('Mac') ? '⌘' : 'Ctrl',
+              })}
             </p>
           </div>
         )}

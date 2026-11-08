@@ -7,6 +7,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDestructiveDialog } from '@/components/ui/confirm-destructive-dialog'
 import { Archive, ArchiveRestore, PackageOpen, Trash2, Loader2, AlertCircle } from 'lucide-react'
 import type { GitStashEntry } from '@opencode-manager/shared'
+import { t } from '@/i18n/translate'
+import { intlLocale } from '@/i18n/format'
 
 interface StashTabProps {
   repoId: number
@@ -17,7 +19,7 @@ function formatStashDate(date: string): string {
   if (Number.isNaN(parsed.getTime())) {
     return date
   }
-  return parsed.toLocaleString()
+  return parsed.toLocaleString(intlLocale())
 }
 
 export function StashTab({ repoId }: StashTabProps) {
@@ -56,7 +58,7 @@ export function StashTab({ repoId }: StashTabProps) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Failed to load stashes</p>
+        <p className="text-sm">{t('Failed to load stashes')}</p>
         <p className="text-xs mt-1">{error.message}</p>
       </div>
     )
@@ -66,8 +68,8 @@ export function StashTab({ repoId }: StashTabProps) {
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border space-y-2 flex-shrink-0">
         <Input
-          aria-label="Stash message"
-          placeholder="Stash message (optional)"
+          aria-label={t('Stash message')}
+          placeholder={t('Stash message (optional)')}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           className="h-10 md:h-8 md:text-sm"
@@ -77,24 +79,16 @@ export function StashTab({ repoId }: StashTabProps) {
         />
         <div className="flex items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <Checkbox
-              checked={includeUntracked}
-              onCheckedChange={(checked) => setIncludeUntracked(checked === true)}
-            />
-            Include untracked
+            <Checkbox checked={includeUntracked} onCheckedChange={(checked) => setIncludeUntracked(checked === true)} />
+            {t('Include untracked')}
           </label>
-          <Button
-            size="sm"
-            className="h-10 md:h-8"
-            onClick={handleStash}
-            disabled={git.stashPush.isPending}
-          >
+          <Button size="sm" className="h-10 md:h-8" onClick={handleStash} disabled={git.stashPush.isPending}>
             {git.stashPush.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin mr-1" />
             ) : (
               <Archive className="w-4 h-4 mr-1" />
             )}
-            Stash changes
+            {t('Stash changes')}
           </Button>
         </div>
       </div>
@@ -106,32 +100,44 @@ export function StashTab({ repoId }: StashTabProps) {
               <div key={stash.ref} className="flex items-center gap-2 px-3 py-2 hover:bg-accent/50">
                 <Archive className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{stash.message || 'No message'}</p>
+                  <p className="text-sm truncate">{stash.message || t('No message')}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {stash.branch ?? 'unknown branch'} · {formatStashDate(stash.date)}
+                    {stash.branch ?? t('unknown branch')} · {formatStashDate(stash.date)}
                   </p>
                 </div>
                 <Button
                   size="sm"
                   variant="ghost"
                   className="h-7 px-2"
-                  onClick={() => git.stashApply.mutate({ index: stash.index, hash: stash.hash, pop: false })}
+                  onClick={() =>
+                    git.stashApply.mutate({
+                      index: stash.index,
+                      hash: stash.hash,
+                      pop: false,
+                    })
+                  }
                   disabled={git.stashApply.isPending}
-                  title="Apply stash"
+                  title={t('Apply stash')}
                 >
                   <ArchiveRestore className="w-4 h-4 mr-1" />
-                  Apply
+                  {t('Apply')}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   className="h-7 px-2"
-                  onClick={() => git.stashApply.mutate({ index: stash.index, hash: stash.hash, pop: true })}
+                  onClick={() =>
+                    git.stashApply.mutate({
+                      index: stash.index,
+                      hash: stash.hash,
+                      pop: true,
+                    })
+                  }
                   disabled={git.stashApply.isPending}
-                  title="Pop stash"
+                  title={t('Pop stash')}
                 >
                   <PackageOpen className="w-4 h-4 mr-1" />
-                  Pop
+                  {t('Pop')}
                 </Button>
                 <Button
                   size="sm"
@@ -139,7 +145,7 @@ export function StashTab({ repoId }: StashTabProps) {
                   className="h-7 px-2 text-destructive hover:text-destructive"
                   onClick={() => setStashToDrop(stash)}
                   disabled={git.stashDrop.isPending}
-                  title="Drop stash"
+                  title={t('Drop stash')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -149,7 +155,7 @@ export function StashTab({ repoId }: StashTabProps) {
         ) : (
           <div className="text-center py-12 text-muted-foreground">
             <Archive className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No stashes</p>
+            <p className="text-sm">{t('No stashes')}</p>
           </div>
         )}
       </div>
@@ -161,10 +167,12 @@ export function StashTab({ repoId }: StashTabProps) {
         }}
         onConfirm={handleDrop}
         onCancel={() => setStashToDrop(null)}
-        title={`Drop stash "${stashToDrop?.message || stashToDrop?.ref || ''}"?`}
-        description="This permanently removes the stashed changes. This action cannot be undone."
-        confirmLabel="Drop"
-        pendingLabel="Dropping..."
+        title={t('Drop stash "{name}"?', {
+          name: stashToDrop?.message || stashToDrop?.ref || '',
+        })}
+        description={t('This permanently removes the stashed changes. This action cannot be undone.')}
+        confirmLabel={t('Drop')}
+        pendingLabel={t('Dropping...')}
         isPending={git.stashDrop.isPending}
       />
     </div>

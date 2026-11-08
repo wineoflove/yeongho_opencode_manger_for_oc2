@@ -5,6 +5,7 @@ import { GitFlatFileItem } from './GitFlatFileItem'
 import { cn } from '@/lib/utils'
 import type { GitFileStatus, GitFileStatusType } from '@/types/git'
 import { GIT_STATUS_COLORS, GIT_STATUS_LABELS } from '@/lib/git-status-styles'
+import { t } from '@/i18n/translate'
 
 interface GitFlatFileListProps {
   files: GitFileStatus[]
@@ -106,7 +107,7 @@ export function GitFlatFileList({
     <div className="space-y-1">
       <div className="flex items-center justify-between px-2 py-1">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {staged ? 'Staged Changes' : 'Changes'} ({filteredFiles.length})
+          {staged ? t('Staged Changes') : t('Changes')} ({filteredFiles.length})
         </span>
         {(totalAdditions !== undefined && totalAdditions > 0 || totalDeletions !== undefined && totalDeletions > 0) && (
           <div className="flex items-center gap-1 text-xs">
@@ -123,7 +124,7 @@ export function GitFlatFileList({
                 className="h-6 px-2 text-xs text-destructive hover:text-destructive/90"
                 onClick={handleDiscardAll}
               >
-                Discard All
+                {t('Discard All')}
               </Button>
             )}
             <Button
@@ -135,12 +136,12 @@ export function GitFlatFileList({
               {staged ? (
                 <>
                   <Minus className="w-3 h-3 mr-1" />
-                  Unstage All
+                  {t('Unstage All')}
                 </>
               ) : (
                 <>
                   <Plus className="w-3 h-3 mr-1" />
-                  Stage All
+                  {t('Stage All')}
                 </>
               )}
             </Button>
@@ -163,7 +164,7 @@ export function GitFlatFileList({
                 <ChevronDown className="w-3 h-3 text-muted-foreground" />
               )}
               <span className={cn('text-xs font-medium', GIT_STATUS_COLORS[status])}>
-                {GIT_STATUS_LABELS[status]}
+                {t(GIT_STATUS_LABELS[status])}
               </span>
               <span className="text-xs text-muted-foreground">
                 ({groupFiles.length})

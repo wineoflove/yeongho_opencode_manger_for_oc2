@@ -1,3 +1,4 @@
+import { t } from '@/i18n/translate'
 export interface GitIdentityValues {
   name?: string | null
   email?: string | null
@@ -10,6 +11,6 @@ export interface GitIdentityValues {
 export function formatGitIdentity(identity: GitIdentityValues): string {
   const name = identity.name
   const email = identity.email
-  if (!name && !email) return 'Not configured'
-  return `${name || 'No name'} <${email || 'No email'}>`
+  if (!name && !email) return t('Not configured')
+  return `${name || t('No name')} <${email || t('No email')}>`
 }

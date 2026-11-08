@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { useMobile } from '@/hooks/useMobile'
 import type { GitFileStatus } from '@/types/git'
 import { GIT_STATUS_COLORS, GIT_UI_COLORS } from '@/lib/git-status-styles'
+import { t } from '@/i18n/translate'
 
 interface GitFlatFileItemProps {
   file: GitFileStatus
@@ -37,7 +38,7 @@ export function GitFlatFileItem({ file, isSelected, onSelect, onStage, onUnstage
     'h-6 w-6 p-0 transition-opacity flex-shrink-0',
     isMobile
       ? 'opacity-100'
-      : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100'
+      : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100',
   )
 
   const handleAction = (e: React.MouseEvent) => {
@@ -60,22 +61,18 @@ export function GitFlatFileItem({ file, isSelected, onSelect, onStage, onUnstage
     <div
       className={cn(
         'group flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-accent transition-colors',
-        isSelected && 'bg-accent'
+        isSelected && 'bg-accent',
       )}
       onClick={() => onSelect(file.path, file.staged)}
     >
       <StatusIcon className={cn('w-4 h-4 flex-shrink-0', statusColor)} />
       <div className="flex-1 min-w-0 flex items-center gap-1">
         <span className="text-sm truncate">{fileName}</span>
-        {dirPath && (
-          <span className="text-xs text-muted-foreground truncate">
-            {dirPath}
-          </span>
-        )}
+        {dirPath && <span className="text-xs text-muted-foreground truncate">{dirPath}</span>}
       </div>
       {file.staged && (
         <span className={cn('text-[10px] px-1.5 py-0.5 rounded flex-shrink-0', GIT_UI_COLORS.stagedBadge)}>
-          staged
+          {t('staged')}
         </span>
       )}
       {(file.additions !== undefined || file.deletions !== undefined) && (
@@ -94,7 +91,7 @@ export function GitFlatFileItem({ file, isSelected, onSelect, onStage, onUnstage
           size="sm"
           className={actionButtonClass}
           onClick={handleAction}
-          aria-label={file.staged ? `Unstage ${fileName}` : `Stage ${fileName}`}
+          aria-label={file.staged ? t('Unstage {file}', { file: fileName }) : t('Stage {file}', { file: fileName })}
         >
           {file.staged ? (
             <Minus className={cn('w-3 h-3', GIT_UI_COLORS.unstage)} />
@@ -109,8 +106,8 @@ export function GitFlatFileItem({ file, isSelected, onSelect, onStage, onUnstage
           size="sm"
           className={actionButtonClass}
           onClick={handleDiscard}
-          title="Discard changes"
-          aria-label={`Discard changes to ${fileName}`}
+          title={t('Discard changes')}
+          aria-label={t('Discard changes to {file}', { file: fileName })}
         >
           <RotateCcw className="w-3 h-3 text-destructive" />
         </Button>

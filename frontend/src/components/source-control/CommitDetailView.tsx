@@ -3,6 +3,9 @@ import { Loader2, GitCommit, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GitFlatFileList } from './GitFlatFileList'
 import { FileDiffView } from '@/components/file-browser/FileDiffView'
+import { t } from '@/i18n/translate'
+import { intlLocale } from '@/i18n/format'
+import { RepoErrorText } from '@/components/repo/RepoErrorText'
 
 interface CommitDetailViewProps {
   repoId: number
@@ -27,23 +30,23 @@ export function CommitDetailView({ repoId, commitHash, onBack, onFileSelect, sel
     return (
       <div className="text-center py-12 text-muted-foreground">
         <GitCommit className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Failed to load commit details</p>
-        <p className="text-xs mt-1">{error?.message}</p>
+        <p className="text-sm">{t('Failed to load commit details')}</p>
+        <p className="text-xs mt-1"><RepoErrorText message={error?.message ?? ''} /></p>
         <Button variant="outline" size="sm" onClick={onBack} className="mt-4">
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to commits
+          {t('Back to commits')}
         </Button>
       </div>
     )
   }
 
-  const commitFiles = commit.files.map(f => ({
+  const commitFiles = commit.files.map((f) => ({
     path: f.path,
     status: f.status,
     staged: false,
     oldPath: f.oldPath,
     additions: f.additions,
-    deletions: f.deletions
+    deletions: f.deletions,
   }))
 
   const totalAdditions = commit.files.reduce((sum, f) => sum + (f.additions || 0), 0)
@@ -67,12 +70,7 @@ export function CommitDetailView({ repoId, commitHash, onBack, onFileSelect, sel
     <div className="flex flex-col h-full">
       <div className="px-3 py-3 border-b border-border flex-shrink-0 space-y-2">
         <div className="flex items-start gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            className="h-7 w-7 p-0 flex-shrink-0 mt-0.5"
-          >
+          <Button variant="ghost" size="sm" onClick={onBack} className="h-7 w-7 p-0 flex-shrink-0 mt-0.5">
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <p className="text-sm font-medium leading-snug">{commit.message}</p>
@@ -82,7 +80,9 @@ export function CommitDetailView({ repoId, commitHash, onBack, onFileSelect, sel
           <span>·</span>
           <span className="truncate">{commit.authorName}</span>
           <span>·</span>
-          <span className="flex-shrink-0">{new Date(parseInt(commit.date, 10) * 1000).toLocaleDateString()}</span>
+          <span className="flex-shrink-0">
+            {new Date(parseInt(commit.date, 10) * 1000).toLocaleDateString(intlLocale())}
+          </span>
         </div>
       </div>
 

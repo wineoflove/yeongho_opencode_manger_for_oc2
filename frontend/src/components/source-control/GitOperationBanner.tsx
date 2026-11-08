@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDestructiveDialog } from '@/components/ui/confirm-destructive-dialog'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import type { GitOperationKind, GitOperationState } from '@opencode-manager/shared'
+import { t, tn, msg } from '@/i18n/translate'
 
 const OPERATION_LABELS: Record<GitOperationKind, string> = {
-  merge: 'Merge',
-  rebase: 'Rebase',
-  'cherry-pick': 'Cherry-pick',
-  revert: 'Revert',
+  merge: msg('Merge'),
+  rebase: msg('Rebase'),
+  'cherry-pick': msg('Cherry-pick'),
+  revert: msg('Revert'),
 }
 
 interface GitOperationBannerProps {
@@ -26,20 +27,28 @@ export function GitOperationBanner({ repoId, operation }: GitOperationBannerProp
     queryKey: ['repo', repoId],
     queryFn: () => getRepo(repoId),
   })
-  const resolveWithAgent = useResolveConflictsWithAgent({ id: repoId, fullPath: repo?.fullPath ?? '' })
+  const resolveWithAgent = useResolveConflictsWithAgent({
+    id: repoId,
+    fullPath: repo?.fullPath ?? '',
+  })
   const [confirmAbort, setConfirmAbort] = useState(false)
   const conflictedFiles = operation.conflictedFiles
   const hasConflicts = conflictedFiles.length > 0
-  const label = OPERATION_LABELS[operation.kind]
+  const label = t(OPERATION_LABELS[operation.kind])
   const busy = git.continueOperation.isPending || git.abortOperation.isPending || resolveWithAgent.isPending
 
   const handleAbort = () => {
-    git.abortOperation.mutate(undefined, { onSuccess: () => setConfirmAbort(false) })
+    git.abortOperation.mutate(undefined, {
+      onSuccess: () => setConfirmAbort(false),
+    })
   }
 
   const handleResolveWithAgent = () => {
     if (!repo) return
-    resolveWithAgent.mutate({ operation, branch: repo.currentBranch ?? repo.branch ?? '' })
+    resolveWithAgent.mutate({
+      operation,
+      branch: repo.currentBranch ?? repo.branch ?? '',
+    })
   }
 
   return (
@@ -47,10 +56,10 @@ export function GitOperationBanner({ repoId, operation }: GitOperationBannerProp
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <AlertTriangle className="h-4 w-4 flex-shrink-0 text-warning" />
-          <span className="truncate text-sm font-medium">{label} in progress</span>
+          <span className="truncate text-sm font-medium">{t('{operation} in progress', { operation: label })}</span>
           {hasConflicts && (
             <span className="text-xs text-muted-foreground">
-              {conflictedFiles.length} conflict{conflictedFiles.length === 1 ? '' : 's'}
+              {tn('{count} conflict', '{count} conflicts', conflictedFiles.length)}
             </span>
           )}
         </div>
@@ -62,31 +71,29 @@ export function GitOperationBanner({ repoId, operation }: GitOperationBannerProp
               className="h-7 px-2"
               onClick={handleResolveWithAgent}
               disabled={!repo || busy}
-              title="Open a session that resolves these conflicts with an agent"
+              title={t('Open a session that resolves these conflicts with an agent')}
             >
               {resolveWithAgent.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              Resolve with agent
+              {t('Resolve with agent')}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 px-2"
-            onClick={() => setConfirmAbort(true)}
-            disabled={busy}
-          >
+          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setConfirmAbort(true)} disabled={busy}>
             {git.abortOperation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            Abort
+            {t('Abort')}
           </Button>
           <Button
             size="sm"
             className="h-7 px-2"
             onClick={() => git.continueOperation.mutate()}
             disabled={hasConflicts || busy}
-            title={hasConflicts ? 'Resolve all conflicts before continuing' : `Continue the ${operation.kind}`}
+            title={
+              hasConflicts
+                ? t('Resolve all conflicts before continuing')
+                : t('Continue the {operation}', { operation: operation.kind })
+            }
           >
             {git.continueOperation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-            Continue
+            {t('Continue')}
           </Button>
         </div>
       </div>
@@ -106,10 +113,12 @@ export function GitOperationBanner({ repoId, operation }: GitOperationBannerProp
         }}
         onConfirm={handleAbort}
         onCancel={() => setConfirmAbort(false)}
-        title={`Abort ${operation.kind}?`}
-        description={`This cancels the ${operation.kind} in progress and restores the previous state.`}
-        confirmLabel="Abort"
-        pendingLabel="Aborting..."
+        title={t('Abort {operation}?', { operation: operation.kind })}
+        description={t('This cancels the {operation} in progress and restores the previous state.', {
+          operation: operation.kind,
+        })}
+        confirmLabel={t('Abort')}
+        pendingLabel={t('Aborting...')}
         isPending={git.abortOperation.isPending}
       />
     </div>
