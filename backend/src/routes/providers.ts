@@ -14,6 +14,7 @@ import {
 } from '@opencode-manager/shared/opencode'
 import type { OpenCodeClient } from '../services/opencode/client'
 import { runWhenIntegrationReady } from '../services/opencode/integration-ready'
+import { createProviderExternalRoutes } from './provider-external'
 import {
   ModelSelectionSchema,
   readOpenCodeModelState,
@@ -40,6 +41,7 @@ function credentialConnections(integration: IntegrationInfo) {
 
 export function createProvidersRoutes(openCodeClient: OpenCodeClient) {
   const app = new Hono()
+  app.route('/', createProviderExternalRoutes(openCodeClient))
   app.get('/:id/rate-limits', (c) =>
     c.json({
       observations: providerRateLimitStore.list(c.req.param('id')),
