@@ -36,9 +36,12 @@ import { ArtifactPart } from './ArtifactPart'
 import { ExecuteToolPart } from './ExecuteToolPart'
 import { FileReferenceText } from './FileReferenceText'
 import { ShellPreview, ToolDetails, useToolDetailsState } from './ToolDetails'
+import { TodoItem } from './TodoItem'
+import { getTodoProgress, todosFromPart } from '@/lib/sessionTodos'
 import { ToolContentFiles } from './ToolContentFiles'
 import { TRANSCRIPT_DETAIL_CLASS, TRANSCRIPT_ROW_CLASS } from './transcriptStyles'
 import type { WalkthroughSource } from '@opencode-manager/shared/schemas'
+import { msg, t } from '@/i18n/translate'
 
 function BoundedPre({ content, className }: { content: string; className: string }) {
   const clamped = useMemo(() => clampDisplayText(content), [content])
@@ -77,7 +80,24 @@ function ClickableJson({ json, onFileClick }: { json: unknown; onFileClick?: (fi
   )
 }
 
-export const ToolCallPart = memo(function ToolCallPart({ part, messageID, directory, repoFullPath, repoLocalPath, shellOutcome, onFileClick, onChildSessionClick, onOpenWalkthrough }: ToolCallPartProps) {
+const TOOL_STATUS_LABELS: Record<SessionMessageAssistantTool['state']['status'], string> = {
+  streaming: msg('streaming'),
+  running: msg('running'),
+  completed: msg('completed'),
+  error: msg('error'),
+}
+
+export const ToolCallPart = memo(function ToolCallPart({
+  part,
+  messageID,
+  directory,
+  repoFullPath,
+  repoLocalPath,
+  shellOutcome,
+  onFileClick,
+  onChildSessionClick,
+  onOpenWalkthrough,
+}: ToolCallPartProps) {
   const { preferences } = useSettings()
   const isMobile = useMobile()
   const isSubagent = part.name === 'subagent'
@@ -105,17 +125,14 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
   const userOpenedDetailsRef = useRef(false)
   const input = toolInput(part)
   const openWalkthrough = readOpenWalkthroughCall(part)
-  const rawCommand = part.name === 'shell' && typeof input?.command === 'string'
-    ? input.command
-    : undefined
+  const rawCommand = part.name === 'shell' && typeof input?.command === 'string' ? input.command : undefined
   const displayCommand = useMemo(
     () => (rawCommand === undefined ? undefined : unwrapSandboxExecCommand(rawCommand)),
-    [rawCommand]
+    [rawCommand],
   )
   const isSandboxedCommand =
     part.state.status === 'completed' &&
-    (toolMetadata(part).sandbox === true ||
-      (rawCommand !== undefined && displayCommand !== rawCommand))
+    (toolMetadata(part).sandbox === true || (rawCommand !== undefined && displayCommand !== rawCommand))
   const sandboxProvider = (() => {
     const provider = toolMetadata(part).sandboxProvider
     return typeof provider === 'string' ? provider : undefined
@@ -173,7 +190,18 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
     }
   }
 
+  const writtenTodos = todosFromPart(part)
+  const writtenTodoProgress = writtenTodos ? getTodoProgress(writtenTodos) : null
+
   const getPreviewText = () => {
+    if (writtenTodos) {
+      return writtenTodoProgress
+        ? t('Tasks: {completed}/{total} complete', {
+            completed: writtenTodoProgress.completed,
+            total: writtenTodoProgress.total,
+          })
+        : t('Tasks cleared')
+    }
     if (!input) return null
 
     switch (part.name) {
@@ -207,9 +235,9 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
     <Badge
       variant="outline"
       className="shrink-0 border-warning/40 bg-warning/10 text-warning"
-      title="Continues running in the background; the session is notified when it finishes"
+      title={t('Continues running in the background; the session is notified when it finishes')}
     >
-      background
+      {t('background')}
     </Badge>
   ) : null
   const sandboxIndicator = isSandboxedCommand ? (
@@ -218,12 +246,12 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
       className="shrink-0 gap-1 border-success/40 bg-success/15 text-success"
       title={
         sandboxProviderLabel !== undefined
-          ? `Executed inside the ${sandboxProviderLabel} sandbox`
-          : 'Executed inside the sandbox microVM'
+          ? t('Executed inside the {provider} sandbox', { provider: sandboxProviderLabel })
+          : t('Executed inside the sandbox microVM')
       }
     >
       <Shield className="w-3 h-3" />
-      {sandboxProviderLabel !== undefined ? `sandbox · ${sandboxProviderLabel}` : 'sandbox'}
+      {sandboxProviderLabel !== undefined ? `${t('sandbox')} · ${sandboxProviderLabel}` : t('sandbox')}
     </Badge>
   ) : null
 
@@ -234,7 +262,13 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
       repoFullPath,
       repoLocalPath,
     })
-    return <ArtifactPart title={artifact.title} path={artifact.path} src={getFileApiUrl(servedPath, { params: { raw: true } })} />
+    return (
+      <ArtifactPart
+        title={artifact.title}
+        path={artifact.path}
+        src={getFileApiUrl(servedPath, { params: { raw: true } })}
+      />
+    )
   }
 
   if (isSubagent) {
@@ -242,7 +276,7 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
     const isRunning = status !== 'streaming' && isRunningLifecycle(subagentStatus)
     const isCompleted = subagentStatus === 'completed'
     const isError = subagentStatus === 'failed'
-    const description = previewText || 'Sub-agent task'
+    const description = previewText || t('Sub-agent task')
 
     const content = (
       <div className="flex items-center gap-2 min-w-0">
@@ -263,7 +297,7 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
         {isCompleted && <span className="text-success text-sm font-medium">✓</span>}
         {isError && <span className="text-destructive text-sm font-medium">✗</span>}
         <span className="font-medium text-foreground truncate">{description}</span>
-        <span className="text-[11px] font-medium text-highlight shrink-0">sub-agent</span>
+        <span className="text-[11px] font-medium text-highlight shrink-0">{t('sub-agent')}</span>
         {backgroundIndicator}
         {subagentSessionId && <ExternalLink className="w-3 h-3 shrink-0 text-primary" />}
       </div>
@@ -274,7 +308,7 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
         <button
           onClick={() => onChildSessionClick?.(subagentSessionId)}
           className="my-1 flex w-full min-w-0 items-center gap-2 py-0.5 text-left text-xs text-muted-foreground hover:text-foreground transition-colors"
-          title="View subagent session"
+          title={t('View subagent session')}
         >
           {content}
         </button>
@@ -299,17 +333,17 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
 
   const output = toolOutputText(part)
   const statusLabel = isWaitingPermission
-    ? 'awaiting permission'
+    ? t('awaiting permission')
     : isBackgroundShell
       ? lifecycleLabel(shellStatus)
       : failedShellExit !== undefined
-        ? `exit ${failedShellExit}`
-        : part.state.status
+        ? t('exit {code}', { code: failedShellExit })
+        : t(TOOL_STATUS_LABELS[part.state.status])
   const commandBlock = (
     <div className="text-sm">
       <div className="flex items-center gap-2 mb-1">
-        <div className="text-muted-foreground">Command:</div>
-        <CopyButton content={displayCommand ?? ''} title="Copy command" />
+        <div className="text-muted-foreground">{t('Command:')}</div>
+        <CopyButton content={displayCommand ?? ''} title={t('Copy command')} />
       </div>
       <div className="bg-accent p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap break-words">
         <span className="text-success">$</span> {displayCommand ?? ''}
@@ -326,48 +360,67 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
-          <span>Preparing tool call...</span>
+          <span>{t('Preparing tool call...')}</span>
         </div>
       )}
 
       {part.state.status === 'running' && (
         <div className="text-sm">
-          {part.name === 'shell' ? commandBlock : (
+          {part.name === 'shell' ? (
+            commandBlock
+          ) : (
             <>
-              <div className="text-muted-foreground mb-1">Input:</div>
+              <div className="text-muted-foreground mb-1">{t('Input:')}</div>
               <ClickableJson json={part.state.input} onFileClick={onFileClick} />
             </>
           )}
-          <div className={`flex items-center gap-2 mt-2 text-xs ${isWaitingPermission ? 'text-highlight' : 'text-warning'}`}>
+          <div
+            className={`flex items-center gap-2 mt-2 text-xs ${isWaitingPermission ? 'text-highlight' : 'text-warning'}`}
+          >
             <Loader2 className="w-3 h-3 animate-spin" />
-            <span>{isWaitingPermission ? 'Waiting for permission...' : 'Running...'}</span>
+            <span>{isWaitingPermission ? t('Waiting for permission...') : t('Running...')}</span>
           </div>
         </div>
       )}
 
       {part.state.status === 'completed' && (
         <>
-          {part.name === 'shell' ? commandBlock : (
+          {writtenTodos ? (
+            <div className="text-sm" data-testid="todowrite-list">
+              {writtenTodos.map((todo, index) => (
+                <TodoItem key={`${index}:${todo.content}`} todo={todo} compact />
+              ))}
+            </div>
+          ) : part.name === 'shell' ? (
+            commandBlock
+          ) : (
             <div className="text-sm">
-              <div className="text-muted-foreground mb-1">Input:</div>
+              <div className="text-muted-foreground mb-1">{t('Input:')}</div>
               <ClickableJson json={part.state.input} onFileClick={onFileClick} />
             </div>
           )}
-          {output && (
+          {output && !writtenTodos && (
             <div className="text-sm">
-              <div className="text-muted-foreground mb-1">Output:</div>
+              <div className="text-muted-foreground mb-1">{t('Output:')}</div>
               <div className="relative">
                 <BoundedPre
                   content={output}
                   className="bg-accent p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap break-all"
                 />
-                <CopyButton content={output} title="Copy output" className="absolute top-1 right-1" iconSize="sm" />
+                <CopyButton
+                  content={output}
+                  title={t('Copy output')}
+                  className="absolute top-1 right-1"
+                  iconSize="sm"
+                />
               </div>
             </div>
           )}
           {part.time.ran !== undefined && part.time.completed !== undefined && (
             <div className="text-xs text-muted-foreground">
-              Duration: {((part.time.completed - part.time.ran) / 1000).toFixed(2)}s
+              {t('Duration: {seconds}s', {
+                seconds: ((part.time.completed - part.time.ran) / 1000).toFixed(2),
+              })}
             </div>
           )}
         </>
@@ -375,7 +428,7 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
 
       {part.state.status === 'error' && (
         <div className="text-sm">
-          <div className="text-destructive mb-1">Error:</div>
+          <div className="text-destructive mb-1">{t('Error:')}</div>
           <BoundedPre
             content={part.state.error.message}
             className="bg-accent p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap break-words text-destructive"
@@ -406,11 +459,7 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
           }
         />
         <ToolContentFiles part={part} className={TRANSCRIPT_DETAIL_CLASS} />
-        <ToolDetails
-          open={detailsOpen}
-          onOpenChange={setDetailsOpen}
-          title={`$ ${displayCommand ?? ''}`}
-        >
+        <ToolDetails open={detailsOpen} onOpenChange={setDetailsOpen} title={`$ ${displayCommand ?? ''}`}>
           {detailContent}
         </ToolDetails>
       </div>
@@ -438,7 +487,7 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
                 }
               }}
               className="min-w-0 truncate text-primary text-xs hover:text-primary-hover cursor-pointer underline decoration-dotted"
-              title={`Click to open ${previewText}`}
+              title={t('Click to open {path}', { path: previewText })}
             >
               {previewText}
             </span>
@@ -456,7 +505,7 @@ export const ToolCallPart = memo(function ToolCallPart({ part, messageID, direct
             className="h-7 shrink-0"
             onClick={() => onOpenWalkthrough?.(openWalkthrough.source)}
           >
-            Open walkthrough
+            {t('Open walkthrough')}
           </Button>
         ) : null}
       </div>

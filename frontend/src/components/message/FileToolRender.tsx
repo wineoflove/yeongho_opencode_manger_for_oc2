@@ -12,6 +12,7 @@ import { TRANSCRIPT_DETAIL_CLASS, TRANSCRIPT_ROW_CLASS } from './transcriptStyle
 import { parseUnifiedDiff } from '@/lib/diffLines'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { t } from '@/i18n/translate'
 
 function isFileDiff(data: unknown): data is FileDiffInfo {
   return (
@@ -33,7 +34,7 @@ export function getRelativePath(filePath: string): string {
   if (reposIndex !== -1) {
     return filePath.substring(reposIndex + 7)
   }
-  
+
   const workspaceIndex = filePath.indexOf('/workspace/')
   if (workspaceIndex !== -1) {
     return filePath.substring(workspaceIndex + 11)
@@ -69,9 +70,8 @@ function FileToolRender({ part, filediff, filePath, content, toolName, onFileCli
   const hasExpandableContent = !isReadTool && (filediff || content)
   const isFileLink = Boolean(onFileClick) && !isRemoteServer
 
-  const defaultExpanded = hasDiff || toolName === 'Write'
-    ? (preferences?.expandDiffs ?? true)
-    : (preferences?.expandToolCalls ?? false)
+  const defaultExpanded =
+    hasDiff || toolName === 'Write' ? (preferences?.expandDiffs ?? true) : (preferences?.expandToolCalls ?? false)
   const [detailsOpen, setDetailsOpen] = useToolDetailsState(defaultExpanded)
   const relativePath = filePath ? getRelativePath(filePath) : undefined
   const detailsTitle = relativePath ? `${toolName} ${relativePath}` : toolName
@@ -93,18 +93,15 @@ function FileToolRender({ part, filediff, filePath, content, toolName, onFileCli
     }
   }
 
-  const pathLabel = relativePath && (
-    isFileLink ? (
-      <span
-        onClick={handleFileClick}
-        className="min-w-0 truncate text-primary text-xs hover:underline cursor-pointer"
-      >
+  const pathLabel =
+    relativePath &&
+    (isFileLink ? (
+      <span onClick={handleFileClick} className="min-w-0 truncate text-primary text-xs hover:underline cursor-pointer">
         {relativePath}
       </span>
     ) : (
       <span className="min-w-0 truncate text-muted-foreground text-xs">{relativePath}</span>
-    )
-  )
+    ))
 
   if (filediff) {
     return (
@@ -122,7 +119,11 @@ function FileToolRender({ part, filediff, filePath, content, toolName, onFileCli
             <span className="ml-auto flex flex-shrink-0 items-center gap-2">
               <DiffStats additions={filediff.additions} deletions={filediff.deletions} />
               <span className="text-muted-foreground text-xs">{getDuration()}</span>
-              {detailsOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              {detailsOpen ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
             </span>
           </button>
 
@@ -131,7 +132,7 @@ function FileToolRender({ part, filediff, filePath, content, toolName, onFileCli
               <button
                 type="button"
                 onClick={() => setDetailsOpen(true)}
-                aria-label={`Show diff for ${relativePath ?? toolName}`}
+                aria-label={t('Show diff for {name}', { name: relativePath ?? toolName })}
                 className="block w-full text-left"
               >
                 <DiffLines rows={previewRows} language={language} />
@@ -142,7 +143,7 @@ function FileToolRender({ part, filediff, filePath, content, toolName, onFileCli
                   onClick={() => setDetailsOpen(true)}
                   className="text-muted-foreground text-xs transition-colors hover:text-foreground"
                 >
-                  ({hiddenLineCount} more lines)
+                  {t('({count} more lines)', { count: hiddenLineCount })}
                 </button>
               )}
             </div>
@@ -177,9 +178,12 @@ function FileToolRender({ part, filediff, filePath, content, toolName, onFileCli
         {pathLabel}
         <span className="ml-auto flex flex-shrink-0 items-center gap-2">
           <span className="text-muted-foreground text-xs">{getDuration()}</span>
-          {hasExpandableContent && (
-            detailsOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          )}
+          {hasExpandableContent &&
+            (detailsOpen ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            ))}
         </span>
       </button>
 
@@ -209,7 +213,10 @@ export function getToolInputPath(input: Record<string, unknown> | undefined): st
   return typeof filePath === 'string' && filePath ? filePath : undefined
 }
 
-export function getToolSpecificRender(part: SessionMessageAssistantTool, onFileClick?: (filePath: string) => void): React.ReactElement | null {
+export function getToolSpecificRender(
+  part: SessionMessageAssistantTool,
+  onFileClick?: (filePath: string) => void,
+): React.ReactElement | null {
   if (part.state.status !== 'completed') return null
 
   const input = part.state.input
@@ -218,7 +225,7 @@ export function getToolSpecificRender(part: SessionMessageAssistantTool, onFileC
   if (part.name === 'edit' || part.name === 'patch') {
     const diffs = fileDiffs(part)
     if (diffs.length === 0) return null
-    const toolName = part.name === 'edit' ? 'Edit' : 'Patch'
+    const toolName = part.name === 'edit' ? t('Edit') : t('Patch')
     return (
       <>
         {diffs.map((filediff, index) => (
@@ -237,7 +244,9 @@ export function getToolSpecificRender(part: SessionMessageAssistantTool, onFileC
 
   if (part.name === 'write' && inputPath) {
     const content = input.content as string | undefined
-    return <FileToolRender part={part} filePath={inputPath} content={content} toolName="Write" onFileClick={onFileClick} />
+    return (
+      <FileToolRender part={part} filePath={inputPath} content={content} toolName="Write" onFileClick={onFileClick} />
+    )
   }
 
   if (part.name === 'read' && inputPath) {

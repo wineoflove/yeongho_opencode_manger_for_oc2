@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { TRANSCRIPT_DETAIL_CLASS } from './transcriptStyles'
 import type { ShellNoticeOutcome } from '@/lib/backgroundWork'
 import type { WalkthroughSource } from '@opencode-manager/shared/schemas'
+import { t } from '@/i18n/translate'
 
 type AssistantContentPart = SessionMessageAssistant['content'][number]
 
@@ -37,7 +38,7 @@ export const MessagePart = memo(function MessagePart({ part, messageID, director
       return (
         <details className="my-1">
           <summary className="cursor-pointer py-0.5 text-sm text-muted-foreground hover:text-foreground">
-            Reasoning
+            {t('Reasoning')}
           </summary>
           <div className={cn(TRANSCRIPT_DETAIL_CLASS, 'text-sm text-muted-foreground whitespace-pre-wrap')}>
             {part.text}

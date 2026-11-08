@@ -56,6 +56,20 @@ describe('ExplorationGroup', () => {
     mocks.useToolCallPermission.mockReturnValue(null)
   })
 
+  it('shows the elapsed time from the first call to the last completion', () => {
+    const first = { ...readTool('r1', 'completed'), time: { created: 1_000, ran: 1_000, completed: 2_000 } }
+    const second = { ...readTool('r2', 'completed'), time: { created: 2_000, ran: 2_000, completed: 66_000 } }
+    render(<ExplorationGroup parts={[first, second]} messageID="msg_1" />)
+
+    expect(screen.getByText('1m 05s')).toBeInTheDocument()
+  })
+
+  it('omits the elapsed time for sub-second groups', () => {
+    render(<ExplorationGroup parts={[readTool('r1', 'completed'), readTool('r2', 'completed')]} messageID="msg_1" />)
+
+    expect(screen.queryByText(/^\d+s$/)).not.toBeInTheDocument()
+  })
+
   it('summarises a successful run and keeps the arrow marker', () => {
     render(<ExplorationGroup parts={[readTool('r1', 'completed'), readTool('r2', 'completed')]} messageID="msg_1" />)
 

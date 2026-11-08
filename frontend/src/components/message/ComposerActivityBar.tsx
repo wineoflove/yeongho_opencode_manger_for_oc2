@@ -1,5 +1,6 @@
 import { ScannerBars, type ScannerTone } from '@/components/ui/scanner-bars'
 import { useHasBackgroundActivity, useSessionStatusForSession } from '@/stores/sessionStatusStore'
+import { msg, t } from '@/i18n/translate'
 
 interface ComposerActivityBarProps {
   sessionID: string
@@ -7,19 +8,19 @@ interface ComposerActivityBarProps {
 
 const ACTIVITY_PRESENTATION = {
   background: {
-    label: 'Background tasks running',
+    label: msg('Background tasks running'),
     tone: 'muted-foreground',
   },
   busy: {
-    label: 'Session working',
+    label: msg('Session working'),
     tone: 'info',
   },
   compact: {
-    label: 'Compacting',
+    label: msg('Compacting'),
     tone: 'primary',
   },
   retry: {
-    label: 'Retrying',
+    label: msg('Retrying'),
     tone: 'warning',
   },
 } as const satisfies Record<string, { label: string; tone: ScannerTone }>
@@ -43,8 +44,8 @@ export function ComposerActivityBar({ sessionID }: ComposerActivityBarProps) {
     ? ACTIVITY_PRESENTATION.background
     : ACTIVITY_PRESENTATION[status.type]
   const label = status.type === 'retry'
-    ? `${ACTIVITY_PRESENTATION.retry.label} (Retry #${status.attempt})`
-    : activity.label
+    ? `${t(ACTIVITY_PRESENTATION.retry.label)} (${t('Retry #{attempt}', { attempt: status.attempt })})`
+    : t(activity.label)
 
   return (
     <div

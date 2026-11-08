@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { SandboxMenuItems } from './SandboxMenuItems'
 import { ToolMenuItemContent } from './ToolMenuItemContent'
 import { SessionSandboxResourcesDialog } from './SessionSandboxResourcesDialog'
+import { t } from '@/i18n/translate'
 
 interface ComposerToolsMenuProps {
   sessionID: string
@@ -54,8 +55,8 @@ export function ComposerToolsMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label="Composer options"
-            title="Composer options"
+            aria-label={t('Composer options')}
+            title={t('Composer options')}
             className={cn(getIconToggleButtonClassName(permission.isAuto || sandbox.isSandboxed || goalArmed), 'flex items-center justify-center size-11 p-0')}
           >
             <Plus className="w-5 h-5" />
@@ -69,7 +70,7 @@ export function ComposerToolsMenu({
           >
             <ToolMenuItemContent
               icon={permission.isAuto ? <ShieldCheck className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
-              title="Accept all permissions"
+              title={t('Accept all permissions')}
               detail={permission.disabled ? permission.label : undefined}
             />
           </DropdownMenuCheckboxItem>
@@ -79,13 +80,13 @@ export function ComposerToolsMenu({
           <DropdownMenuCheckboxItem checked={goalArmed} disabled={goalDisabled} onCheckedChange={onToggleGoal}>
             <ToolMenuItemContent
               icon={<Target className="h-4 w-4" />}
-              title="Goal mode"
+              title={t('Goal mode')}
               detail={goalDisabled ? goalLabel : undefined}
             />
           </DropdownMenuCheckboxItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onAttachFile} className="pl-8">
-            <ToolMenuItemContent icon={<Paperclip className="h-4 w-4" />} title="Attach image or PDF" />
+            <ToolMenuItemContent icon={<Paperclip className="h-4 w-4" />} title={t('Attach image or PDF')} />
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

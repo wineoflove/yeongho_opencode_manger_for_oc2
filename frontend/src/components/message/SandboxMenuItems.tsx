@@ -2,6 +2,7 @@ import { Box, Cpu } from 'lucide-react'
 import { DropdownMenuCheckboxItem, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { formatSandboxResources, shouldShowSandboxResources, type SandboxToggleState } from '@/lib/sandboxResources'
 import { ToolMenuItemContent } from './ToolMenuItemContent'
+import { t } from '@/i18n/translate'
 
 interface SandboxMenuItemsProps {
   sandbox: SandboxToggleState
@@ -19,7 +20,7 @@ export function SandboxMenuItems({ sandbox, onOpenResources }: SandboxMenuItemsP
         >
           <ToolMenuItemContent
             icon={<Box className="h-4 w-4" />}
-            title="Sandbox commands"
+            title={t('Sandbox commands')}
             detail={sandbox.disabled ? sandbox.label : undefined}
           />
         </DropdownMenuCheckboxItem>
@@ -28,7 +29,7 @@ export function SandboxMenuItems({ sandbox, onOpenResources }: SandboxMenuItemsP
         <DropdownMenuItem className="pl-8" aria-haspopup="dialog" onSelect={() => setTimeout(onOpenResources, 0)}>
           <ToolMenuItemContent
             icon={<Cpu className="h-4 w-4" />}
-            title="Sandbox resources…"
+            title={t('Sandbox resources…')}
             detail={`${formatSandboxResources(sandbox.effectiveResources!)}${sandbox.resources ? ' · custom' : ''}`}
           />
         </DropdownMenuItem>

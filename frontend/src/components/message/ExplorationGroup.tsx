@@ -1,9 +1,16 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import type { SessionMessageAssistantTool } from '@opencode-manager/shared/opencode'
 import { useSettings } from '@/hooks/useSettings'
 import { useToolCallPermission } from '@/contexts/EventContext'
-import { explorationFailureCount, explorationLabel, isExplorationComplete } from '@/lib/explorationGroups'
+import {
+  explorationElapsedMs,
+  explorationFailureCount,
+  explorationLabel,
+  isExplorationComplete,
+} from '@/lib/explorationGroups'
+import type { ShellNoticeOutcome } from '@/lib/backgroundWork'
+import { formatCompactDuration } from '@/i18n/format'
 import type { WalkthroughSource } from '@opencode-manager/shared/schemas'
 import { MessagePart } from './MessagePart'
 
@@ -16,9 +23,13 @@ interface ExplorationGroupProps {
   onFileClick?: (filePath: string, lineNumber?: number) => void
   onChildSessionClick?: (sessionId: string) => void
   onOpenWalkthrough?: (source?: WalkthroughSource) => void
+  shellOutcomeFor?: (part: SessionMessageAssistantTool) => ShellNoticeOutcome | undefined
 }
 
-type MemberProps = Omit<ExplorationGroupProps, 'parts'> & { part: SessionMessageAssistantTool }
+type MemberProps = Omit<ExplorationGroupProps, 'parts' | 'shellOutcomeFor'> & {
+  part: SessionMessageAssistantTool
+  shellOutcome?: ShellNoticeOutcome
+}
 
 function PermissionBlockedMember(props: MemberProps) {
   const pendingPermission = useToolCallPermission(props.part.id, props.messageID)
@@ -26,12 +37,30 @@ function PermissionBlockedMember(props: MemberProps) {
   return <MessagePart {...props} />
 }
 
-/** Collapsed summary of consecutive read, search, and fetch tool calls, expandable to the individual calls. */
-export const ExplorationGroup = memo(function ExplorationGroup({ parts, ...memberProps }: ExplorationGroupProps) {
+/** Wall-clock time refreshed every second while the group still has an open call. */
+function useGroupNow(live: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!live) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [live])
+  return now
+}
+
+/** Collapsed summary of consecutive tool calls with their elapsed time, expandable to the individual calls. */
+export const ExplorationGroup = memo(function ExplorationGroup({
+  parts,
+  shellOutcomeFor,
+  ...memberProps
+}: ExplorationGroupProps) {
   const { preferences } = useSettings()
   const [expanded, setExpanded] = useState(preferences?.expandToolCalls ?? false)
   const completed = isExplorationComplete(parts)
   const failed = completed && explorationFailureCount(parts) > 0
+  const now = useGroupNow(!completed)
+  const elapsedMs = explorationElapsedMs(parts, now)
 
   return (
     <div className="my-1">
@@ -49,16 +78,21 @@ export const ExplorationGroup = memo(function ExplorationGroup({ parts, ...membe
           <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
         )}
         <span className="truncate">{explorationLabel(parts)}</span>
+        {elapsedMs >= 1000 && (
+          <span className="shrink-0 font-mono text-xs tabular-nums">{formatCompactDuration(elapsedMs)}</span>
+        )}
         <ChevronRight className={`w-3.5 h-3.5 shrink-0 opacity-0 group-hover:opacity-100 transition-transform ${expanded ? 'rotate-90 opacity-100' : ''}`} />
       </button>
       {expanded ? (
         <div className="ml-1.5 border-l border-border pl-3">
           {parts.map((part) => (
-            <MessagePart key={part.id} part={part} {...memberProps} />
+            <MessagePart key={part.id} part={part} shellOutcome={shellOutcomeFor?.(part)} {...memberProps} />
           ))}
         </div>
       ) : (
-        parts.map((part) => <PermissionBlockedMember key={part.id} part={part} {...memberProps} />)
+        parts.map((part) => (
+          <PermissionBlockedMember key={part.id} part={part} shellOutcome={shellOutcomeFor?.(part)} {...memberProps} />
+        ))
       )}
     </div>
   )

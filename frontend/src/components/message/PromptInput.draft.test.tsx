@@ -6,6 +6,7 @@ import { useComposerDraftStore } from '@/stores/composerDraftStore'
 import { createCommandActionsMock, createVoiceConversationControllerMock } from '@/test/test-utils'
 
 const mocks = vi.hoisted(() => ({
+  uploadPromptFile: vi.fn(),
   useSTT: vi.fn(),
   useVoiceConversation: vi.fn(),
   useMobile: vi.fn(),
@@ -58,6 +59,7 @@ vi.mock('@/hooks/useOpenCode', () => ({
 }))
 
 vi.mock('@/hooks/useProviders', () => ({ useProviders: () => ({ data: undefined }) }))
+vi.mock('@/api/promptAttachments', () => ({ uploadPromptFile: mocks.uploadPromptFile }))
 
 vi.mock('@/contexts/EventContext', () => ({
   usePermissions: () => ({
@@ -316,5 +318,27 @@ describe('PromptInput per-session composer draft', () => {
     await attachImage(container)
 
     expect(screen.getByRole('button', { name: 'Remove pic.png' })).toBeInTheDocument()
+  })
+
+  it('uploads a non-image file and blocks sending until the upload has been attached', async () => {
+    let finish: (value: { path: string; size: number }) => void = () => {}
+    mocks.uploadPromptFile.mockReturnValue(new Promise((resolve) => (finish = resolve)))
+    const { container } = renderSession('session-a')
+    fireEvent.change(promptInput(), { target: { value: 'review this archive' } })
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    expect(fileInput).not.toHaveAttribute('accept')
+    fireEvent.change(fileInput, { target: { files: [new File(['zip-bytes'], 'logs.zip', { type: 'application/zip' })] } })
+    await waitFor(() => expect(mocks.uploadPromptFile).toHaveBeenCalledWith(expect.any(File), '/test'))
+    const send = container.querySelector('[data-submit-prompt]') as HTMLButtonElement
+    expect(send).toBeDisabled()
+    await act(async () => finish({ path: '/test/.attachments/file-abc/original.zip', size: 9 }))
+    expect(await screen.findByText('logs.zip')).toBeInTheDocument()
+    expect(send).not.toBeDisabled()
+    fireEvent.click(send)
+    await waitFor(() => expect(mocks.useSendPrompt).toHaveBeenCalled())
+    const input = mocks.useSendPrompt.mock.calls.at(-1)?.[0] as { files?: { uri: string; name?: string }[] }
+    const note = input.files?.find((file) => file.name === 'logs.zip')
+    expect(note?.uri.startsWith('data:text/plain;base64,')).toBe(true)
+    expect(atob(note?.uri.split(',')[1] ?? '')).toContain('/test/.attachments/file-abc/original.zip')
   })
 })

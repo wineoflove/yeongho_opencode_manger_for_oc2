@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { PermissionRequest, SessionMessageAssistantTool } from '@opencode-manager/shared/opencode'
 import { ToolCallPart } from './ToolCallPart'
+import recordedTodoMessages from '@/test/opencode2TodoMessages.json'
 import { getFileApiUrl } from '@/api/files'
 import { useUserBash } from '@/stores/userBashStore'
 import { useSessionStatus } from '@/stores/sessionStatusStore'
@@ -49,6 +50,35 @@ const permissionFor = (source: PermissionRequest['source']): PermissionRequest =
   action: 'shell',
   resources: ['git status'],
   source,
+})
+
+describe('ToolCallPart todowrite', () => {
+  beforeEach(() => {
+    mocks.useSettings.mockReturnValue({
+      preferences: { expandToolCalls: true },
+      isLoading: false,
+      updateSettings: vi.fn(),
+      isUpdating: false,
+    })
+    mocks.useToolCallPermission.mockReturnValue(null)
+  })
+
+  it('summarizes the written list and shows the todos instead of raw input and output', () => {
+    const recorded = (recordedTodoMessages as unknown as { type: string; content?: SessionMessageAssistantTool[] }[])
+      .flatMap((message) => message.content ?? [])
+      .filter((part) => part.type === 'tool' && part.name === 'todowrite')
+    const part = recorded.at(-1)
+    if (!part) throw new Error('fixture lacks a todowrite call')
+
+    renderWithProviders(<ToolCallPart part={part} messageID="msg_1" />)
+
+    expect(screen.getByText('Tasks: 2/3 complete')).toBeInTheDocument()
+    const list = screen.getByTestId('todowrite-list')
+    expect(list).toHaveTextContent('Run the suite')
+    expect(list).toHaveTextContent('Drop the workaround')
+    expect(screen.queryByText('Output:')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Todos updated/)).not.toBeInTheDocument()
+  })
 })
 
 describe('ToolCallPart permission indicator', () => {

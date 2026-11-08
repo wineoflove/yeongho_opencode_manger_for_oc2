@@ -6,6 +6,7 @@ import { useSetSessionSandbox } from '@/hooks/useSessionSandbox'
 import { FetchError } from '@/api/fetchWrapper'
 import { formatSandboxMemory } from '@/lib/sandboxResources'
 import { SessionSandboxResourcesSchema, type SessionSandboxResources } from '@opencode-manager/shared/schemas'
+import { t } from '@/i18n/translate'
 
 interface SessionSandboxResourcesDialogProps {
   sessionID: string
@@ -44,7 +45,7 @@ export function SessionSandboxResourcesDialog({
       await setSandbox.mutateAsync({ resources })
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof FetchError ? err.message : 'Failed to update sandbox resources')
+      setError(err instanceof FetchError ? err.message : t('Failed to update sandbox resources'))
     }
   }
 
@@ -62,10 +63,9 @@ export function SessionSandboxResourcesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[90%] sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Sandbox resources</DialogTitle>
+          <DialogTitle>{t('Sandbox resources')}</DialogTitle>
           <DialogDescription>
-            CPU and memory changes apply on this session's next sandboxed command and recreate its VM. The Docker
-            data volume is kept.
+            {t("CPU and memory changes apply on this session's next sandboxed command and recreate its VM. The Docker data volume is kept.")}
           </DialogDescription>
         </DialogHeader>
         <SandboxResourceInputs
@@ -79,10 +79,10 @@ export function SessionSandboxResourcesDialog({
         />
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => void submit(null)} disabled={setSandbox.isPending}>
-            Use defaults
+            {t('Use defaults')}
           </Button>
           <Button onClick={handleSave} disabled={setSandbox.isPending}>
-            Save
+            {t('Save')}
           </Button>
         </DialogFooter>
       </DialogContent>

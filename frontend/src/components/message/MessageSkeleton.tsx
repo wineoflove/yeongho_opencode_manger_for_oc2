@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 function Bar({ className }: { className: string }) {
   return <div className={cn('animate-pulse rounded', className)} />
@@ -68,7 +69,7 @@ export function MessageSkeleton() {
         <div className="mt-3 flex items-center gap-2">
           <Bar className="h-3 w-10 bg-primary/30" />
           <Bar className="h-3 w-24 bg-muted" />
-          <span className="animate-pulse-subtle text-xs text-info">streaming</span>
+          <span className="animate-pulse-subtle text-xs text-info">{t('streaming')}</span>
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getRelativePath } from './FileToolRender'
 import { TRANSCRIPT_DETAIL_CLASS, TRANSCRIPT_ROW_CLASS } from './transcriptStyles'
+import { t, tn } from '@/i18n/translate'
 
 interface StepFileChangesProps {
   files: string[]
@@ -11,10 +12,6 @@ interface StepFileChangesProps {
 }
 
 const INITIAL_FILES_SHOWN = 3
-
-function fileNoun(count: number): string {
-  return count === 1 ? 'file' : 'files'
-}
 
 export function StepFileChanges({ files, snapshot, onFileClick }: StepFileChangesProps) {
   const [expanded, setExpanded] = useState(false)
@@ -33,12 +30,12 @@ export function StepFileChanges({ files, snapshot, onFileClick }: StepFileChange
         className={cn(TRANSCRIPT_ROW_CLASS, 'hover:text-foreground transition-colors')}
       >
         <span aria-hidden="true">±</span>
-        <span className="font-medium text-foreground">File Changes ({files.length} {fileNoun(files.length)})</span>
+        <span className="font-medium text-foreground">
+          {tn('File Changes ({count} file)', 'File Changes ({count} files)', files.length)}
+        </span>
         <span className="ml-auto flex flex-shrink-0 items-center gap-2">
           {snapshot && <span className="text-xs text-muted-foreground">{snapshot.slice(0, 8)}</span>}
-          {hasMoreFiles && (
-            expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
-          )}
+          {hasMoreFiles && (expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
         </span>
       </button>
 
@@ -62,7 +59,7 @@ export function StepFileChanges({ files, snapshot, onFileClick }: StepFileChange
             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
             {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            {expanded ? 'Show less' : `+${hiddenCount} more ${fileNoun(hiddenCount)}`}
+            {expanded ? t('Show less') : tn('+{count} more file', '+{count} more files', hiddenCount)}
           </button>
         )}
       </div>

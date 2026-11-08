@@ -4,6 +4,7 @@ import { Plus, Minus, ChevronDown, ChevronUp } from 'lucide-react'
 import { diffLines } from 'diff'
 import type { Change } from 'diff'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 interface ContentDiffViewerProps {
   before: string
@@ -100,7 +101,7 @@ export function ContentDiffViewer({ before, after }: ContentDiffViewerProps) {
   if (compressedLines.length === 0) {
     return (
       <div className="px-3 py-2 text-xs text-muted-foreground">
-        No changes
+        {t('No changes')}
       </div>
     )
   }
@@ -155,7 +156,7 @@ export function ContentDiffViewer({ before, after }: ContentDiffViewerProps) {
           className="px-3 py-1 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
         >
           <ChevronDown className="w-3 h-3" />
-          +{hiddenCount} more lines
+          {t('+{count} more lines', { count: hiddenCount })}
         </button>
       )}
 
@@ -165,7 +166,7 @@ export function ContentDiffViewer({ before, after }: ContentDiffViewerProps) {
           className="px-3 py-1 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
         >
           <ChevronUp className="w-3 h-3" />
-          Show less
+          {t('Show less')}
         </button>
       )}
     </div>

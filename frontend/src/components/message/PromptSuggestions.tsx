@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { Bot, FileText, Sparkles, Play, type LucideIcon } from 'lucide-react'
 import { SWIPE_COMMIT_DISTANCE, useTouchTapSelect } from '@/hooks/useTouchTapSelect'
 import type { MatchRange } from '@/lib/fuzzyMatch'
+import { t } from '@/i18n/translate'
 
 export type SuggestionKind = 'command' | 'agent' | 'skill' | 'file'
 
@@ -91,7 +92,7 @@ export function PromptSuggestions<T>({
         {swipeOffset > 0 && (
           <div className={`absolute inset-0 flex items-center gap-2 pl-4 text-xs font-bold tracking-widest ${swipeOffset >= SWIPE_COMMIT_DISTANCE ? 'bg-success text-success-foreground' : 'bg-success/40 text-foreground'}`}>
             <Play className="w-4 h-4" />
-            RUN
+            {t('RUN')}
           </div>
         )}
         <button

@@ -11,6 +11,7 @@ import {
   formatContextUsage,
 } from '@/lib/contextUsage'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 interface ComposerModelPillProps {
   directory?: string
@@ -46,10 +47,12 @@ export const ComposerModelPill = memo(function ComposerModelPill({
   const pillUsage = contextUsage ? formatContextUsage(contextUsage) : null
   const pillUsageTone = CONTEXT_USAGE_TEXT_CLASS[contextUsageTone(contextUsage?.usagePercentage ?? null)]
   const pillLabel = [
-    modelName || 'Select model',
-    variant ? `${variant} variant` : null,
+    modelName || t('Select model'),
+    variant ? t('{variant} variant', { variant }) : null,
     contextUsage ? contextUsageAccessibleLabel(contextUsage) : null,
-  ].filter((part): part is string => part !== null).join(', ')
+  ]
+    .filter((part): part is string => part !== null)
+    .join(', ')
 
   const trigger = useMemo(
     () => (
@@ -57,30 +60,24 @@ export const ComposerModelPill = memo(function ComposerModelPill({
         aria-label={pillLabel}
         className="relative px-2.5 py-0.5 md:px-3 min-h-11 md:min-h-9 min-w-0 rounded-lg text-xs md:text-sm font-medium border bg-muted border-border text-muted-foreground hover:bg-muted-foreground/10 hover:border-foreground/30 transition-colors cursor-pointer flex-1 md:flex-initial md:w-auto md:max-w-[220px] dark:border-border/30 flex flex-col items-start justify-center overflow-hidden"
       >
-        <span className="truncate w-full text-left">{modelName || 'Select model'}</span>
+        <span className="truncate w-full text-left">{modelName || t('Select model')}</span>
         {(variant || pillUsage) && (
           <span className="flex w-full min-w-0 items-center gap-1 text-[10px] leading-tight">
-            {variant && (
-              <span className="truncate text-left capitalize text-highlight">{variant}</span>
-            )}
+            {variant && <span className="truncate text-left capitalize text-highlight">{variant}</span>}
             {variant && pillUsage && (
-              <span aria-hidden="true" className="text-muted-foreground">·</span>
+              <span aria-hidden="true" className="text-muted-foreground">
+                ·
+              </span>
             )}
             {pillUsage && (
-              <span
-                data-testid="model-pill-context-usage"
-                className={cn('shrink-0 font-medium', pillUsageTone)}
-              >
+              <span data-testid="model-pill-context-usage" className={cn('shrink-0 font-medium', pillUsageTone)}>
                 {pillUsage}
               </span>
             )}
           </span>
         )}
         {contextUsage && (
-          <ContextUsageMeter
-            percentage={contextUsage.usagePercentage}
-            className="absolute inset-x-0 bottom-0"
-          />
+          <ContextUsageMeter percentage={contextUsage.usagePercentage} className="absolute inset-x-0 bottom-0" />
         )}
       </button>
     ),

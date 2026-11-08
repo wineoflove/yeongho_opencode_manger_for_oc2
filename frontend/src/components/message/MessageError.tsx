@@ -1,19 +1,20 @@
 import { memo } from 'react'
 import type { SessionStructuredError } from '@opencode-manager/shared/opencode'
 import { AlertCircle, KeyRound, XCircle, Clock } from 'lucide-react'
+import { msg, t } from '@/i18n/translate'
 
 interface MessageErrorProps {
   error: SessionStructuredError
 }
 
 const ERROR_LABELS: Record<string, string> = {
-  'provider.auth': 'Provider authentication failed',
-  'provider.rate-limit': 'Provider rate limit reached',
-  'provider.quota': 'Provider quota exceeded',
-  'provider.timeout': 'Provider request timed out',
-  'permission.rejected': 'Permission denied',
-  'tool.execution': 'Tool execution failed',
-  aborted: 'Stopped',
+  'provider.auth': msg('Provider authentication failed'),
+  'provider.rate-limit': msg('Provider rate limit reached'),
+  'provider.quota': msg('Provider quota exceeded'),
+  'provider.timeout': msg('Provider request timed out'),
+  'permission.rejected': msg('Permission denied'),
+  'tool.execution': msg('Tool execution failed'),
+  aborted: msg('Stopped'),
 }
 
 function getErrorIcon(errorType: string) {
@@ -32,7 +33,7 @@ function getErrorIcon(errorType: string) {
 
 export const MessageError = memo(function MessageError({ error }: MessageErrorProps) {
   const Icon = getErrorIcon(error.type)
-  const label = ERROR_LABELS[error.type] ?? 'Error'
+  const label = t(ERROR_LABELS[error.type] ?? 'Error')
   const isAborted = error.type === 'aborted'
   const tone = isAborted
     ? 'text-muted-foreground'

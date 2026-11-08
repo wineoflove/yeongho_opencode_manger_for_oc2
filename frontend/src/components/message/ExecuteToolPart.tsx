@@ -13,6 +13,7 @@ import { FileReferenceText } from './FileReferenceText'
 import { ToolContentFiles } from './ToolContentFiles'
 import { ToolDetails, useToolDetailsState } from './ToolDetails'
 import { TRANSCRIPT_DETAIL_CLASS, TRANSCRIPT_ROW_CLASS } from './transcriptStyles'
+import { t } from '@/i18n/translate'
 
 const PREVIEW_CALL_LIMIT = 5
 const MOBILE_PREVIEW_CALL_LIMIT = 3
@@ -55,9 +56,9 @@ function executeCalls(value: unknown): ExecuteCall[] {
 }
 
 function primitiveInputSummary(input: Record<string, unknown>): string {
-  const entries = Object.entries(input).filter(([, value]) => (
-    typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-  ))
+  const entries = Object.entries(input).filter(
+    ([, value]) => typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean',
+  )
   if (entries.length === 0) return ''
   return `[${entries.map(([key, value]) => `${key}=${String(value)}`).join(', ')}]`
 }
@@ -88,7 +89,10 @@ function parseOutput(text: string): ParsedOutput | undefined {
   } catch {
     return undefined
   }
-  return { json, rest: tail === -1 ? undefined : text.slice(json.length).trim() || undefined }
+  return {
+    json,
+    rest: tail === -1 ? undefined : text.slice(json.length).trim() || undefined,
+  }
 }
 
 function trimTrailingNewlines(text: string): string {
@@ -124,7 +128,11 @@ const HighlightedCode = memo(function HighlightedCode({
     return `${fence}${language}\n${body}\n${fence}`
   }, [body, language])
   const gutter = useMemo(
-    () => body.split('\n').map((_, index) => String(index + 1)).join('\n'),
+    () =>
+      body
+        .split('\n')
+        .map((_, index) => String(index + 1))
+        .join('\n'),
     [body],
   )
 
@@ -174,7 +182,9 @@ function ExecuteCallRow({ call, onFileClick }: { call: ExecuteCall; onFileClick?
         <div className={`flex min-w-0 items-center gap-1 font-mono text-xs ${color}`}>{summary}</div>
       )}
       {expanded && (
-        <div className={`mt-1 space-y-1 border-l border-border pl-3 text-xs ${isError ? 'text-destructive' : 'text-foreground'}`}>
+        <div
+          className={`mt-1 space-y-1 border-l border-border pl-3 text-xs ${isError ? 'text-destructive' : 'text-foreground'}`}
+        >
           {entries.map(([key, value]) => (
             <div key={key} className="flex gap-2">
               <span className="shrink-0 text-muted-foreground">{key}:</span>
@@ -205,19 +215,21 @@ export function ExecuteToolPart({ part, isWaitingPermission, onFileClick }: Exec
     () => (displayOutput === output ? parseOutput(output) : undefined),
     [displayOutput, output],
   )
-  const failed = part.state.status === 'error'
-    || metadata.error === true
-    || (part.state.status === 'completed' && calls.some((call) => call.status === 'error'))
+  const failed =
+    part.state.status === 'error' ||
+    metadata.error === true ||
+    (part.state.status === 'completed' && calls.some((call) => call.status === 'error'))
   const status = part.state.status
 
   const statusLabel = (() => {
-    if (status === 'streaming') return 'Receiving code…'
-    if (isWaitingPermission) return 'awaiting permission'
-    if (status === 'running') return 'Running'
-    const duration = part.time.completed !== undefined
-      ? ` · ${formatDuration(part.time.completed - (part.time.ran ?? part.time.created))}`
-      : ''
-    return `${failed ? 'Failed' : 'Completed'}${duration}`
+    if (status === 'streaming') return t('Receiving code…')
+    if (isWaitingPermission) return t('awaiting permission')
+    if (status === 'running') return t('Running')
+    const duration =
+      part.time.completed !== undefined
+        ? ` · ${formatDuration(part.time.completed - (part.time.ran ?? part.time.created))}`
+        : ''
+    return `${failed ? t('Failed') : t('Completed')}${duration}`
   })()
 
   const statusColor = (() => {
@@ -251,9 +263,7 @@ export function ExecuteToolPart({ part, isWaitingPermission, onFileClick }: Exec
       >
         <span className={cn('shrink-0', statusColor)}>{statusIcon}</span>
         <span className="shrink-0 font-medium text-foreground">execute</span>
-        <span className={cn('ml-auto shrink-0 text-xs', failed && 'text-destructive')}>
-          {statusLabel}
-        </span>
+        <span className={cn('ml-auto shrink-0 text-xs', failed && 'text-destructive')}>{statusLabel}</span>
       </button>
 
       {!detailsOpen && calls.length > 0 && (
@@ -262,7 +272,11 @@ export function ExecuteToolPart({ part, isWaitingPermission, onFileClick }: Exec
             <ExecuteCallRow key={`${call.tool}-${index}`} call={call} onFileClick={onFileClick} />
           ))}
           {calls.length > previewCallLimit && (
-            <div className="text-xs text-muted-foreground">({calls.length - previewCallLimit} more calls)</div>
+            <div className="text-xs text-muted-foreground">
+              {t('({count} more calls)', {
+                count: calls.length - previewCallLimit,
+              })}
+            </div>
           )}
         </div>
       )}
@@ -289,23 +303,21 @@ export function ExecuteToolPart({ part, isWaitingPermission, onFileClick }: Exec
         )}
 
         <div className="text-sm">
-          <div className="text-muted-foreground mb-1">Code</div>
+          <div className="text-muted-foreground mb-1">{t('Code')}</div>
           {code ? (
             <HighlightedCode content={code} language="ts" digits={digits} />
           ) : (
-            <div className="text-xs text-muted-foreground">Waiting for code…</div>
+            <div className="text-xs text-muted-foreground">{t('Waiting for code…')}</div>
           )}
         </div>
 
         <div className="text-sm">
-          <div className="text-muted-foreground mb-1">Output</div>
+          <div className="text-muted-foreground mb-1">{t('Output')}</div>
           {parsedOutput ? (
             <>
               <HighlightedCode content={parsedOutput.json} language="json" digits={digits} />
               {parsedOutput.rest && (
-                <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-foreground">
-                  {parsedOutput.rest}
-                </pre>
+                <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-foreground">{parsedOutput.rest}</pre>
               )}
             </>
           ) : displayOutput ? (
@@ -316,7 +328,7 @@ export function ExecuteToolPart({ part, isWaitingPermission, onFileClick }: Exec
             </pre>
           ) : (
             <div className="text-xs text-muted-foreground">
-              {status === 'completed' ? 'No output' : 'Waiting for output…'}
+              {status === 'completed' ? t('No output') : t('Waiting for output…')}
             </div>
           )}
         </div>
@@ -324,14 +336,14 @@ export function ExecuteToolPart({ part, isWaitingPermission, onFileClick }: Exec
         <div className="flex items-center gap-4">
           {code && (
             <div className="flex items-center gap-1">
-              <CopyButton content={code} title="Copy code" />
-              <span className="text-xs text-muted-foreground">Copy code</span>
+              <CopyButton content={code} title={t('Copy code')} />
+              <span className="text-xs text-muted-foreground">{t('Copy code')}</span>
             </div>
           )}
           {output && (
             <div className="flex items-center gap-1">
-              <CopyButton content={output} title="Copy output" />
-              <span className="text-xs text-muted-foreground">Copy output</span>
+              <CopyButton content={output} title={t('Copy output')} />
+              <span className="text-xs text-muted-foreground">{t('Copy output')}</span>
             </div>
           )}
         </div>

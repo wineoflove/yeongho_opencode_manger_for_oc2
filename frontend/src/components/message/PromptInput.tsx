@@ -12,6 +12,7 @@ import { useUserBash } from '@/stores/userBashStore'
 import { useSessionAgentStore } from '@/stores/sessionAgentStore'
 import { useSendErrorStore } from '@/stores/sendErrorStore'
 import { useComposerDraftStore, type ComposerDraft } from '@/stores/composerDraftStore'
+import { usePromptFileUploads } from '@/hooks/usePromptFileUploads'
 import { useRecentCommandsStore } from '@/stores/recentCommandsStore'
 import { useHasBackgroundActivity, useSessionStatusForSession } from '@/stores/sessionStatusStore'
 import { useTouchTapSelect } from '@/hooks/useTouchTapSelect'
@@ -39,7 +40,6 @@ import { detectMentionTrigger, parsePromptToInput, getFilename, getDirectory, ty
 import { matchText, rankByMatch, type MatchRange } from '@/lib/fuzzyMatch'
 import { getNextPrimaryAgentId } from '@/lib/primaryAgents'
 import { getNextFavoriteModel } from '@/lib/favoriteModels'
-import { randomId } from '@/lib/utils'
 import { showToast } from '@/lib/toast'
 import { findModelInfo, isSameModelSelection } from '@opencode-manager/shared/opencode'
 import { isOpenSessionGoal } from '@opencode-manager/shared/schemas'
@@ -49,6 +49,7 @@ import { useProviders } from '@/hooks/useProviders'
 import type { CommandInfo } from '@opencode-manager/shared/opencode'
 import type { FileAttachmentInfo, ImageAttachment } from '@/api/types'
 import { isBuiltinCommand, type CommandActions, type PageCommandActions } from '@/lib/builtinCommands'
+import { t } from '@/i18n/translate'
 
 const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/heic", "image/heif"]
 
@@ -157,6 +158,10 @@ export const PromptInput = memo(forwardRef<PromptInputHandle, PromptInputProps>(
   const [suggestionQuery, setSuggestionQuery] = useState('')
   const [attachedFiles, setAttachedFiles] = useState(restoredDraft.attachedFiles)
   const [imageAttachments, setImageAttachments] = useState(restoredDraft.imageAttachments)
+  const { addFileAttachments, isUploading, hasPendingUploads } = usePromptFileUploads(
+    { directory, sessionID },
+    (attachment) => setImageAttachments((previous) => [...previous, attachment]),
+  )
   const [isDragging, setIsDragging] = useState(false)
   const [isModelPickerOpen, setIsModelPickerOpen] = useState(false)
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
@@ -313,7 +318,7 @@ export const PromptInput = memo(forwardRef<PromptInputHandle, PromptInputProps>(
         kind: 'agent' as const,
         label: item.name,
         ranges,
-        detail: item.description || 'Agent',
+        detail: item.description || t('Agent'),
         tag: 'agent',
       },
     }))
@@ -363,7 +368,7 @@ export const PromptInput = memo(forwardRef<PromptInputHandle, PromptInputProps>(
       kind: 'command',
       label: `/${item.name}`,
       ranges: shiftRanges(ranges, 1),
-      detail: item.description,
+      detail: item.description ? t(item.description) : item.description,
       tag: !suggestionQuery && recentNames.includes(item.name) ? 'recent' : undefined,
     })),
   [searchCommands, suggestionQuery, recentNames])
@@ -384,6 +389,7 @@ export const PromptInput = memo(forwardRef<PromptInputHandle, PromptInputProps>(
 
   const handleSubmit = async () => {
     if (!isModelReady) return
+    if (hasPendingUploads()) return
     if (!prompt.trim() && imageAttachments.length === 0) return
     if (startGoal.isPending) return
 
@@ -452,7 +458,7 @@ export const PromptInput = memo(forwardRef<PromptInputHandle, PromptInputProps>(
           const keepAttachments = isBuiltinCommand(command) && (submitted.attachedFiles.size > 0 || submitted.imageAttachments.length > 0)
           if (keepAttachments) {
             completeSubmittedDraft(submitted, { keepAttachments: true })
-            showToast.info('Built-in commands do not use attachments; they were kept')
+            showToast.info(t('Built-in commands do not use attachments; they were kept'))
             return
           }
           completeSubmittedDraft(submitted)
@@ -599,50 +605,6 @@ export const PromptInput = memo(forwardRef<PromptInputHandle, PromptInputProps>(
     setMentionRange(null)
   }
 
-  const addImageAttachment = (file: File) => {
-    try {
-      const reader = new FileReader()
-      
-      reader.onloadend = () => {
-        try {
-          if (reader.readyState !== 2) return
-          
-          const dataUrl = reader.result as string
-          
-          if (!dataUrl) {
-            const blobUrl = URL.createObjectURL(file)
-            const attachment: ImageAttachment = {
-              id: randomId(),
-              filename: file.name,
-              mime: file.type || 'image/png',
-              dataUrl: blobUrl,
-            }
-            setImageAttachments((prev) => [...prev, attachment])
-            return
-          }
-          
-          const attachment: ImageAttachment = {
-            id: randomId(),
-            filename: file.name,
-            mime: file.type || 'image/png',
-            dataUrl,
-          }
-          setImageAttachments((prev) => [...prev, attachment])
-        } catch (innerError) {
-          console.error('Error inside onloadend:', innerError)
-        }
-      }
-      
-      reader.onerror = () => {
-        console.error('FileReader error:', reader.error?.message)
-      }
-      
-      reader.readAsDataURL(file)
-    } catch (error) {
-      console.error('Error reading file:', error)
-    }
-  }
-
   const removeImageAttachment = (id: string) => {
     setImageAttachments((prev) => {
       const attachment = prev.find((a) => a.id === id)
@@ -654,11 +616,7 @@ export const PromptInput = memo(forwardRef<PromptInputHandle, PromptInputProps>(
   }
 
   const addFileAttachment = (file: File) => {
-    if (ACCEPTED_FILE_TYPES.includes(file.type)) {
-      addImageAttachment(file)
-    } else {
-      showToast.error(`Only images and PDFs can be attached (${file.name})`)
-    }
+    void addFileAttachments([file])
   }
 
   const handlePaste = async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1023,7 +981,7 @@ if (isIOS && isSecureContext && navigator.clipboard && navigator.clipboard.read)
 
   const handleCycleVariant = useCallback(() => {
     if (!hasVariants) {
-      showToast.info('The selected model has no variants')
+      showToast.info(t('The selected model has no variants'))
       return
     }
     cycleVariant()
@@ -1032,7 +990,7 @@ if (isIOS && isSecureContext && navigator.clipboard && navigator.clipboard.read)
   const handleCycleFavoriteModel = useCallback(() => {
     const next = getNextFavoriteModel(favoriteModels, model)
     if (!next) {
-      showToast.info('No favorite models')
+      showToast.info(t('No favorite models'))
       return
     }
     if (model && isSameModelSelection(model, next)) {
@@ -1044,7 +1002,7 @@ if (isIOS && isSecureContext && navigator.clipboard && navigator.clipboard.read)
   const handleCycleAgent = useCallback(() => {
     const next = getNextPrimaryAgentId(agents, currentMode)
     if (!next) {
-      showToast.info('No primary agents available')
+      showToast.info(t('No primary agents available'))
       return
     }
     handleAgentChange(next)
@@ -1105,14 +1063,14 @@ if (isIOS && isSecureContext && navigator.clipboard && navigator.clipboard.read)
   const hasOpenGoal = isOpenSessionGoal(sessionGoal)
   const lockedReason = permissionMode?.lockedReason ?? null
   const goalButtonLabel = lockedReason === 'schedule'
-    ? 'Scheduled runs cannot run goals'
+    ? t('Scheduled runs cannot run goals')
     : lockedReason === 'child'
-      ? 'Goals can only be started on top-level sessions'
+      ? t('Goals can only be started on top-level sessions')
       : hasOpenGoal
         ? 'A goal is already active for this session'
         : isGoalArmed
-          ? 'Goal mode armed: the next message becomes the objective'
-          : 'Goal mode: the next message becomes the objective'
+          ? t('Goal mode armed: the next message becomes the objective')
+          : t('Goal mode: the next message becomes the objective')
   const isGoalModeDisabled = lockedReason !== null || hasOpenGoal || isBashMode || startGoal.isPending
   const toggleGoalArmed = () => setIsGoalArmed((value) => !value)
 
@@ -1155,8 +1113,8 @@ if (isIOS && isSecureContext && navigator.clipboard && navigator.clipboard.read)
   const renderVoiceMic = () => (
     <button
       type="button"
-      aria-label="Start voice conversation"
-      title="Start voice conversation"
+      aria-label={t('Start voice conversation')}
+      title={t('Start voice conversation')}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
         textareaRef.current?.blur()
@@ -1171,7 +1129,7 @@ if (isIOS && isSecureContext && navigator.clipboard && navigator.clipboard.read)
   )
 
   const renderMobileKeys = () => (
-    <div role="toolbar" aria-label="Insert" className="flex flex-nowrap items-center gap-1.5 min-w-0">
+    <div role="toolbar" aria-label={t('Insert')} className="flex flex-nowrap items-center gap-1.5 min-w-0">
       {KEYBAR_KEYS.map((key) => {
         const isActive = key.id === 'command'
           ? showSuggestions
@@ -1223,9 +1181,9 @@ if (isIOS && isSecureContext && navigator.clipboard && navigator.clipboard.read)
   
 
   const sessionActivityAnnouncement = isSessionActive
-    ? 'Session working'
+    ? t('Session working')
     : hasBackgroundActivity
-      ? 'Background tasks running'
+      ? t('Background tasks running')
       : ''
 
 return (
@@ -1270,8 +1228,8 @@ return (
           onDrop={handleDrop}
           placeholder={
             isBashMode
-              ? "Enter bash command..."
-              : "Send a message..."
+              ? t('Enter bash command...')
+              : t('Send a message...')
           }
           className={`flex-1 min-w-0 bg-muted/50 pl-2 md:pl-3 pr-3 py-2 text-[16px] text-foreground placeholder-muted-foreground focus:outline-none focus:bg-muted/70 resize-none min-h-[40px] max-h-[120px] disabled:opacity-50 disabled:cursor-not-allowed md:text-sm rounded-lg [field-sizing:content] ${
             isBashMode
@@ -1284,15 +1242,15 @@ return (
           <button
             data-submit-prompt
             onClick={hasPendingPermissionForSession ? () => setShowDialog(true) : handleSubmit}
-            disabled={hasPendingPermissionForSession ? false : (!isModelReady || !hasPromptContent || (isPromptSubmitPending && !isStreamingResponse))}
+            disabled={hasPendingPermissionForSession ? false : (isUploading || !isModelReady || !hasPromptContent || (isPromptSubmitPending && !isStreamingResponse))}
             className={`px-4 md:px-5 h-9 md:h-auto md:py-2 rounded-lg text-sm font-medium transition-colors dark:border flex-shrink-0 min-w-[52px] flex items-center justify-center ${
               hasPendingPermissionForSession
                 ? 'bg-highlight hover:bg-highlight/90 border-highlight text-highlight-foreground ring-highlight/20'
                 : 'bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-primary-foreground border-border/30'
             }`}
-            title={hasPendingPermissionForSession ? 'View pending permission' : (isStreamingResponse ? 'Queue message' : 'Send')}
+            title={hasPendingPermissionForSession ? t('View pending permission') : (isStreamingResponse ? t('Queue message') : t('Send'))}
           >
-            <span className="whitespace-nowrap">{hasPendingPermissionForSession ? 'View' : (isStreamingResponse ? 'Queue' : 'Send')}</span>
+            <span className="whitespace-nowrap">{hasPendingPermissionForSession ? t('View') : (isStreamingResponse ? t('Queue') : t('Send'))}</span>
           </button>
         )}
       </div>
@@ -1307,7 +1265,7 @@ return (
               <span className="max-w-[120px] truncate">{attachment.filename}</span>
               <button
                 type="button"
-                aria-label={`Remove ${attachment.filename}`}
+                aria-label={t('Remove {name}', { name: attachment.filename })}
                 onClick={() => removeImageAttachment(attachment.id)}
                 className="p-0.5 rounded hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground"
               >
@@ -1362,7 +1320,7 @@ return (
             <button
               onClick={handleStop}
               className="hidden md:block p-1.5 px-5 md:p-2 md:px-6 rounded-lg transition-all duration-200 active:scale-95 hover:scale-105 bg-destructive hover:bg-destructive/90 text-destructive-foreground border border-destructive/60 hover:border-destructive shadow-md shadow-destructive/30 hover:shadow-destructive/40 ring-1 ring-destructive/20 hover:ring-destructive/30"
-              title="Stop"
+              title={t('Stop')}
             >
               <SquareFill className="w-4 h-4 md:w-5 md:h-5" />
             </button>
@@ -1370,7 +1328,6 @@ return (
           <input
             ref={fileInputRef}
             type="file"
-            accept={ACCEPTED_FILE_TYPES.join(',')}
             className="hidden"
             onChange={handleFileInputChange}
           />
@@ -1378,7 +1335,7 @@ return (
             type="button"
             onClick={openFilePicker}
             className="hidden md:block p-2 rounded-lg bg-muted hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all duration-200 active:scale-95 hover:scale-105 shadow-md border border-border"
-            title="Upload image or PDF"
+            title={t('Upload image or PDF')}
           >
             <Upload className="w-5 h-5" />
           </button>

@@ -4,6 +4,7 @@ import { useMobile } from '@/hooks/useMobile'
 import { clampDisplayText, tailLines } from '@/lib/clampDisplayText'
 import { cn } from '@/lib/utils'
 import { TRANSCRIPT_DETAIL_CLASS } from './transcriptStyles'
+import { t } from '@/i18n/translate'
 
 const SHELL_PREVIEW_LINES = 10
 const MOBILE_SHELL_PREVIEW_LINES = 4
@@ -68,7 +69,7 @@ export function ShellPreview({
     <button
       type="button"
       onClick={onClick}
-      aria-label="Show shell details"
+      aria-label={t('Show shell details')}
       className="my-1 block w-full bg-muted px-3 py-2 text-left font-mono text-xs text-foreground hover:bg-accent transition-colors md:px-4 md:py-3"
     >
       <div className="flex items-start gap-2">
@@ -80,7 +81,7 @@ export function ShellPreview({
       {tail.text && (
         <div className="mt-1.5 md:mt-2">
           {tail.hiddenCount > 0 && (
-            <div className="text-muted-foreground">({tail.hiddenCount} earlier lines)</div>
+            <div className="text-muted-foreground">{t('({count} earlier lines)', { count: tail.hiddenCount })}</div>
           )}
           <div className="whitespace-pre-wrap break-all text-muted-foreground">{tail.text}</div>
         </div>

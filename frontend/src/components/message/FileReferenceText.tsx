@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { detectFileReferences } from '@/lib/fileReferences'
+import { t } from '@/i18n/translate'
 
 interface FileReferenceTextProps {
   text: string
@@ -29,8 +30,8 @@ export function FileReferenceText({ text, onFileClick }: FileReferenceTextProps)
             onFileClick?.(ref.filePath)
           }}
           className="inline p-0 m-0 bg-transparent border-0 font-[inherit] text-left text-primary hover:text-primary-hover cursor-pointer underline decoration-dotted"
-          title={`Click to open ${ref.filePath}`}
-          aria-label={`Open ${ref.filePath}`}
+          title={t('Click to open {path}', { path: ref.filePath })}
+          aria-label={t('Open {path}', { path: ref.filePath })}
         >
           {ref.fullMatch}
         </button>,

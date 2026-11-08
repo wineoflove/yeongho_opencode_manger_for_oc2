@@ -2,6 +2,7 @@ import { memo, useState } from 'react'
 import { AppWindow, ExternalLink, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SandboxedHtmlFrame } from '@/components/ui/sandboxed-html-frame'
+import { t } from '@/i18n/translate'
 
 interface ArtifactPartProps {
   title: string
@@ -30,8 +31,8 @@ export const ArtifactPart = memo(function ArtifactPart({ title, src, path }: Art
           size="icon-sm"
           className="shrink-0"
           onClick={() => setReloadKey((key) => key + 1)}
-          aria-label="Reload artifact"
-          title="Reload artifact"
+          aria-label={t('Reload artifact')}
+          title={t('Reload artifact')}
         >
           <RotateCw />
         </Button>
@@ -40,8 +41,8 @@ export const ArtifactPart = memo(function ArtifactPart({ title, src, path }: Art
             href={src}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Open in new tab"
-            title="Open in new tab"
+            aria-label={t('Open in new tab')}
+            title={t('Open in new tab')}
           >
             <ExternalLink />
           </a>
