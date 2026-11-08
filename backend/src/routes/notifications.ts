@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { PushSubscriptionRequestSchema } from "@opencode-manager/shared/schemas";
+import { PushSubscriptionRequestSchema, UpdateTelegramSettingsRequestSchema } from "@opencode-manager/shared/schemas";
 import type { NotificationService } from "../services/notification";
+import { TelegramSettingsValidationError, type TelegramSettingsService } from "../services/telegram-settings";
 import type { Session } from "../auth";
 
 interface NotificationRouteVariables {
@@ -9,9 +10,41 @@ interface NotificationRouteVariables {
 }
 
 export function createNotificationRoutes(
-  notificationService: NotificationService
+  notificationService: NotificationService,
+  telegramSettings?: TelegramSettingsService
 ) {
   const app = new Hono<{ Variables: NotificationRouteVariables }>();
+
+  app.get("/telegram", (c) => {
+    try {
+      if (!telegramSettings) return c.json({ error: "Telegram settings are unavailable" }, 500);
+      return c.json(telegramSettings.getSettings());
+    } catch {
+      return c.json({ error: "Telegram settings are unavailable" }, 500);
+    }
+  });
+
+  app.put("/telegram", async (c) => {
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const parsed = UpdateTelegramSettingsRequestSchema.safeParse(body);
+    if (!parsed.success) return c.json({ error: "Invalid Telegram settings" }, 400);
+    try {
+      if (!telegramSettings) return c.json({ error: "Telegram settings are unavailable" }, 500);
+      return c.json(telegramSettings.updateSettings(parsed.data));
+    } catch (error) {
+      if (error instanceof TelegramSettingsValidationError) return c.json({ error: "Invalid Telegram settings" }, 400);
+      return c.json({ error: "Telegram settings are unavailable" }, 500);
+    }
+  });
+
+  app.post("/telegram/test", async (c) => {
+    try {
+      if (!telegramSettings) return c.json({ error: "Telegram settings are unavailable" }, 500);
+      return c.json(await notificationService.sendTelegramTest(telegramSettings.getTransport()));
+    } catch {
+      return c.json({ error: "Telegram settings are unavailable" }, 500);
+    }
+  });
 
   app.get("/vapid-public-key", (c) => {
     const publicKey = notificationService.getVapidPublicKey();

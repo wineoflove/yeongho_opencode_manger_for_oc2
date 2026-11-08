@@ -42,6 +42,7 @@ function createService(server: { name: string; enabled: boolean } | null = { nam
   service.saveSubscription(USER_ID, 'https://push.example.com/sub-1', 'p256dh-key', 'auth-key')
   new SettingsService(db).updateSettings(
     {
+      locale: 'en',
       notifications: {
         enabled: true,
         events: { permissionAsked: true, questionAsked: true, sessionError: true, sessionIdle: true },

@@ -8,8 +8,8 @@ export function createInternalNotificationRoutes(notificationService: Notificati
   const limiter = new TokenBucketRateLimiter({ capacity: 10, refillPerMs: 60_000 })
 
   app.post('/send', async (c) => {
-    if (!notificationService.isConfigured()) {
-      return c.json({ error: 'Push notifications are not configured (missing VAPID env)' }, 503)
+    if (!notificationService.hasDeliveryChannel()) {
+      return c.json({ error: 'No notification channel is configured (Web Push VAPID env or Telegram)' }, 503)
     }
 
     const token = (c.req.header('authorization') ?? '').slice('Bearer '.length)
@@ -45,7 +45,7 @@ export function createInternalNotificationRoutes(notificationService: Notificati
       },
     }
 
-    const stats = await notificationService.sendToUser(userId, payload)
+    const stats = await notificationService.sendNotification(userId, payload)
     return c.json({
       delivered: stats.delivered,
       expired: stats.expired,

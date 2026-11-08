@@ -17,10 +17,14 @@ import {
   getPermissionLabel,
   getPermissionDetail,
   getFormText,
-  getGoalOutcomeTitle,
-  getGoalOutcomeReason,
 } from "@opencode-manager/shared/notifications";
 import { SettingsService } from "./settings";
+import {
+  NOTIFICATION_TEXT,
+  preferredLocale,
+  type NotificationLocale,
+  type NotificationText,
+} from "./notification-messages";
 import { sseAggregator, type SSEEvent } from "./sse-aggregator";
 import { getRepoName } from "../db/queries";
 import { getScheduleRunBySessionId } from "../db/schedules";
@@ -30,6 +34,9 @@ import type { Repo } from "../types/repo";
 import { buildServerSessionPath, buildSessionPath } from "@opencode-manager/shared/utils";
 import { sessionIDFromEvent } from "@opencode-manager/shared/opencode";
 import { resolveRepoForDirectory } from "./repo";
+import type { TelegramNotificationTransport } from "./telegram-notification";
+import { TelegramSettingsStoreError } from "./telegram-settings";
+import type { TelegramTestNotificationResponse } from "@opencode-manager/shared/schemas";
 
 export interface NotificationServerRegistry {
   get(serverId: string): Pick<OpenCodeServer, "name" | "enabled"> | null;
@@ -45,35 +52,33 @@ const EVENT_CONFIG: Record<
   string,
   {
     preferencesKey: keyof typeof DEFAULT_NOTIFICATION_PREFERENCES.events;
-    titleFn: (data: Record<string, unknown>) => string;
-    bodyFn: (data: Record<string, unknown>) => string;
+    titleFn: (data: Record<string, unknown>, text: NotificationText) => string;
+    bodyFn: (data: Record<string, unknown>, text: NotificationText) => string;
   }
 > = {
   [NotificationEventType.PERMISSION_ASKED]: {
     preferencesKey: "permissionAsked",
-    titleFn: (data) =>
-      getPermissionLabel(
-        typeof data.action === "string" ? data.action : ""
-      ),
-    bodyFn: (data) => getPermissionDetail(data).primary || "Approval required",
+    titleFn: (data, text) =>
+      text.permission(getPermissionLabel(typeof data.action === "string" ? data.action : "")),
+    bodyFn: (data, text) => getPermissionDetail(data).primary || text.approvalBody,
   },
   [NotificationEventType.FORM_CREATED]: {
     preferencesKey: "questionAsked",
-    titleFn: () => "Question",
-    bodyFn: (data) => getFormText(data.form as { title?: unknown }) || "A question needs your answer",
+    titleFn: (_data, text) => text.questionTitle,
+    bodyFn: (data, text) => getFormText(data.form as { title?: unknown }) || text.questionBody,
   },
   [NotificationEventType.SESSION_FAILED]: {
     preferencesKey: "sessionError",
-    titleFn: () => "Error",
-    bodyFn: (data) => {
+    titleFn: (_data, text) => text.errorTitle,
+    bodyFn: (data, text) => {
       const error = data.error as { message?: string } | undefined;
-      return error?.message ?? "A session encountered an error";
+      return error?.message ?? text.errorBody;
     },
   },
   [NotificationEventType.SESSION_IDLE]: {
     preferencesKey: "sessionIdle",
-    titleFn: () => "Session complete",
-    bodyFn: () => "Your session has finished processing",
+    titleFn: (_data, text) => text.idleTitle,
+    bodyFn: (_data, text) => text.idleBody,
   },
 };
 
@@ -91,8 +96,8 @@ function truncateWithEllipsis(text: string, maxLength: number): string {
   return `${text.slice(0, maxLength - 1)}…`;
 }
 
-function buildGoalOutcomeBody(goal: SessionGoal, repoName: string | undefined): string {
-  const reason = getGoalOutcomeReason(goal)?.trim() || undefined;
+function buildGoalOutcomeBody(goal: SessionGoal, repoName: string | undefined, text: NotificationText): string {
+  const reason = (goal.stopReason ? text.stopReason(goal.stopReason) : goal.lastReason)?.trim() || undefined;
   const prefix = repoName ? `${repoName} · ` : "";
   const separator = " — ";
 
@@ -136,14 +141,16 @@ export function buildEventNotificationPayload(
     sessionId?: string;
     directory?: string;
     url: string;
-  }
+  },
+  locale: NotificationLocale = "en"
 ): PushNotificationPayload | null {
   const config = EVENT_CONFIG[event.type];
   if (!config) return null;
 
-  const title = config.titleFn(event.data);
+  const text = NOTIFICATION_TEXT[locale];
+  const title = config.titleFn(event.data, text);
 
-  const detail = config.bodyFn(event.data);
+  const detail = config.bodyFn(event.data, text);
   const displayName = context.repoName ?? context.serverName;
   const rawBody = displayName
     ? `${displayName} · ${detail}`
@@ -182,7 +189,8 @@ export class NotificationService {
 
   constructor(
     private db: Database,
-    private serverRegistry: NotificationServerRegistry | null = null
+    private serverRegistry: NotificationServerRegistry | null = null,
+    private readonly telegram?: TelegramNotificationTransport | (() => TelegramNotificationTransport | undefined)
   ) {
     this.settingsService = new SettingsService(db);
     ensurePushSubscriptionsTable(db);
@@ -203,6 +211,63 @@ export class NotificationService {
 
   isConfigured(): boolean {
     return this.vapidConfig !== null;
+  }
+
+  /** Reports whether any channel, Web Push or Telegram, can deliver a notification. */
+  hasDeliveryChannel(): boolean {
+    return this.isConfigured() || this.resolveTelegram() !== undefined;
+  }
+
+  /** Returns the current Telegram transport, treating unreadable stored settings as disabled. */
+  private resolveTelegram(): TelegramNotificationTransport | undefined {
+    try {
+      return typeof this.telegram === "function" ? this.telegram() : this.telegram;
+    } catch (error) {
+      if (!(error instanceof TelegramSettingsStoreError)) throw error;
+      logger.warn("Telegram settings are unavailable; delivery disabled");
+      return undefined;
+    }
+  }
+
+  /** Returns the locale of the shared Telegram channel, which follows the Manager's default user. */
+  private operatorLocale(): NotificationLocale {
+    return preferredLocale(this.settingsService.getSettings("default").preferences);
+  }
+
+  /** Sends a Telegram test message through the given transport without touching Web Push. */
+  async sendTelegramTest(transport?: TelegramNotificationTransport): Promise<TelegramTestNotificationResponse> {
+    if (!transport) return { ok: false, status: "not_configured" };
+    const locale = this.operatorLocale();
+    const ok = await transport.send(
+      {
+        title: NOTIFICATION_TEXT[locale].testTitle,
+        body: NOTIFICATION_TEXT[locale].telegramTestBody,
+        tag: "test",
+        data: { eventType: "test", url: "/?settings=open&settingsTab=notifications" },
+      },
+      locale
+    );
+    return { ok, status: ok ? "sent" : "failed" };
+  }
+
+  /** Delivers one payload to the user's push subscriptions and to Telegram, combining the delivery counts. */
+  async sendNotification(
+    userId: string,
+    payload: PushNotificationPayload
+  ): Promise<{ delivered: number; expired: number; failed: number; total: number }> {
+    const transport = this.resolveTelegram();
+    const [push, telegram] = await Promise.all([
+      this.isConfigured()
+        ? this.sendToUser(userId, payload)
+        : { delivered: 0, expired: 0, failed: 0, total: 0 },
+      transport?.send(payload, this.operatorLocale()),
+    ]);
+    return {
+      delivered: push.delivered + (telegram === true ? 1 : 0),
+      expired: push.expired,
+      failed: push.failed + (telegram === false ? 1 : 0),
+      total: push.total + (transport ? 1 : 0),
+    };
   }
 
   /**
@@ -334,24 +399,35 @@ export class NotificationService {
     return run ? buildScheduleRunReportUrl(run.id) : null;
   }
 
+  /** Delivers a notification in each recipient's locale: every subscriber's own, and the operator's for Telegram. */
   private async deliverToSubscribers(
-    payload: PushNotificationPayload,
+    payloadFor: (locale: NotificationLocale) => PushNotificationPayload | null,
     shouldNotify: (preferences: NotificationPreferences) => boolean
   ): Promise<void> {
-    if (!this.isConfigured()) return;
+    const payloads: Record<NotificationLocale, PushNotificationPayload | null> = {
+      ko: payloadFor("ko"),
+      en: payloadFor("en"),
+    };
+    const operatorLocale = this.operatorLocale();
+    const telegramPayload = payloads[operatorLocale];
+    const telegramDelivery = telegramPayload
+      ? this.resolveTelegram()?.send(telegramPayload, operatorLocale)
+      : undefined;
 
-    const userIds = this.getAllUserIds();
-    if (userIds.length === 0) return;
+    if (this.isConfigured()) {
+      for (const userId of this.getAllUserIds()) {
+        const settings = this.settingsService.getSettings(userId);
+        const notifPrefs =
+          settings.preferences.notifications ?? DEFAULT_NOTIFICATION_PREFERENCES;
 
-    for (const userId of userIds) {
-      const settings = this.settingsService.getSettings(userId);
-      const notifPrefs =
-        settings.preferences.notifications ?? DEFAULT_NOTIFICATION_PREFERENCES;
+        if (!shouldNotify(notifPrefs)) continue;
 
-      if (!shouldNotify(notifPrefs)) continue;
-
-      await this.sendToUser(userId, payload);
+        const payload = payloads[preferredLocale(settings.preferences)];
+        if (payload) await this.sendToUser(userId, payload);
+      }
     }
+
+    await telegramDelivery;
   }
 
   async handleSSEEvent(
@@ -387,17 +463,16 @@ export class NotificationService {
     const reportUrl = RUN_OUTCOME_EVENTS.has(event.type) ? this.getScheduleRunReportUrl(sessionId) : null;
     const url = reportUrl ?? buildNotificationUrl(repo, sessionId);
 
-    const payload = buildEventNotificationPayload(event, {
+    const context = {
       repoName,
       repoId,
       sessionId,
       directory: directory ?? undefined,
       url,
-    });
-    if (!payload) return;
+    };
 
     await this.deliverToSubscribers(
-      payload,
+      (locale) => buildEventNotificationPayload(event, context, locale),
       (preferences) =>
         preferences.enabled &&
         preferences.events[config.preferencesKey] === true
@@ -418,17 +493,16 @@ export class NotificationService {
       ? buildServerSessionPath(serverId, sessionId)
       : `/servers/${encodeURIComponent(serverId)}`;
 
-    const payload = buildEventNotificationPayload(event, {
+    const context = {
       serverId,
       serverName: server.name,
       sessionId,
       directory: directory ?? undefined,
       url,
-    });
-    if (!payload) return;
+    };
 
     await this.deliverToSubscribers(
-      payload,
+      (locale) => buildEventNotificationPayload(event, context, locale),
       (preferences) =>
         preferences.enabled &&
         preferences.events[preferencesKey] === true
@@ -448,9 +522,9 @@ export class NotificationService {
     const repoName = repo ? getRepoName(repo) : undefined;
     const displayName = repoName ?? server?.name;
 
-    const payload: PushNotificationPayload = {
-      title: getGoalOutcomeTitle(goal.status),
-      body: buildGoalOutcomeBody(goal, displayName),
+    const payloadFor = (locale: NotificationLocale): PushNotificationPayload => ({
+      title: NOTIFICATION_TEXT[locale].goalTitle(goal.status),
+      body: buildGoalOutcomeBody(goal, displayName, NOTIFICATION_TEXT[locale]),
       tag: `session-goal-${goal.id}`,
       timestamp: Date.now(),
       renotify: true,
@@ -466,19 +540,20 @@ export class NotificationService {
           ? buildServerSessionPath(goal.serverId, goal.sessionId)
           : buildNotificationUrl(repo, goal.sessionId),
       },
-    };
+    });
 
     await this.deliverToSubscribers(
-      payload,
+      payloadFor,
       (preferences) =>
         preferences.enabled && preferences.events.goalOutcome !== false
     );
   }
 
   async sendTestNotification(userId: string): Promise<void> {
+    const text = NOTIFICATION_TEXT[preferredLocale(this.settingsService.getSettings(userId).preferences)];
     await this.sendToUser(userId, {
-      title: "Test Notification",
-      body: "Push notifications are working correctly",
+      title: text.testTitle,
+      body: text.pushTestBody,
       tag: "test",
       data: { eventType: "test", url: "/" },
     });
