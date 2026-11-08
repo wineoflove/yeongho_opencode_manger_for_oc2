@@ -3,9 +3,9 @@ import type { ModelInfo, OpenCodeApi } from '@opencode-manager/shared/opencode'
 import type { OpenCodeClient } from '../../src/services/opencode/client'
 
 /** OpenCode API stubs for a catalog that has finished loading, so model resolution succeeds on the first poll. */
-export function stubLoadedModelCatalog(models: ModelInfo[] = [
-  { providerID: 'openai', id: 'gpt-5-mini', enabled: true } as ModelInfo,
-]) {
+export function stubLoadedModelCatalog(
+  models: ModelInfo[] = [{ providerID: 'openai', id: 'gpt-5-mini', enabled: true } as ModelInfo],
+) {
   const defaultModel = models[0] ?? null
   return {
     config: { get: vi.fn(async () => []) },
@@ -20,13 +20,22 @@ export function createStubOpenCodeClient(overrides: Partial<OpenCodeClient> = {}
   return {
     api: {
       server: {
-        info: vi.fn(async () => ({ version: '2.0.15', pid: 1234, urls: [], paths: { tmp: '/tmp' } })),
+        info: vi.fn(async () => ({
+          version: '2.0.15',
+          pid: 1234,
+          urls: [],
+          paths: { tmp: '/tmp' },
+        })),
       },
       location: {
         reload: vi.fn(async () => undefined),
         get: vi.fn(async () => ({
           directory: '/tmp/repo',
-          project: { id: 'commit-A', directory: '/tmp/repo', canonical: '/tmp/repo' },
+          project: {
+            id: 'commit-A',
+            directory: '/tmp/repo',
+            canonical: '/tmp/repo',
+          },
         })),
       },
       worktree: {
@@ -35,17 +44,28 @@ export function createStubOpenCodeClient(overrides: Partial<OpenCodeClient> = {}
         remove: vi.fn(async () => undefined),
       },
       mcp: {
-        list: vi.fn(async () => ({ location: { directory: '/tmp/repo' }, data: [] })),
+        list: vi.fn(async () => ({
+          location: { directory: '/tmp/repo' },
+          data: [],
+        })),
         add: vi.fn(async () => undefined),
         remove: vi.fn(async () => undefined),
         connect: vi.fn(async () => undefined),
         disconnect: vi.fn(async () => undefined),
       },
       integration: {
-        list: vi.fn(async () => ({ location: { directory: '/tmp/repo' }, data: [] })),
+        list: vi.fn(async () => ({
+          location: { directory: '/tmp/repo' },
+          data: [],
+        })),
         get: vi.fn(async () => ({
           location: { directory: '/tmp/repo' },
-          data: { id: 'stub-integration', name: 'Stub', methods: [], connections: [] },
+          data: {
+            id: 'stub-integration',
+            name: 'Stub',
+            methods: [],
+            connections: [],
+          },
         })),
         connect: {
           key: vi.fn(async () => undefined),
@@ -63,17 +83,26 @@ export function createStubOpenCodeClient(overrides: Partial<OpenCodeClient> = {}
           })),
           status: vi.fn(async () => ({
             location: { directory: '/tmp/repo' },
-            data: { status: 'pending' as const, time: { created: 0, expires: 0 } },
+            data: {
+              status: 'pending' as const,
+              time: { created: 0, expires: 0 },
+            },
           })),
           complete: vi.fn(async () => undefined),
           cancel: vi.fn(async () => undefined),
         },
       },
       credential: {
+        update: vi.fn(async () => undefined),
+        activate: vi.fn(async () => undefined),
+        list: vi.fn(async () => []),
         remove: vi.fn(async () => undefined),
       },
       skill: {
-        list: vi.fn(async () => ({ location: { directory: '/tmp/repo' }, data: [] })),
+        list: vi.fn(async () => ({
+          location: { directory: '/tmp/repo' },
+          data: [],
+        })),
       },
     } as unknown as OpenCodeApi,
     forwardRaw: vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })),

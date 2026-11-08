@@ -2,27 +2,29 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createServer, IncomingMessage, ServerResponse, type Server } from 'node:http'
+import { Socket } from 'node:net'
+import type { serve } from '@hono/node-server'
 
-interface MockServeServer {
-  on: (event: string, handler: (...args: unknown[]) => void) => void
-  emit: (event: string, ...args: unknown[]) => void
-}
+const serveServers = vi.hoisted(() => new Array<Server>())
+let failedListenIndex: number | undefined
 
-const serveServers = vi.hoisted(() => [] as MockServeServer[])
-
-const serveMock = vi.fn<(options: unknown) => MockServeServer>(() => {
-  const handlers = new Map<string, Array<(...args: unknown[]) => void>>()
-  const server: MockServeServer = {
-    on: (event, handler) => {
-      const registered = handlers.get(event) ?? []
-      registered.push(handler)
-      handlers.set(event, registered)
-    },
-    emit: (event, ...args) => {
-      for (const handler of handlers.get(event) ?? []) handler(...args)
-    },
-  }
+const serveMock = vi.fn<typeof serve>((options, callback) => {
+  const server = createServer()
+  const index = serveServers.length
   serveServers.push(server)
+  setImmediate(() => {
+    if (index === failedListenIndex) {
+      server.emit('error', Object.assign(new Error('bind failed'), { code: 'EADDRINUSE' }))
+      return
+    }
+    server.emit('listening')
+    callback?.({
+      port: options.port ?? 3000,
+      address: options.hostname ?? '127.0.0.1',
+      family: 'IPv4',
+    })
+  })
   return server
 })
 
@@ -182,11 +184,20 @@ vi.mock('../src/services/credential-provider', () => ({
 describe('backend entrypoint', () => {
   let tempWorkspace: string
   let previousWorkspace: string | undefined
+  let signalListeners = {
+    SIGINT: process.listeners('SIGINT'),
+    SIGTERM: process.listeners('SIGTERM'),
+  }
 
   beforeEach(async () => {
     vi.resetModules()
+    signalListeners = {
+      SIGINT: process.listeners('SIGINT'),
+      SIGTERM: process.listeners('SIGTERM'),
+    }
     vi.clearAllMocks()
     serveServers.length = 0
+    failedListenIndex = undefined
     previewAvailabilityInstances.length = 0
     tempWorkspace = await mkdtemp(join(tmpdir(), 'ocm-entrypoint-'))
     previousWorkspace = process.env.WORKSPACE_PATH
@@ -194,6 +205,11 @@ describe('backend entrypoint', () => {
   })
 
   afterEach(async () => {
+    for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+      for (const listener of process.listeners(signal)) {
+        if (!signalListeners[signal].includes(listener)) process.off(signal, listener)
+      }
+    }
     const { sseAggregator } = await import('../src/services/sse-aggregator')
     sseAggregator.shutdown()
     if (previousWorkspace === undefined) {
@@ -212,6 +228,7 @@ describe('backend entrypoint', () => {
     expect(typeof options.fetch).toBe('function')
     expect(options.port).toBe(3001)
     expect(options.hostname).toBeDefined()
+    expect(previewAvailabilityInstances[0]?.isEnabled()).toBe(true)
 
     expect(serverManagerMock.setDatabase).toHaveBeenCalledTimes(1)
     expect(supervisorMock.start).toHaveBeenCalledTimes(1)
@@ -221,19 +238,41 @@ describe('backend entrypoint', () => {
   })
 
   it('marks the preview gateway unavailable instead of crashing when its port cannot be bound', async () => {
+    failedListenIndex = 1
     await import('../src/index')
 
     expect(serveServers).toHaveLength(2)
     const availability = previewAvailabilityInstances[0]
     expect(availability?.isEnabled()).toBe(false)
 
-    const previewServer = serveServers[1]!
-    previewServer.emit('listening')
-    expect(availability?.isEnabled()).toBe(true)
+    const options = serveMock.mock.calls[0]?.[0]
+    if (!options) throw new Error('Expected main listener')
+    const incoming = new IncomingMessage(new Socket())
+    const response = await options.fetch(new Request('http://localhost/'), {
+      incoming,
+      outgoing: new ServerResponse(incoming),
+    })
+    if (!(response instanceof Response)) throw new Error('Expected HTTP response')
 
-    const error = Object.assign(new Error('bind failed'), { code: 'EADDRINUSE' })
-    expect(() => previewServer.emit('error', error)).not.toThrow()
-    expect(availability?.isEnabled()).toBe(false)
+    expect(response.status).toBe(200)
+  })
+
+  it('rejects startup when the main port cannot be bound', async () => {
+    failedListenIndex = 0
+    await expect(import('../src/index')).rejects.toMatchObject({
+      code: 'EADDRINUSE',
+    })
+    expect(serveServers).toHaveLength(1)
+    expect(previewAvailabilityInstances[0]?.isEnabled()).toBe(false)
+  })
+
+  it('disables preview without crashing on a listener error after startup', async () => {
+    await import('../src/index')
+    expect(previewAvailabilityInstances[0]?.isEnabled()).toBe(true)
+    const previewServer = serveServers[1]
+    if (!previewServer) throw new Error('Expected preview listener')
+    expect(() => previewServer.emit('error', new Error('listener failed'))).not.toThrow()
+    expect(previewAvailabilityInstances[0]?.isEnabled()).toBe(false)
   })
 
   it('imports home state without rewriting an existing valid config', async () => {
