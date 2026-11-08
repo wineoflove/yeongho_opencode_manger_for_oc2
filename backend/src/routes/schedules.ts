@@ -4,9 +4,12 @@ import {
   RemoveScheduleWorktreesRequestSchema,
   ScheduleRunWorktreesModeSchema,
   UpdateScheduleJobRequestSchema,
+  ScheduleOverviewQuerySchema,
+  ScheduleOverviewResponseSchema,
 } from '@opencode-manager/shared/schemas'
 import type { ScheduleRunWorktreesMode } from '@opencode-manager/shared/types'
 import { ScheduleService, ScheduleServiceError } from '../services/schedules'
+import type { ScheduleOverviewReader } from '../services/overview-source'
 import { parseId, handleServiceError } from '../utils/route-helpers'
 
 function parseServerId(value: string | undefined): string {
@@ -54,8 +57,27 @@ function parseWorktreesMode(value: string | undefined): ScheduleRunWorktreesMode
   return result.data
 }
 
-export function createScheduleRoutes(scheduleService: ScheduleService) {
+export function createScheduleRoutes(scheduleService: ScheduleService, overview?: Pick<ScheduleOverviewReader, 'get'>) {
   const app = new Hono()
+
+  if (overview) {
+    app.get('/overview', async (c) => {
+      try {
+        const parsed = ScheduleOverviewQuerySchema.safeParse(c.req.query())
+        if (!parsed.success) return c.json({ error: 'Invalid overview query', details: parsed.error.issues }, 400)
+        const tz = parsed.data.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+        try {
+          new Intl.DateTimeFormat('en-US', { timeZone: tz })
+        } catch (error) {
+          if (error instanceof RangeError) return c.json({ error: 'Invalid timezone' }, 400)
+          throw error
+        }
+        return c.json(ScheduleOverviewResponseSchema.parse(await overview.get(parsed.data.windowDays, tz)))
+      } catch (error) {
+        return handleServiceError(c, error, 'Failed to get schedule overview', ScheduleServiceError)
+      }
+    })
+  }
 
   app.get('/all', (c) => {
     try {

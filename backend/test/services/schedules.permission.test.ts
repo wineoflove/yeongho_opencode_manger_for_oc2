@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../src/db/schedule-submissions', () => ({
+  beginScheduleSubmission: vi.fn(),
+  acknowledgeScheduleSubmission: vi.fn(),
+  getScheduleSubmission: vi.fn().mockReturnValue(null),
+}))
 import type { ScheduleJob, ScheduleRun } from '@opencode-manager/shared/types'
 import { buildSchedulePermissionRuleset } from '@opencode-manager/shared/schemas'
 
@@ -22,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   updateScheduleJob: vi.fn(),
   updateScheduleJobRunState: vi.fn(),
   updateScheduleRun: vi.fn(),
+  updateScheduleRunUsage: vi.fn(),
   updateScheduleRunMetadata: vi.fn(),
   buildCreateSchedulePersistenceInput: vi.fn(),
   buildUpdatedSchedulePersistenceInput: vi.fn(),
@@ -62,6 +68,7 @@ vi.mock('../../src/db/schedules', () => ({
   updateScheduleJob: mocks.updateScheduleJob,
   updateScheduleJobRunState: mocks.updateScheduleJobRunState,
   updateScheduleRun: mocks.updateScheduleRun,
+  updateScheduleRunUsage: mocks.updateScheduleRunUsage,
   updateScheduleRunMetadata: mocks.updateScheduleRunMetadata,
   updateScheduleRunWorktree: mocks.updateScheduleRunWorktree,
 }))
@@ -162,14 +169,21 @@ describe('ScheduleService permission ruleset in session creation', () => {
     mocks.getRepoById.mockReturnValue(repo)
     mocks.getRunningScheduleRunByJob.mockReturnValue(null)
     mocks.createScheduleRun.mockReturnValue(baseRun)
-    mocks.resolveOpenCodeModel.mockResolvedValue({ providerID: 'openai', id: 'gpt-5-mini', model: 'openai/gpt-5-mini' })
+    mocks.resolveOpenCodeModel.mockResolvedValue({
+      providerID: 'openai',
+      id: 'gpt-5-mini',
+      model: 'openai/gpt-5-mini',
+    })
     mocks.onEvent.mockReturnValue(vi.fn())
     mocks.onServerConnected.mockReturnValue(vi.fn())
   })
 
   it('sends the default permission ruleset when job.permissionConfig is null', async () => {
     mocks.getScheduleJobById.mockReturnValue(baseJob)
-    mocks.updateScheduleRunMetadata.mockReturnValue({ ...baseRun, sessionId: 'ses-perm-1' })
+    mocks.updateScheduleRunMetadata.mockReturnValue({
+      ...baseRun,
+      sessionId: 'ses-perm-1',
+    })
 
     const stub = createStubScheduleApi({
       sessionID: 'ses-perm-1',
@@ -195,9 +209,19 @@ describe('ScheduleService permission ruleset in session creation', () => {
   })
 
   it('sends the custom permission ruleset when job.permissionConfig is set', async () => {
-    const customConfig = { allowExternalDirectory: true, allowQuestions: true, bashDenyPatterns: [] }
-    mocks.getScheduleJobById.mockReturnValue({ ...baseJob, permissionConfig: customConfig })
-    mocks.updateScheduleRunMetadata.mockReturnValue({ ...baseRun, sessionId: 'ses-perm-2' })
+    const customConfig = {
+      allowExternalDirectory: true,
+      allowQuestions: true,
+      bashDenyPatterns: [],
+    }
+    mocks.getScheduleJobById.mockReturnValue({
+      ...baseJob,
+      permissionConfig: customConfig,
+    })
+    mocks.updateScheduleRunMetadata.mockReturnValue({
+      ...baseRun,
+      sessionId: 'ses-perm-2',
+    })
 
     const stub = createStubScheduleApi({
       sessionID: 'ses-perm-2',
@@ -223,8 +247,14 @@ describe('ScheduleService permission ruleset in session creation', () => {
   })
 
   it('preserves the title and agent alongside the permission ruleset', async () => {
-    mocks.getScheduleJobById.mockReturnValue({ ...baseJob, agentSlug: 'my-agent' })
-    mocks.updateScheduleRunMetadata.mockReturnValue({ ...baseRun, sessionId: 'ses-perm-3' })
+    mocks.getScheduleJobById.mockReturnValue({
+      ...baseJob,
+      agentSlug: 'my-agent',
+    })
+    mocks.updateScheduleRunMetadata.mockReturnValue({
+      ...baseRun,
+      sessionId: 'ses-perm-3',
+    })
 
     const stub = createStubScheduleApi({
       sessionID: 'ses-perm-3',
@@ -250,27 +280,59 @@ describe('ScheduleService permission ruleset in session creation', () => {
     })
   })
 
-  it('runs with the default agent when the agent is not available at the run location', async () => {
-    mocks.getScheduleJobById.mockReturnValue({ ...baseJob, agentSlug: 'assistant' })
-    mocks.updateScheduleRunMetadata.mockReturnValue({ ...baseRun, sessionId: 'ses-perm-4' })
+  it.each(['missing', 'subagent-only', 'lookup-failed'] as const)(
+    'fails before session creation when the selected agent is %s',
+    async (condition) => {
+      mocks.getScheduleJobById.mockReturnValue({
+        ...baseJob,
+        agentSlug: 'assistant',
+      })
+      mocks.updateScheduleRunMetadata.mockReturnValue({
+        ...baseRun,
+        sessionId: 'ses-perm-4',
+      })
+      mocks.updateScheduleRun.mockReturnValue({ ...baseRun, status: 'failed' })
 
-    const stub = createStubScheduleApi({
-      sessionID: 'ses-perm-4',
-      messages: [assistantMessage('', { completed: true })],
-      agents: ['build', 'plan'],
-    })
-    const service = new ScheduleService(
-      {} as never,
-      createStubOpenCodeClient({ api: stub.api }),
-      mocks.stubWorktreeManager as never,
-    )
+      const stub = createStubScheduleApi({
+        sessionID: 'ses-perm-4',
+        messages: [assistantMessage('', { completed: true })],
+        agents: condition === 'subagent-only' ? ['build', 'assistant'] : ['build', 'plan'],
+      })
+      if (condition === 'subagent-only') {
+        const response = await stub.api.agent.list()
+        vi.mocked(stub.api.agent.list).mockResolvedValue({
+          ...response,
+          data: response.data.map((agent) => (agent.id === 'assistant' ? { ...agent, mode: 'subagent' } : agent)),
+        })
+      }
+      if (condition === 'lookup-failed') {
+        vi.mocked(stub.api.agent.list).mockRejectedValue(new Error('private-upstream-diagnostic'))
+      }
+      const service = new ScheduleService(
+        {} as never,
+        createStubOpenCodeClient({ api: stub.api }),
+        mocks.stubWorktreeManager as never,
+      )
 
-    await service.runJob(42, 7, 'manual')
-
-    expect(stub.api.session.create).toHaveBeenCalledWith(expect.objectContaining({ agent: undefined }))
-    expect(mocks.updateScheduleRunMetadata).toHaveBeenCalledWith(
-      expect.anything(), 42, 7, baseRun.id,
-      expect.objectContaining({ logText: expect.stringContaining('Agent: default') }),
-    )
-  })
+      const code = condition === 'lookup-failed' ? 'AGENT_CHECK_FAILED' : 'AGENT_NOT_AVAILABLE'
+      await expect(service.runJob(42, 7, 'manual')).rejects.toMatchObject({
+        status: condition === 'lookup-failed' ? 502 : 422,
+        message: expect.stringContaining(code),
+      })
+      expect(stub.api.session.create).not.toHaveBeenCalled()
+      expect(stub.api.session.prompt).not.toHaveBeenCalled()
+      expect(mocks.resolveOpenCodeModel).not.toHaveBeenCalled()
+      expect(mocks.updateScheduleRun).toHaveBeenCalledWith(
+        expect.anything(),
+        42,
+        7,
+        baseRun.id,
+        expect.objectContaining({
+          status: 'failed',
+          errorText: expect.stringContaining(code),
+        }),
+      )
+      expect(JSON.stringify(mocks.updateScheduleRun.mock.calls)).not.toContain('private-upstream-diagnostic')
+    },
+  )
 })

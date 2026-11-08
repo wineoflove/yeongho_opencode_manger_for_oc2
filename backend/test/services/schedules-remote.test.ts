@@ -307,7 +307,7 @@ describe('remote schedule targets', () => {
 
   it('cancels a running remote run while the target server is disabled', async () => {
     const localClient = createClient().client
-    const { client } = createClient()
+    const { client, api } = createClient()
     const { service } = createService(db, localClient, client)
     const job = await service.createServerJob(REMOTE_SERVER.id, '/srv/projects/audit', baseRequest)
     const run = await service.runServerJob(REMOTE_SERVER.id, job.id, 'manual')
@@ -315,12 +315,19 @@ describe('remote schedule targets', () => {
 
     const cancelled = await disabled.service.cancelServerRun(REMOTE_SERVER.id, job.id, run.id)
 
-    expect(cancelled).toMatchObject({ id: run.id, status: 'cancelled', errorText: 'Run cancelled by user.' })
+    expect(cancelled).toMatchObject({
+      id: run.id,
+      status: 'cancelled',
+      errorText: 'Run cancelled by user.',
+      usage: { error: 'USAGE_SNAPSHOT_FAILED' },
+    })
     expect(hasActiveRun(job.id)).toBe(false)
 
     await vi.waitFor(() => expect(hasCancelInProgress(job.id)).toBe(false))
 
     expect(getScheduleRunById(db, null, job.id, run.id)).toMatchObject({ status: 'cancelled' })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(api.session.prompt).not.toHaveBeenCalled()
   })
 
   it('cancels a running remote run when the target server is missing from the registry', async () => {

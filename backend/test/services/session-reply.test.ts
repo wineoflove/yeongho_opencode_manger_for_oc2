@@ -68,6 +68,49 @@ describe('getLatestAssistantReplyState', () => {
     })
   })
 
+  it('reports the error of a newer failed idle marker, such as an exhausted resume budget', () => {
+    const exhausted = {
+      id: 'msg_idle',
+      type: 'idle',
+      outcome: 'failed',
+      error: { type: 'aborted', message: 'Execution was interrupted repeatedly and will not be resumed automatically.' },
+      time: { created: 3 },
+    } as unknown as SessionMessageInfo
+    expect(getLatestAssistantReplyState([exhausted, assistantMessage('Partial output')])).toEqual({
+      responseText: 'Partial output',
+      errorText: 'Execution was interrupted repeatedly and will not be resumed automatically.',
+      completed: false,
+    })
+    expect(getLatestAssistantReplyState([assistantMessage('Later answer', { completed: true }), exhausted])).toEqual({
+      responseText: 'Later answer',
+      errorText: null,
+      completed: true,
+    })
+    const succeeded = { ...exhausted, outcome: 'succeeded', error: undefined } as unknown as SessionMessageInfo
+    expect(getLatestAssistantReplyState([succeeded, assistantMessage('Done', { completed: true })])?.errorText).toBeNull()
+  })
+
+  it('reports a failed idle marker even when no assistant message exists, and lets a newer success supersede it', () => {
+    const idle = (outcome: string, created: number, message?: string) =>
+      ({
+        id: `msg_idle_${created}`,
+        type: 'idle',
+        outcome,
+        ...(message ? { error: { type: 'aborted', message } } : {}),
+        time: { created },
+      }) as unknown as SessionMessageInfo
+    expect(getLatestAssistantReplyState([idle('failed', 2, 'Gave up')])).toEqual({
+      responseText: null,
+      errorText: 'Gave up',
+      completed: false,
+    })
+    expect(getLatestAssistantReplyState([idle('failed', 2)])?.errorText).toBe('The session ended with a failure.')
+    expect(getLatestAssistantReplyState([idle('succeeded', 3), idle('failed', 2, 'Gave up')])).toBeNull()
+    expect(
+      getLatestAssistantReplyState([idle('succeeded', 3), idle('failed', 2, 'Gave up'), assistantMessage('Partial')])?.errorText,
+    ).toBeNull()
+  })
+
   it('reports an incomplete assistant message as not completed', () => {
     const state = getLatestAssistantReplyState([assistantMessage('Partial output')])
 

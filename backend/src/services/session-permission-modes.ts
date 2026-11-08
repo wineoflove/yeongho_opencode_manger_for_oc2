@@ -96,6 +96,18 @@ export class SessionPermissionModeService {
     return this.effectiveModeForRoot(sessionId, rootSessionId, serverId)
   }
 
+  /**
+   * Lock reason from verified ancestry. Unlike getEffectiveMode, an unresolvable ancestry throws
+   * instead of being treated as an unlocked top-level session.
+   */
+  async resolveLockReason(
+    sessionId: string,
+    serverId: string = LOCAL_OPENCODE_SERVER_ID,
+  ): Promise<SessionLockReason | null> {
+    const rootSessionId = await this.ancestry.resolveRootSessionId(sessionId, serverId)
+    return this.lockReasonForRoot(sessionId, rootSessionId, serverId)
+  }
+
   async setMode(
     sessionId: string,
     mode: SessionPermissionMode,

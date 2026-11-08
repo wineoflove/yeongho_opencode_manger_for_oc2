@@ -3,22 +3,33 @@ import {
   LOCAL_OPENCODE_SERVER_ID,
   ScheduleJobSchema,
   ScheduleMcpServersSchema,
+  ScheduleOutcomeReportSchema,
   SchedulePermissionConfigSchema,
+  ScheduleRunOutcomeSchema,
   ScheduleRunSchema,
+  ScheduleRunUsageSchema,
   ScheduleSandboxConfigSchema,
   ScheduleSkillMetadataSchema,
   ScheduleWorkspaceModeSchema,
   type ScheduleJob,
   type ScheduleMcpServer,
   type ScheduleMode,
+  type ScheduleOutcomeReport,
   type SchedulePermissionConfig,
   type ScheduleRun,
+  type ScheduleRunOutcome,
   type ScheduleRunStatus,
   type ScheduleRunTriggerSource,
+  type ScheduleRunUsage,
   type ScheduleSandboxConfig,
   type ScheduleWorkspaceMode,
 } from '@opencode-manager/shared/schemas'
-import { ASSISTANT_REPO_ID, ASSISTANT_REPO_NAME, ASSISTANT_REPO_PATH, getRepoDisplayName } from '@opencode-manager/shared/utils'
+import {
+  ASSISTANT_REPO_ID,
+  ASSISTANT_REPO_NAME,
+  ASSISTANT_REPO_PATH,
+  getRepoDisplayName,
+} from '@opencode-manager/shared/utils'
 import type { ScheduleJobPersistenceInput } from '../services/schedule-config'
 
 interface ScheduleJobRow {
@@ -67,6 +78,33 @@ interface ScheduleRunRow {
   run_branch: string | null
   commit_hash: string | null
   worktree_path: string | null
+  outcome?: string | null
+  outcome_json?: string | null
+  usage_json?: string | null
+  agent_used?: string | null
+}
+
+function parseJsonColumn<T>(
+  raw: string | null | undefined,
+  schema: {
+    safeParse(value: unknown): { success: true; data: T } | { success: false }
+  },
+): T | null {
+  if (!raw) {
+    return null
+  }
+
+  try {
+    const result = schema.safeParse(JSON.parse(raw))
+    return result.success ? result.data : null
+  } catch {
+    return null
+  }
+}
+
+function parseRunOutcome(raw: string | null | undefined): ScheduleRunOutcome | null {
+  const result = ScheduleRunOutcomeSchema.safeParse(raw)
+  return result.success ? result.data : null
 }
 
 function parseSkillMetadata(raw: string | null) {
@@ -177,6 +215,10 @@ function rowToScheduleRun(row: ScheduleRunRow): ScheduleRun {
     runBranch: row.run_branch,
     commitHash: row.commit_hash,
     worktreePath: row.worktree_path,
+    outcome: parseRunOutcome(row.outcome),
+    outcomeReport: parseJsonColumn(row.outcome_json, ScheduleOutcomeReportSchema),
+    usage: parseJsonColumn(row.usage_json, ScheduleRunUsageSchema),
+    agentUsed: row.agent_used ?? null,
   })
 }
 
@@ -287,7 +329,12 @@ export function createScheduleJob(
   return job
 }
 
-export function updateScheduleJob(db: Database, repoId: number | null, jobId: number, input: ScheduleJobPersistenceInput): ScheduleJob | null {
+export function updateScheduleJob(
+  db: Database,
+  repoId: number | null,
+  jobId: number,
+  input: ScheduleJobPersistenceInput,
+): ScheduleJob | null {
   const existing = getScheduleJobById(db, repoId, jobId)
   if (!existing) {
     return null
@@ -343,10 +390,21 @@ export interface ScheduleRunArtifact {
   worktreePath: string | null
 }
 
-export function listScheduleRunArtifactsByJob(db: Database, repoId: number | null, jobId: number): ScheduleRunArtifact[] {
+export function listScheduleRunArtifactsByJob(
+  db: Database,
+  repoId: number | null,
+  jobId: number,
+): ScheduleRunArtifact[] {
   const rows = db
-    .prepare('SELECT id, status, run_branch, worktree_path FROM schedule_runs WHERE repo_id IS ? AND job_id = ? ORDER BY id DESC')
-    .all(repoId, jobId) as { id: number; status: string; run_branch: string | null; worktree_path: string | null }[]
+    .prepare(
+      'SELECT id, status, run_branch, worktree_path FROM schedule_runs WHERE repo_id IS ? AND job_id = ? ORDER BY id DESC',
+    )
+    .all(repoId, jobId) as {
+    id: number
+    status: string
+    run_branch: string | null
+    worktree_path: string | null
+  }[]
   return rows.map((row) => ({
     id: row.id,
     status: row.status as ScheduleRunStatus,
@@ -362,11 +420,24 @@ export interface ScheduleJobWorktreeOwner {
 }
 
 export function listScheduleJobWorktreeOwners(db: Database): ScheduleJobWorktreeOwner[] {
-  const rows = db.prepare('SELECT id, repo_id, name FROM schedule_jobs WHERE repo_id IS NOT NULL').all() as Array<{ id: number; repo_id: number; name: string }>
-  return rows.map((row) => ({ id: row.id, repoId: row.repo_id, name: row.name }))
+  const rows = db.prepare('SELECT id, repo_id, name FROM schedule_jobs WHERE repo_id IS NOT NULL').all() as Array<{
+    id: number
+    repo_id: number
+    name: string
+  }>
+  return rows.map((row) => ({
+    id: row.id,
+    repoId: row.repo_id,
+    name: row.name,
+  }))
 }
 
-export function clearScheduleRunWorktreePath(db: Database, repoId: number | null, jobId: number, worktreePath: string): number {
+export function clearScheduleRunWorktreePath(
+  db: Database,
+  repoId: number | null,
+  jobId: number,
+  worktreePath: string,
+): number {
   return db
     .prepare('UPDATE schedule_runs SET worktree_path = NULL WHERE repo_id IS ? AND job_id = ? AND worktree_path = ?')
     .run(repoId, jobId, worktreePath).changes
@@ -388,7 +459,10 @@ export function deleteScheduleRunsByIds(db: Database, repoId: number | null, job
   return result.changes
 }
 
-export function cleanupOrphanedSchedules(db: Database): { orphanedJobs: number; orphanedRuns: number } {
+export function cleanupOrphanedSchedules(db: Database): {
+  orphanedJobs: number
+  orphanedRuns: number
+} {
   const runStmt = db.prepare(`
     DELETE FROM schedule_runs
     WHERE (repo_id IS NOT NULL AND repo_id != ? AND repo_id NOT IN (SELECT id FROM repos))
@@ -405,8 +479,15 @@ export function cleanupOrphanedSchedules(db: Database): { orphanedJobs: number; 
   return { orphanedJobs, orphanedRuns }
 }
 
-export function updateScheduleJobRunState(db: Database, repoId: number | null, jobId: number, values: { lastRunAt: number; nextRunAt?: number | null }): void {
-  const stmt = db.prepare('UPDATE schedule_jobs SET last_run_at = ?, next_run_at = ?, updated_at = ? WHERE repo_id IS ? AND id = ?')
+export function updateScheduleJobRunState(
+  db: Database,
+  repoId: number | null,
+  jobId: number,
+  values: { lastRunAt: number; nextRunAt?: number | null },
+): void {
+  const stmt = db.prepare(
+    'UPDATE schedule_jobs SET last_run_at = ?, next_run_at = ?, updated_at = ? WHERE repo_id IS ? AND id = ?',
+  )
   stmt.run(values.lastRunAt, values.nextRunAt ?? null, Date.now(), repoId, jobId)
 }
 
@@ -466,7 +547,14 @@ export function updateScheduleRun(
 ): ScheduleRun | null {
   const stmt = db.prepare(`
     UPDATE schedule_runs
-    SET status = ?, finished_at = ?, session_id = ?, session_title = ?, log_text = ?, response_text = ?, error_text = ?
+    SET status = ?, finished_at = ?, session_id = ?, session_title = ?, log_text = ?, response_text = ?, error_text = ?,
+      outcome = CASE
+        WHEN outcome_json IS NOT NULL THEN outcome
+        WHEN ? = 'cancelled' THEN 'cancelled'
+        WHEN ? = 'failed' THEN 'failed'
+        WHEN ? = 'completed' THEN 'unreported'
+        ELSE outcome
+      END
     WHERE repo_id IS ? AND job_id = ? AND id = ?
   `)
 
@@ -478,12 +566,36 @@ export function updateScheduleRun(
     input.logText ?? null,
     input.responseText ?? null,
     input.errorText ?? null,
+    input.status,
+    input.status,
+    input.status,
     repoId,
     jobId,
     runId,
   )
 
   return getScheduleRunById(db, repoId, jobId, runId)
+}
+
+export function updateScheduleRunUsage(
+  db: Database,
+  run: Pick<ScheduleRun, 'id' | 'repoId' | 'jobId'>,
+  snapshot: {
+    readonly usage: ScheduleRunUsage
+    readonly agentUsed: string | null
+  },
+): boolean {
+  const usageJson = JSON.stringify(ScheduleRunUsageSchema.parse(snapshot.usage))
+  const result = db
+    .prepare(
+      `
+    UPDATE schedule_runs
+    SET usage_json = ?, agent_used = COALESCE(?, agent_used)
+    WHERE repo_id IS ? AND job_id = ? AND id = ? AND status <> 'running'
+  `,
+    )
+    .run(usageJson, snapshot.agentUsed, run.repoId, run.jobId, run.id)
+  return result.changes > 0
 }
 
 export function updateScheduleRunMetadata(
@@ -529,7 +641,11 @@ export function updateScheduleRunWorktree(
   repoId: number | null,
   jobId: number,
   runId: number,
-  input: { worktreePath?: string | null; runBranch?: string | null; commitHash?: string | null },
+  input: {
+    worktreePath?: string | null
+    runBranch?: string | null
+    commitHash?: string | null
+  },
 ): ScheduleRun | null {
   const existing = getScheduleRunById(db, repoId, jobId, runId)
   if (!existing) {
@@ -554,7 +670,12 @@ export function updateScheduleRunWorktree(
   return getScheduleRunById(db, repoId, jobId, runId)
 }
 
-export function getScheduleRunById(db: Database, repoId: number | null, jobId: number, runId: number): ScheduleRun | null {
+export function getScheduleRunById(
+  db: Database,
+  repoId: number | null,
+  jobId: number,
+  runId: number,
+): ScheduleRun | null {
   const stmt = db.prepare('SELECT * FROM schedule_runs WHERE repo_id IS ? AND job_id = ? AND id = ?')
   const row = stmt.get(repoId, jobId, runId) as ScheduleRunRow | undefined
   return row ? rowToScheduleRun(row) : null
@@ -565,7 +686,9 @@ export function getScheduleRunBySessionId(
   sessionId: string,
   serverId: string = LOCAL_OPENCODE_SERVER_ID,
 ): ScheduleRun | null {
-  const stmt = db.prepare('SELECT * FROM schedule_runs WHERE server_id = ? AND session_id = ? ORDER BY started_at DESC LIMIT 1')
+  const stmt = db.prepare(
+    'SELECT * FROM schedule_runs WHERE server_id = ? AND session_id = ? ORDER BY started_at DESC LIMIT 1',
+  )
   const row = stmt.get(serverId, sessionId) as ScheduleRunRow | undefined
   return row ? rowToScheduleRun(row) : null
 }
@@ -592,7 +715,12 @@ export function listRunningScheduleRuns(db: Database, limit: number = 100): Sche
   return rows.map(rowToScheduleRun)
 }
 
-export function listScheduleRunsByJob(db: Database, repoId: number | null, jobId: number, limit: number = 20): ScheduleRun[] {
+export function listScheduleRunsByJob(
+  db: Database,
+  repoId: number | null,
+  jobId: number,
+  limit: number = 20,
+): ScheduleRun[] {
   const stmt = db.prepare(`
     SELECT
       id,
@@ -609,6 +737,10 @@ export function listScheduleRunsByJob(db: Database, repoId: number | null, jobId
       session_title,
       NULL AS log_text,
       NULL AS response_text,
+      outcome,
+      outcome_json,
+      usage_json,
+      agent_used,
       error_text,
       run_branch,
       commit_hash,
@@ -620,6 +752,65 @@ export function listScheduleRunsByJob(db: Database, repoId: number | null, jobId
   `)
   const rows = stmt.all(repoId, jobId, limit) as ScheduleRunRow[]
   return rows.map(rowToScheduleRun)
+}
+
+const SUMMARY_RUN_COLUMNS = `
+  id, job_id, repo_id, server_id, trigger_source, status, started_at, finished_at, viewed_at, created_at,
+  session_id, session_title, NULL AS log_text, NULL AS response_text, error_text,
+  run_branch, commit_hash, worktree_path, outcome, outcome_json, usage_json, agent_used
+`
+
+/** Lists runs started since `sinceMs` plus every still-running run, without log or response bodies. */
+export function listScheduleRunsForOverview(db: Database, sinceMs: number): ScheduleRun[] {
+  const rows = db
+    .prepare(
+      `SELECT ${SUMMARY_RUN_COLUMNS} FROM schedule_runs
+      WHERE started_at >= ? OR status = 'running'
+      ORDER BY started_at DESC, id DESC`,
+    )
+    .all(sinceMs) as ScheduleRunRow[]
+  return rows.map(rowToScheduleRun)
+}
+
+/** Latest run, latest run with a reported outcome, and latest finished run for one job. */
+export interface LatestScheduleRunsForJob {
+  latest: ScheduleRun | null
+  latestReported: ScheduleRun | null
+  latestTerminal: ScheduleRun | null
+}
+
+type LatestRunKind = keyof LatestScheduleRunsForJob
+
+interface LatestScheduleRunRow extends ScheduleRunRow {
+  kind: LatestRunKind
+}
+
+/** Reads the latest, latest-reported and latest-terminal run of every job in one query. */
+export function listLatestScheduleRunsPerJob(db: Database): Map<number, LatestScheduleRunsForJob> {
+  const ranked = (kind: LatestRunKind, filter: string) => `
+    SELECT * FROM (
+      SELECT '${kind}' AS kind, ${SUMMARY_RUN_COLUMNS},
+        ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY started_at DESC, id DESC) AS rank
+      FROM schedule_runs
+      ${filter}
+    ) WHERE rank = 1
+  `
+  const rows = db
+    .prepare(
+      `${ranked('latest', '')}
+      UNION ALL
+      ${ranked('latestReported', 'WHERE outcome_json IS NOT NULL')}
+      UNION ALL
+      ${ranked('latestTerminal', "WHERE status <> 'running'")}`,
+    )
+    .all() as LatestScheduleRunRow[]
+  const byJob = new Map<number, LatestScheduleRunsForJob>()
+  for (const row of rows) {
+    const entry = byJob.get(row.job_id) ?? { latest: null, latestReported: null, latestTerminal: null }
+    entry[row.kind] = rowToScheduleRun(row)
+    byJob.set(row.job_id, entry)
+  }
+  return byJob
 }
 
 export interface ScheduleRunSummary {
@@ -664,9 +855,15 @@ interface RepoDisplayRow {
   server_name?: string | null
 }
 
-function resolveRepoDisplay(row: RepoDisplayRow): { repoName: string; repoPath: string } {
+function resolveRepoDisplay(row: RepoDisplayRow): {
+  repoName: string
+  repoPath: string
+} {
   if (row.repo_id === null) {
-    return { repoName: row.server_name ?? 'Linked server', repoPath: row.directory ?? '' }
+    return {
+      repoName: row.server_name ?? 'Linked server',
+      repoPath: row.directory ?? '',
+    }
   }
   if (row.repo_id === ASSISTANT_REPO_ID) {
     return { repoName: ASSISTANT_REPO_NAME, repoPath: ASSISTANT_REPO_PATH }
@@ -691,7 +888,9 @@ function buildLastRunSummary(row: ScheduleJobWithRepoRow): ScheduleRunSummary | 
     startedAt: row.last_run_started_at ?? 0,
     finishedAt: row.last_run_finished_at,
     viewedAt: row.last_run_viewed_at,
-    preview: extractReportPreview(row.last_run_status === 'failed' ? row.last_run_error_text : row.last_run_response_head),
+    preview: extractReportPreview(
+      row.last_run_status === 'failed' ? row.last_run_error_text : row.last_run_response_head,
+    ),
   }
 }
 
@@ -798,7 +997,16 @@ export function listAllScheduleRuns(db: Database, options: ListAllRunsOptions = 
   const searchTerm = search?.trim()
   if (searchTerm) {
     const pattern = `%${escapeLikePattern(searchTerm)}%`
-    const searchColumns = ['sj.name', 'sr.session_title', 'sr.error_text', 'sr.run_branch', 'r.name', 'r.local_path', 'sj.directory', 'os.name']
+    const searchColumns = [
+      'sj.name',
+      'sr.session_title',
+      'sr.error_text',
+      'sr.run_branch',
+      'r.name',
+      'r.local_path',
+      'sj.directory',
+      'os.name',
+    ]
     conditions.push(`(${searchColumns.map((column) => `${column} LIKE ? ESCAPE '\\'`).join(' OR ')})`)
     params.push(...searchColumns.map(() => pattern))
   }
@@ -813,6 +1021,7 @@ export function listAllScheduleRuns(db: Database, options: ListAllRunsOptions = 
       NULL AS log_text, NULL AS response_text, sr.error_text,
       sr.viewed_at,
       sr.run_branch, sr.commit_hash, sr.worktree_path,
+      sr.outcome, sr.outcome_json, sr.usage_json, sr.agent_used,
       sj.name AS job_name, sj.directory AS directory, r.local_path AS repo_path, r.name AS repo_name,
       r.repo_url AS repo_url, r.source_path AS repo_source_path, os.name AS server_name
     FROM schedule_runs sr
@@ -861,9 +1070,7 @@ export function extractReportPreview(text: string | null): string | null {
     return null
   }
 
-  return line.length > REPORT_PREVIEW_MAX_LENGTH
-    ? `${line.slice(0, REPORT_PREVIEW_MAX_LENGTH).trimEnd()}…`
-    : line
+  return line.length > REPORT_PREVIEW_MAX_LENGTH ? `${line.slice(0, REPORT_PREVIEW_MAX_LENGTH).trimEnd()}…` : line
 }
 
 export interface ScheduleRunWithUnreadPreview extends ScheduleRunWithContext {
@@ -882,6 +1089,7 @@ export function listUnreadScheduleRuns(db: Database, limit: number = 20): Schedu
       sr.session_id, sr.session_title, sr.viewed_at,
       NULL AS log_text, NULL AS response_text, sr.error_text,
       sr.run_branch, sr.commit_hash, sr.worktree_path,
+      sr.outcome, sr.outcome_json, sr.usage_json, sr.agent_used,
       sj.name AS job_name, sj.directory AS directory, r.local_path AS repo_path, r.name AS repo_name,
       r.repo_url AS repo_url, r.source_path AS repo_source_path, os.name AS server_name,
       substr(sr.response_text, 1, 600) AS response_head
@@ -900,7 +1108,10 @@ export function listUnreadScheduleRuns(db: Database, limit: number = 20): Schedu
   }))
 }
 
-export function countUnreadScheduleRuns(db: Database): { total: number; failed: number } {
+export function countUnreadScheduleRuns(db: Database): {
+  total: number
+  failed: number
+} {
   const stmt = db.prepare(`
     SELECT
       COUNT(*) AS total,
@@ -914,7 +1125,9 @@ export function countUnreadScheduleRuns(db: Database): { total: number; failed: 
 
 export function markScheduleRunViewed(db: Database, runId: number): boolean {
   const result = db
-    .prepare("UPDATE schedule_runs SET viewed_at = ? WHERE id = ? AND viewed_at IS NULL AND status IN ('completed', 'failed')")
+    .prepare(
+      "UPDATE schedule_runs SET viewed_at = ? WHERE id = ? AND viewed_at IS NULL AND status IN ('completed', 'failed')",
+    )
     .run(Date.now(), runId)
   return result.changes > 0
 }
@@ -924,4 +1137,45 @@ export function markAllScheduleRunsViewed(db: Database): number {
     .prepare("UPDATE schedule_runs SET viewed_at = ? WHERE viewed_at IS NULL AND status IN ('completed', 'failed')")
     .run(Date.now())
   return result.changes
+}
+
+/** Reports whether a session was created by a schedule run, which may record learnings even when it has a parent. */
+export function isScheduleRunSession(db: Database, sessionId: string): boolean {
+  const row = db.prepare('SELECT 1 AS found FROM schedule_runs WHERE session_id = ? LIMIT 1').get(sessionId)
+  return row !== undefined && row !== null
+}
+
+/** Returns the running scheduled run whose OpenCode session reports an outcome, or null when none is linked. */
+export function getRunningScheduleRunBySessionId(
+  db: Database,
+  sessionId: string,
+  serverId: string = LOCAL_OPENCODE_SERVER_ID,
+): ScheduleRun | null {
+  const row = db
+    .prepare(
+      `SELECT * FROM schedule_runs
+       WHERE server_id = ? AND session_id = ? AND status = 'running'
+       ORDER BY started_at DESC, id DESC
+       LIMIT 1`,
+    )
+    .get(serverId, sessionId) as ScheduleRunRow | undefined
+  return row ? rowToScheduleRun(row) : null
+}
+
+/** Stores the agent's reported outcome on a run; the latest report replaces earlier ones. */
+export function updateScheduleRunOutcomeReport(
+  db: Database,
+  repoId: number | null,
+  jobId: number,
+  runId: number,
+  report: ScheduleOutcomeReport,
+): ScheduleRun | null {
+  db.prepare('UPDATE schedule_runs SET outcome = ?, outcome_json = ? WHERE repo_id IS ? AND job_id = ? AND id = ?').run(
+    report.outcome,
+    JSON.stringify(report),
+    repoId,
+    jobId,
+    runId,
+  )
+  return getScheduleRunById(db, repoId, jobId, runId)
 }

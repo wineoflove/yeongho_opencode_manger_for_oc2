@@ -1,4 +1,10 @@
 import { existsSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import {
+  beginScheduleSubmission,
+  acknowledgeScheduleSubmission,
+  getScheduleSubmission,
+} from '../db/schedule-submissions'
 import path from 'path'
 import type { Database } from 'bun:sqlite'
 import { Cron } from 'croner'
@@ -13,8 +19,13 @@ import {
   type ScheduleWorktree,
   type UpdateScheduleJobRequest,
 } from '@opencode-manager/shared/types'
-import { mcpStatusByName, openCodeLocation } from '@opencode-manager/shared/opencode'
-import { LOCAL_OPENCODE_SERVER_ID, buildSchedulePermissionRuleset } from '@opencode-manager/shared/schemas'
+import { mcpStatusByName, openCodeErrorStatus, openCodeLocation } from '@opencode-manager/shared/opencode'
+import {
+  LOCAL_OPENCODE_SERVER_ID,
+  buildSchedulePermissionRuleset,
+  type ScheduleOutcomeReportInput,
+  type ScheduleRunOutcome,
+} from '@opencode-manager/shared/schemas'
 import { getRepoById } from '../db/queries'
 import { getSessionSandboxMode } from '../db/session-sandbox-modes'
 import type { ScheduleJobWithRepo } from '../db/schedules'
@@ -28,6 +39,7 @@ import {
   deleteScheduleRunsByIds,
   getScheduleJobById,
   getRunningScheduleRunByJob,
+  getRunningScheduleRunBySessionId,
   getScheduleRunById,
   listAllScheduleJobsWithRepos,
   listScheduleRunArtifactsByJob,
@@ -46,6 +58,8 @@ import {
   updateScheduleJobRunState,
   updateScheduleRun,
   updateScheduleRunMetadata,
+  updateScheduleRunOutcomeReport,
+  updateScheduleRunUsage,
   updateScheduleRunWorktree,
 } from '../db/schedules'
 import type { ListAllRunsOptions, ScheduleRunWithContext, ScheduleRunWithUnreadPreview } from '../db/schedules'
@@ -55,6 +69,13 @@ import {
   computeNextRunAtForJob,
 } from './schedule-config'
 import { resolveOpenCodeModel } from './opencode-models'
+import { buildFailedUsage, captureScheduleRunUsage } from './schedule-run-usage'
+import {
+  buildRunDeadlineErrorText,
+  getRunDeadlineMs,
+  RunDeadline,
+  RunDeadlineAbortError,
+} from './schedule-run-deadline'
 import { isSessionBusy, readLatestAssistantReply, sessionSettleSignal, type AssistantReplyState } from './session-reply'
 import type { OpenCodeClient } from './opencode/client'
 import type { OpenCodeServerRegistry } from './opencode-server-registry'
@@ -81,7 +102,8 @@ class ScheduleServiceError extends Error {
 
 class ServerUnavailableError extends ScheduleServiceError {}
 
-const SESSION_STOPPED_ERROR = 'The session stopped without producing an assistant response. This usually means OpenCode restarted mid-run or the session was interrupted. Open the linked session to inspect any partial output and rerun if needed.'
+const SESSION_STOPPED_ERROR =
+  'The session stopped without producing an assistant response. This usually means OpenCode restarted mid-run or the session was interrupted. Open the linked session to inspect any partial output and rerun if needed.'
 
 const DELETION_RESERVATION_RUN_ID = -1
 
@@ -92,7 +114,7 @@ interface SessionSignal {
 
 interface SessionMonitor {
   markSubmitted(): void
-  nextSignal(): Promise<SessionSignal>
+  nextSignal(timeoutMs?: number): Promise<SessionSignal>
   dispose(): void
 }
 
@@ -100,6 +122,11 @@ interface ActiveRun {
   runId: number
   abort: AbortController
   sessionMonitor?: SessionMonitor
+  pendingSubmission?: Promise<void>
+  pendingStartup?: { promise: Promise<void>; resolve: () => void }
+  startupCancellation?: boolean
+  /** Reloaded after a restart, so this process has no evidence of what the run already submitted. */
+  recovered?: boolean
 }
 
 type CancelDecision = 'cancelled' | 'settled' | 'resume'
@@ -131,9 +158,10 @@ function buildRunLog(input: {
   errorText?: string | null
   finishedAt: number
 }): string {
-  const scheduleLabel = input.job.scheduleMode === 'cron'
-    ? `${input.job.cronExpression ?? ''} (${input.job.timezone ?? 'UTC'})`
-    : `every ${input.job.intervalMinutes ?? 0} minutes`
+  const scheduleLabel =
+    input.job.scheduleMode === 'cron'
+      ? `${input.job.cronExpression ?? ''} (${input.job.timezone ?? 'UTC'})`
+      : `every ${input.job.intervalMinutes ?? 0} minutes`
 
   const lines = [
     `Job: ${input.job.name}`,
@@ -168,9 +196,10 @@ function buildRunStartedLog(input: {
   sessionId: string
   sessionTitle: string
 }): string {
-  const scheduleLabel = input.job.scheduleMode === 'cron'
-    ? `${input.job.cronExpression ?? ''} (${input.job.timezone ?? 'UTC'})`
-    : `every ${input.job.intervalMinutes ?? 0} minutes`
+  const scheduleLabel =
+    input.job.scheduleMode === 'cron'
+      ? `${input.job.cronExpression ?? ''} (${input.job.timezone ?? 'UTC'})`
+      : `every ${input.job.intervalMinutes ?? 0} minutes`
 
   return [
     `Job: ${input.job.name}`,
@@ -185,7 +214,11 @@ function buildRunStartedLog(input: {
   ].join('\n')
 }
 
-function createSessionMonitor(directory: string, sessionId: string, serverId: string = LOCAL_OPENCODE_SERVER_ID): SessionMonitor {
+function createSessionMonitor(
+  directory: string,
+  sessionId: string,
+  serverId: string = LOCAL_OPENCODE_SERVER_ID,
+): SessionMonitor {
   const queued: SessionSignal[] = []
   let waiting: ((signal: SessionSignal) => void) | null = null
   let disposed = false
@@ -207,22 +240,23 @@ function createSessionMonitor(directory: string, sessionId: string, serverId: st
     }
   }
 
-  const unsubscribe = serverId === LOCAL_OPENCODE_SERVER_ID
-    ? sseAggregator.onEvent((eventDirectory, event) => {
-        if (eventDirectory !== directory) {
-          return
-        }
-        handleEvent(event)
-      })
-    : sseAggregator.onServerEvent((eventServerId, eventDirectory, event) => {
-        if (eventServerId !== serverId) {
-          return
-        }
-        if (eventDirectory !== null && eventDirectory !== directory) {
-          return
-        }
-        handleEvent(event)
-      })
+  const unsubscribe =
+    serverId === LOCAL_OPENCODE_SERVER_ID
+      ? sseAggregator.onEvent((eventDirectory, event) => {
+          if (eventDirectory !== directory) {
+            return
+          }
+          handleEvent(event)
+        })
+      : sseAggregator.onServerEvent((eventServerId, eventDirectory, event) => {
+          if (eventServerId !== serverId) {
+            return
+          }
+          if (eventDirectory !== null && eventDirectory !== directory) {
+            return
+          }
+          handleEvent(event)
+        })
 
   const unsubscribeConnected = sseAggregator.onServerConnected((connectedServerId) => {
     if (connectedServerId === serverId) {
@@ -234,7 +268,7 @@ function createSessionMonitor(directory: string, sessionId: string, serverId: st
     markSubmitted: () => {
       queued.length = 0
     },
-    nextSignal: () => {
+    nextSignal: (timeoutMs) => {
       const next = queued.shift()
       if (next) {
         return Promise.resolve(next)
@@ -242,7 +276,14 @@ function createSessionMonitor(directory: string, sessionId: string, serverId: st
       if (disposed) {
         return Promise.resolve({ errorText: null, disposed: true })
       }
-      return new Promise<SessionSignal>((resolve) => { waiting = resolve })
+      return new Promise<SessionSignal>((resolve) => {
+        const timer =
+          timeoutMs === undefined ? undefined : setTimeout(() => push({ errorText: null, disposed: false }), timeoutMs)
+        waiting = (signal) => {
+          clearTimeout(timer)
+          resolve(signal)
+        }
+      })
     },
     dispose: () => {
       if (disposed) {
@@ -256,9 +297,27 @@ function createSessionMonitor(directory: string, sessionId: string, serverId: st
   }
 }
 
+const PROMPT_REJECTION_TAGS = new Set([
+  'InvalidRequestError',
+  'SessionNotFoundError',
+  'UnauthorizedError',
+  'ForbiddenError',
+])
+
+/**
+ * OpenCode's prompt handler raises these typed errors before admitting a prompt. Conflicts mean the
+ * message ID already exists and may have been accepted, so they and transport or server errors leave
+ * delivery unknown.
+ */
+function isDefinitePromptRejection(error: unknown): boolean {
+  if (error === null || typeof error !== 'object') return false
+  const { _tag: tag, name } = error as { _tag?: unknown; name?: unknown }
+  const label = typeof tag === 'string' ? tag : name
+  return typeof label === 'string' && PROMPT_REJECTION_TAGS.has(label) && openCodeErrorStatus(error) !== undefined
+}
+
 export type ScheduleJobTarget =
-  | { kind: 'repo'; repoId: number }
-  | { kind: 'server'; serverId: string; directory: string }
+  { kind: 'repo'; repoId: number } | { kind: 'server'; serverId: string; directory: string }
 
 interface ScheduleTargetContext {
   repo: Repo | null
@@ -316,13 +375,21 @@ export class ScheduleService {
     }
 
     let resolve!: (decision: CancelDecision) => void
-    const decision = new Promise<CancelDecision>((r) => { resolve = r })
-    ScheduleService.pendingCancels.set(jobId, { runId, decision, resolve, resolved: false })
+    const decision = new Promise<CancelDecision>((r) => {
+      resolve = r
+    })
+    ScheduleService.pendingCancels.set(jobId, {
+      runId,
+      decision,
+      resolve,
+      resolved: false,
+    })
     return decision
   }
 
   private static settleCancel(jobId: number, runId: number, status: ScheduleRun['status'] | undefined): void {
-    const decision: CancelDecision = status === 'cancelled' ? 'cancelled' : status === 'completed' || status === 'failed' ? 'settled' : 'resume'
+    const decision: CancelDecision =
+      status === 'cancelled' ? 'cancelled' : status === 'completed' || status === 'failed' ? 'settled' : 'resume'
     ScheduleService.resolveCancel(jobId, runId, decision)
   }
 
@@ -451,7 +518,10 @@ export class ScheduleService {
     }
   }
 
-  private resolveTargetPersistence(target: ScheduleJobTarget): { repo: Repo | null; repoId: number | null } {
+  private resolveTargetPersistence(target: ScheduleJobTarget): {
+    repo: Repo | null
+    repoId: number | null
+  } {
     if (target.kind === 'repo') {
       return { repo: this.assertRepo(target.repoId), repoId: target.repoId }
     }
@@ -483,7 +553,10 @@ export class ScheduleService {
   private assertInPlaceWorkspace(target: ScheduleJobTarget, workspaceMode: ScheduleWorkspaceMode | undefined): void {
     if (target.kind === 'server') {
       if (workspaceMode !== undefined && workspaceMode !== 'in-place') {
-        throw new ScheduleServiceError('Schedules on a linked server run in place; worktree workspace modes are only available for local repositories.', 400)
+        throw new ScheduleServiceError(
+          'Schedules on a linked server run in place; worktree workspace modes are only available for local repositories.',
+          400,
+        )
       }
       return
     }
@@ -505,7 +578,10 @@ export class ScheduleService {
     }
 
     try {
-      dependencies.sessions.assertSandboxRequestAllowed({ sandboxed: true, resources: sandbox.resources })
+      dependencies.sessions.assertSandboxRequestAllowed({
+        sandboxed: true,
+        resources: sandbox.resources,
+      })
     } catch (error) {
       if (error instanceof SessionSandboxError) {
         throw new ScheduleServiceError(error.message, error.status)
@@ -520,7 +596,10 @@ export class ScheduleService {
       throw new ScheduleServiceError('Sandboxing is not available for schedules.', 409)
     }
 
-    await dependencies.sessions.update(sessionId, { sandboxed: true, resources: sandbox.resources })
+    await dependencies.sessions.update(sessionId, {
+      sandboxed: true,
+      resources: sandbox.resources,
+    })
     const target = await dependencies.sessions.resolveShellTarget(sessionId)
     const plan = await dependencies.runtime.planShell(directory, { ...target, locationDirectory: directory }, true)
 
@@ -543,7 +622,10 @@ export class ScheduleService {
         counts.set(entry.jobId, (counts.get(entry.jobId) ?? 0) + 1)
       }
     }
-    return listAllScheduleJobsWithRepos(this.db).map((job) => ({ ...job, retainedWorktreeCount: counts.get(job.id) ?? 0 }))
+    return listAllScheduleJobsWithRepos(this.db).map((job) => ({
+      ...job,
+      retainedWorktreeCount: counts.get(job.id) ?? 0,
+    }))
   }
 
   /**
@@ -554,7 +636,8 @@ export class ScheduleService {
     this.assertJob(repoId, jobId)
     const describeSchedule = createScheduleWorktreeDescriber(this.db)
 
-    return this.worktreeManager.listWorktrees(jobId)
+    return this.worktreeManager
+      .listWorktrees(jobId)
       .map((entry) => {
         const described = describeSchedule(canonicalPathSync(path.resolve(entry.worktreePath)))
         return {
@@ -594,7 +677,10 @@ export class ScheduleService {
       try {
         await this.worktreeManager.releaseWorktree(repo, job, target.worktreePath)
       } catch (error) {
-        throw new ScheduleServiceError(`Failed to remove worktree ${target.worktreePath}: ${getErrorMessage(error)}`, 500)
+        throw new ScheduleServiceError(
+          `Failed to remove worktree ${target.worktreePath}: ${getErrorMessage(error)}`,
+          500,
+        )
       }
       clearScheduleRunWorktreePath(this.db, repoId, jobId, target.worktreePath)
       if (this.onWorktreeRemoved) {
@@ -640,7 +726,11 @@ export class ScheduleService {
         continue
       }
 
-      ScheduleService.activeRuns.set(job.id, { runId: run.id, abort: new AbortController() })
+      ScheduleService.activeRuns.set(job.id, {
+        runId: run.id,
+        abort: new AbortController(),
+        recovered: true,
+      })
       await this.recoverRunningRun(job, run)
     }
   }
@@ -679,9 +769,15 @@ export class ScheduleService {
     const context = this.resolveTargetContext(target)
     this.assertSandboxJobSupported(context.serverId, input.sandbox)
     await this.assertAgentAvailable(context.client, context.directory, input.agentSlug?.trim() || null)
-    const request = target.kind === 'server'
-      ? { ...input, workspaceMode: 'in-place' as const, directory: context.directory, branch: null }
-      : { ...input, directory: undefined }
+    const request =
+      target.kind === 'server'
+        ? {
+            ...input,
+            workspaceMode: 'in-place' as const,
+            directory: context.directory,
+            branch: null,
+          }
+        : { ...input, directory: undefined }
 
     try {
       const job = createScheduleJob(
@@ -708,7 +804,11 @@ export class ScheduleService {
     return this.updateJobForTarget({ kind: 'server', serverId, directory: '' }, jobId, input)
   }
 
-  private async updateJobForTarget(target: ScheduleJobTarget, jobId: number, input: UpdateScheduleJobRequest): Promise<ScheduleJob> {
+  private async updateJobForTarget(
+    target: ScheduleJobTarget,
+    jobId: number,
+    input: UpdateScheduleJobRequest,
+  ): Promise<ScheduleJob> {
     const existing = this.loadJobForTarget(target, jobId)
     this.assertInPlaceWorkspace(target, input.workspaceMode)
     const context = this.resolveTargetContext(target, input.directory ?? existing.directory)
@@ -721,15 +821,22 @@ export class ScheduleService {
     }
 
     if (input.workspaceMode !== undefined && input.workspaceMode !== existing.workspaceMode) {
-      const running = ScheduleService.activeRuns.has(jobId) || getRunningScheduleRunByJob(this.db, context.repoId, jobId) !== null
+      const running =
+        ScheduleService.activeRuns.has(jobId) || getRunningScheduleRunByJob(this.db, context.repoId, jobId) !== null
       if (running) {
         throw new ScheduleServiceError('Cannot change where runs execute while a run is in progress.', 409)
       }
     }
 
-    const request = target.kind === 'server'
-      ? { ...input, workspaceMode: 'in-place' as const, directory: input.directory ?? existing.directory ?? context.directory, branch: null }
-      : { ...input, directory: undefined }
+    const request =
+      target.kind === 'server'
+        ? {
+            ...input,
+            workspaceMode: 'in-place' as const,
+            directory: input.directory ?? existing.directory ?? context.directory,
+            branch: null,
+          }
+        : { ...input, directory: undefined }
 
     let job: ScheduleJob | null
 
@@ -768,7 +875,10 @@ export class ScheduleService {
     }
 
     this.onJobChange?.(null, jobId)
-    ScheduleService.activeRuns.set(jobId, { runId: DELETION_RESERVATION_RUN_ID, abort: new AbortController() })
+    ScheduleService.activeRuns.set(jobId, {
+      runId: DELETION_RESERVATION_RUN_ID,
+      abort: new AbortController(),
+    })
 
     try {
       if (target.kind === 'repo') {
@@ -792,12 +902,18 @@ export class ScheduleService {
 
     for (const jobId of jobIds) {
       if (ScheduleService.activeRuns.has(jobId)) {
-        throw new ScheduleServiceError('Cannot delete a repo while a schedule run is in progress. Cancel the run first.', 409)
+        throw new ScheduleServiceError(
+          'Cannot delete a repo while a schedule run is in progress. Cancel the run first.',
+          409,
+        )
       }
 
       const runningRun = getRunningScheduleRunByJob(this.db, repoId, jobId)
       if (runningRun) {
-        throw new ScheduleServiceError('Cannot delete a repo while a schedule run is in progress. Cancel the run first.', 409)
+        throw new ScheduleServiceError(
+          'Cannot delete a repo while a schedule run is in progress. Cancel the run first.',
+          409,
+        )
       }
     }
 
@@ -839,6 +955,32 @@ export class ScheduleService {
     return run
   }
 
+  /**
+   * Records the outcome a scheduled session reports for its running run. The run status still
+   * reflects whether the agent turn ended; the outcome reflects whether the task succeeded.
+   */
+  reportOutcome(
+    sessionId: string,
+    input: ScheduleOutcomeReportInput,
+    agent: string | null,
+  ): { runId: number; jobId: number; outcome: ScheduleRunOutcome } {
+    const run = getRunningScheduleRunBySessionId(this.db, sessionId)
+    if (!run) {
+      throw new ScheduleServiceError(
+        'OCM_OUTCOME_NO_RUNNING_RUN: no running scheduled run is linked to this session',
+        404,
+      )
+    }
+
+    updateScheduleRunOutcomeReport(this.db, run.repoId, run.jobId, run.id, {
+      ...input,
+      reportedAt: Date.now(),
+      agent,
+      reportCount: (run.outcomeReport?.reportCount ?? 0) + 1,
+    })
+    return { runId: run.id, jobId: run.jobId, outcome: input.outcome }
+  }
+
   getServerRun(serverId: string, jobId: number, runId: number): ScheduleRun {
     this.loadJobForTarget({ kind: 'server', serverId, directory: '' }, jobId)
     const run = getScheduleRunById(this.db, null, jobId, runId)
@@ -855,7 +997,11 @@ export class ScheduleService {
    * whether a worktree still on disk is committed and kept (`commit`) or
    * discarded along with its branch (`discard`).
    */
-  async clearRunHistory(repoId: number, jobId: number, worktrees: ScheduleRunWorktreesMode = 'commit'): Promise<{ cleared: number }> {
+  async clearRunHistory(
+    repoId: number,
+    jobId: number,
+    worktrees: ScheduleRunWorktreesMode = 'commit',
+  ): Promise<{ cleared: number }> {
     return this.clearRunHistoryForTarget({ kind: 'repo', repoId }, jobId, worktrees)
   }
 
@@ -863,7 +1009,11 @@ export class ScheduleService {
     return this.clearRunHistoryForTarget({ kind: 'server', serverId, directory: '' }, jobId)
   }
 
-  private async clearRunHistoryForTarget(target: ScheduleJobTarget, jobId: number, worktrees: ScheduleRunWorktreesMode = 'commit'): Promise<{ cleared: number }> {
+  private async clearRunHistoryForTarget(
+    target: ScheduleJobTarget,
+    jobId: number,
+    worktrees: ScheduleRunWorktreesMode = 'commit',
+  ): Promise<{ cleared: number }> {
     const job = this.loadJobForTarget(target, jobId)
     const { repo, repoId } = this.resolveTargetPersistence(target)
 
@@ -875,7 +1025,12 @@ export class ScheduleService {
     if (repo) {
       await this.worktreeManager.pruneRunArtifacts(repo, job, removable, worktrees)
     }
-    const cleared = deleteScheduleRunsByIds(this.db, repoId, jobId, removable.map((run) => run.id))
+    const cleared = deleteScheduleRunsByIds(
+      this.db,
+      repoId,
+      jobId,
+      removable.map((run) => run.id),
+    )
     return { cleared }
   }
 
@@ -885,7 +1040,12 @@ export class ScheduleService {
    * whether a worktree still on disk is committed and kept (`commit`) or
    * discarded along with its branch (`discard`).
    */
-  async deleteRun(repoId: number, jobId: number, runId: number, worktrees: ScheduleRunWorktreesMode = 'commit'): Promise<void> {
+  async deleteRun(
+    repoId: number,
+    jobId: number,
+    runId: number,
+    worktrees: ScheduleRunWorktreesMode = 'commit',
+  ): Promise<void> {
     return this.deleteRunForTarget({ kind: 'repo', repoId }, jobId, runId, worktrees)
   }
 
@@ -893,7 +1053,12 @@ export class ScheduleService {
     return this.deleteRunForTarget({ kind: 'server', serverId, directory: '' }, jobId, runId)
   }
 
-  private async deleteRunForTarget(target: ScheduleJobTarget, jobId: number, runId: number, worktrees: ScheduleRunWorktreesMode = 'commit'): Promise<void> {
+  private async deleteRunForTarget(
+    target: ScheduleJobTarget,
+    jobId: number,
+    runId: number,
+    worktrees: ScheduleRunWorktreesMode = 'commit',
+  ): Promise<void> {
     const job = this.loadJobForTarget(target, jobId)
     const { repo, repoId } = this.resolveTargetPersistence(target)
     const run = getScheduleRunById(this.db, repoId, jobId, runId)
@@ -906,7 +1071,12 @@ export class ScheduleService {
     }
 
     if (repo) {
-      await this.worktreeManager.pruneRunArtifacts(repo, job, [{ runBranch: run.runBranch, worktreePath: run.worktreePath }], worktrees)
+      await this.worktreeManager.pruneRunArtifacts(
+        repo,
+        job,
+        [{ runBranch: run.runBranch, worktreePath: run.worktreePath }],
+        worktrees,
+      )
     }
     const deleted = deleteScheduleRunById(this.db, repoId, jobId, runId)
     if (!deleted) {
@@ -926,7 +1096,11 @@ export class ScheduleService {
     return this.runJobForTarget(this.targetForJob(job), job.id, triggerSource)
   }
 
-  private async runJobForTarget(target: ScheduleJobTarget, jobId: number, triggerSource: ScheduleRunTriggerSource): Promise<ScheduleRun> {
+  private async runJobForTarget(
+    target: ScheduleJobTarget,
+    jobId: number,
+    triggerSource: ScheduleRunTriggerSource,
+  ): Promise<ScheduleRun> {
     const job = this.loadJobForTarget(target, jobId)
     const repoId = target.kind === 'repo' ? target.repoId : null
     const serverId = target.kind === 'repo' ? LOCAL_OPENCODE_SERVER_ID : target.serverId
@@ -941,6 +1115,7 @@ export class ScheduleService {
     }
 
     const startedAt = Date.now()
+    const deadlineAt = startedAt + getRunDeadlineMs()
     const run = createScheduleRun(this.db, {
       jobId,
       repoId,
@@ -952,9 +1127,27 @@ export class ScheduleService {
     })
 
     const abort = new AbortController()
-    ScheduleService.activeRuns.set(jobId, { runId: run.id, abort })
+    const startup = Promise.withResolvers<void>()
+    ScheduleService.activeRuns.set(jobId, {
+      runId: run.id,
+      abort,
+      pendingStartup: startup,
+    })
     let repo: Repo | null = null
     let sessionId: string | null = null
+    const startupDeadline = new RunDeadline(deadlineAt, () => {
+      try {
+        if (getScheduleRunById(this.db, repoId, jobId, run.id)?.status === 'running') {
+          updateScheduleRunMetadata(this.db, repoId, jobId, run.id, {
+            errorText: buildRunDeadlineErrorText(deadlineAt - startedAt),
+          })
+        }
+      } catch {
+        logger.error('Failed to record an expired schedule startup', {
+          runId: run.id,
+        })
+      }
+    })
 
     try {
       const context = this.resolveTargetContext(target, job.directory)
@@ -977,11 +1170,17 @@ export class ScheduleService {
         return this.abandonCancelledStartup(context.client, repoId, jobId, run, job, repo)
       }
 
-      const runJob = { ...job, agentSlug: await this.resolveRunAgent(context.client, runDirectory, job.agentSlug) }
-      const model = await resolveOpenCodeModel(context.client, runDirectory, {
-        preferredModel: job.model,
-        signal: abort.signal,
-      })
+      if (Date.now() >= deadlineAt) throw new RunDeadlineAbortError(deadlineAt)
+      const runJob = {
+        ...job,
+        agentSlug: await startupDeadline.race(this.resolveRunAgent(context.client, runDirectory, job.agentSlug)),
+      }
+      const model = await startupDeadline.race(
+        resolveOpenCodeModel(context.client, runDirectory, {
+          preferredModel: job.model,
+          signal: AbortSignal.any([abort.signal, startupDeadline.signal]),
+        }),
+      )
 
       if (abort.signal.aborted) {
         return this.abandonCancelledStartup(context.client, repoId, jobId, run, job, repo)
@@ -993,13 +1192,18 @@ export class ScheduleService {
         return this.abandonCancelledStartup(context.client, repoId, jobId, run, job, repo)
       }
 
+      if (Date.now() >= deadlineAt) throw new RunDeadlineAbortError(deadlineAt)
       const sessionTitle = buildSessionTitle(job)
       let session: { id: string }
       try {
         session = await context.client.api.session.create({
           title: sessionTitle,
           agent: runJob.agentSlug ?? undefined,
-          model: { providerID: model.providerID, id: model.id, variant: model.variant },
+          model: {
+            providerID: model.providerID,
+            id: model.id,
+            variant: model.variant,
+          },
           ...openCodeLocation(runDirectory),
           permissions: buildSchedulePermissionRuleset(job.permissionConfig),
         })
@@ -1016,6 +1220,7 @@ export class ScheduleService {
         return this.abandonCancelledStartup(context.client, repoId, jobId, run, job, repo, session.id)
       }
 
+      if (Date.now() >= deadlineAt) throw new RunDeadlineAbortError(deadlineAt)
       const runWithSession = updateScheduleRunMetadata(this.db, repoId, jobId, run.id, {
         sessionId: session.id,
         sessionTitle,
@@ -1038,10 +1243,12 @@ export class ScheduleService {
         }
       }
 
+      if (Date.now() >= deadlineAt) throw new RunDeadlineAbortError(deadlineAt)
       const sessionMonitor = createSessionMonitor(runDirectory, session.id, context.serverId)
       ScheduleService.attachSessionMonitor(jobId, run.id, sessionMonitor)
 
       void this.submitPromptAndMonitor({
+        deadlineAt,
         repoId,
         repo,
         client: context.client,
@@ -1070,8 +1277,14 @@ export class ScheduleService {
       }
 
       const finishedAt = Date.now()
-      const errorText = getErrorMessage(error)
-      logger.error(`Failed to run schedule ${jobId}:`, error)
+      const expired = Date.now() >= deadlineAt
+      const errorText = expired ? buildRunDeadlineErrorText(deadlineAt - startedAt) : getErrorMessage(error)
+      if (expired)
+        logger.warn('Schedule startup exceeded its deadline', {
+          jobId,
+          runId: run.id,
+        })
+      else logger.error(`Failed to run schedule ${jobId}:`, error)
 
       const failedRun = updateScheduleRun(this.db, repoId, jobId, run.id, {
         status: 'failed',
@@ -1103,11 +1316,16 @@ export class ScheduleService {
         throw new ScheduleServiceError('Failed to load failed run', 500)
       }
 
-      if (error instanceof ScheduleServiceError) {
+      if (!expired && error instanceof ScheduleServiceError) {
         throw error
       }
 
       throw new ScheduleServiceError(errorText, 500)
+    } finally {
+      startupDeadline.clear()
+      startup.resolve()
+      const active = ScheduleService.activeRuns.get(jobId)
+      if (active?.runId === run.id) delete active.pendingStartup
     }
   }
 
@@ -1142,6 +1360,25 @@ export class ScheduleService {
       throw new ScheduleServiceError('Only running schedule runs can be cancelled', 409)
     }
 
+    const startupOwner = ScheduleService.activeRuns.get(jobId)
+    if (startupOwner?.runId === runId && startupOwner.pendingStartup) {
+      ScheduleService.requestCancel(jobId, runId)
+      startupOwner.startupCancellation = true
+      startupOwner.abort.abort()
+      try {
+        await startupOwner.pendingStartup.promise
+        const current = this.getRunById(context.repoId, jobId, runId)
+        if (current.status !== 'running') {
+          ScheduleService.settleCancel(jobId, runId, current.status)
+          return current
+        }
+        if (current.sessionId) await this.interruptCancelledSession(context.client, current.sessionId)
+        return await this.finalizeCancelledRun(context.repo, job, current, context.repoId, jobId, runId)
+      } catch (error) {
+        this.settleCancelFromState(context.repoId, jobId, runId)
+        throw error
+      }
+    }
     if (!run.sessionId) {
       ScheduleService.abortActiveRun(jobId, runId)
       return this.finalizeCancelledRun(context.repo, job, run, context.repoId, jobId, runId)
@@ -1150,6 +1387,15 @@ export class ScheduleService {
     ScheduleService.requestCancel(jobId, runId)
 
     try {
+      const active = ScheduleService.activeRuns.get(jobId)
+      const pendingSubmission = active?.runId === runId ? active.pendingSubmission : undefined
+      if (!pendingSubmission && getScheduleSubmission(this.db, runId)?.state === 'pending') {
+        throw new ScheduleServiceError(
+          'SUBMISSION_UNCONFIRMED: Delivery is not yet confirmed; execution resources are retained.',
+          409,
+        )
+      }
+      await pendingSubmission
       let outcome: AssistantOutcome
       try {
         outcome = await this.readAssistantOutcome(context.client, run.sessionId)
@@ -1157,22 +1403,38 @@ export class ScheduleService {
         throw new ScheduleServiceError(getErrorMessage(error) || 'Failed to cancel schedule run', 502)
       }
 
+      if (outcome.kind === 'stopped' && getScheduleSubmission(this.db, runId)) {
+        throw new ScheduleServiceError(
+          'SUBMISSION_UNCONFIRMED: The accepted submission has not been observed executing; execution resources are retained.',
+          409,
+        )
+      }
       if (outcome.kind === 'settled') {
-        await this.finalizeRecoveredRun(job, run, {
-          status: outcome.errorText ? 'failed' : 'completed',
-          responseText: outcome.responseText,
-          errorText: outcome.errorText,
-        }, context.repo)
+        await this.finalizeRecoveredRun(
+          job,
+          run,
+          {
+            status: outcome.errorText ? 'failed' : 'completed',
+            responseText: outcome.responseText,
+            errorText: outcome.errorText,
+          },
+          context.repo,
+        )
         ScheduleService.resolveCancel(jobId, runId, 'settled')
         return this.getRunById(context.repoId, jobId, runId)
       }
 
       try {
-        await context.client.api.session.interrupt({ sessionID: run.sessionId })
+        await context.client.api.session.interrupt({
+          sessionID: run.sessionId,
+        })
       } catch (error) {
         throw new ScheduleServiceError(getErrorMessage(error) || 'Failed to cancel schedule run', 502)
       }
 
+      if (pendingSubmission && (await this.isSessionActive(context.client, run.sessionId))) {
+        throw new ScheduleServiceError('CANCELLATION_UNCONFIRMED: The submitted session is still active.', 502)
+      }
       return await this.finalizeCancelledRun(context.repo, job, run, context.repoId, jobId, runId)
     } catch (error) {
       this.settleCancelFromState(context.repoId, jobId, runId)
@@ -1191,6 +1453,20 @@ export class ScheduleService {
       throw new ScheduleServiceError('Only running schedule runs can be cancelled', 409)
     }
 
+    if (getScheduleSubmission(this.db, runId)) {
+      throw new ScheduleServiceError(
+        'CANCELLATION_UNCONFIRMED: The server is unavailable; submitted execution resources are retained.',
+        409,
+      )
+    }
+    const owner = ScheduleService.activeRuns.get(jobId)
+    const startedInThisProcess = owner?.runId === runId && owner.recovered !== true
+    if (run.sessionId && !startedInThisProcess) {
+      throw new ScheduleServiceError(
+        'CANCELLATION_UNCONFIRMED: The server is unavailable and the linked session cannot be observed; execution resources are retained.',
+        409,
+      )
+    }
     ScheduleService.requestCancel(jobId, runId)
     ScheduleService.abortActiveRun(jobId, runId)
     ScheduleService.disposeActiveRunMonitor(jobId, runId)
@@ -1257,10 +1533,11 @@ export class ScheduleService {
       throw new ScheduleServiceError('Failed to update cancelled run', 500)
     }
 
-    return cancelledRun
+    return this.getRunById(repoId, jobId, runId)
   }
 
   private async submitPromptAndMonitor(input: {
+    deadlineAt: number
     repoId: number | null
     repo: Repo | null
     client: OpenCodeClient
@@ -1273,31 +1550,91 @@ export class ScheduleService {
     sessionMonitor: SessionMonitor
     directory: string
   }): Promise<void> {
+    let cleanupHandedOff = false
+    let promptSubmitted = false
+    let messageId = ''
+    const submissionDeadline = new RunDeadline(input.deadlineAt, () => {
+      if (!promptSubmitted) return
+      try {
+        if (getScheduleRunById(this.db, input.repoId, input.job.id, input.runId)?.status === 'running') {
+          updateScheduleRunMetadata(this.db, input.repoId, input.job.id, input.runId, {
+            errorText: buildRunDeadlineErrorText(getRunDeadlineMs()),
+          })
+        }
+      } catch {
+        logger.error('Failed to record an expired schedule submission', {
+          runId: input.runId,
+        })
+      }
+    })
     try {
       if ((await ScheduleService.awaitCancelDecision(input.job.id, input.runId)) !== 'resume') {
         return
       }
 
-      const skills = await this.resolveSkillAttachments(input.client, input.directory, input.job.skillMetadata)
+      if (Date.now() >= input.deadlineAt) throw new RunDeadlineAbortError(input.deadlineAt)
+      const skills = await submissionDeadline.race(
+        this.resolveSkillAttachments(input.client, input.directory, input.job.skillMetadata),
+      )
 
       if ((await ScheduleService.awaitCancelDecision(input.job.id, input.runId)) !== 'resume') {
         return
       }
 
+      if (Date.now() >= input.deadlineAt) throw new RunDeadlineAbortError(input.deadlineAt)
       const notes = input.job.skillMetadata?.notes?.trim()
-      await input.client.api.session.prompt({
-        sessionID: input.sessionId,
-        text: notes ? `${input.job.prompt}\n\nSkill notes: ${notes}` : input.job.prompt,
-        ...(skills.length > 0 ? { skills } : {}),
+      messageId = `msg_${randomUUID().replaceAll('-', '').slice(0, 26)}`
+      beginScheduleSubmission(this.db, {
+        runId: input.runId,
+        sessionId: input.sessionId,
+        messageId,
+        createdAt: Date.now(),
       })
+      promptSubmitted = true
+      const submission = Promise.withResolvers<void>()
+      const active = ScheduleService.activeRuns.get(input.job.id)
+      if (active?.runId === input.runId) active.pendingSubmission = submission.promise
+      try {
+        const accepted = await input.client.api.session.prompt({
+          sessionID: input.sessionId,
+          id: messageId,
+          text: notes ? `${input.job.prompt}\n\nSkill notes: ${notes}` : input.job.prompt,
+          ...(skills.length > 0 ? { skills } : {}),
+        })
+        try {
+          if (accepted.id === messageId && accepted.sessionID === input.sessionId) {
+            acknowledgeScheduleSubmission(this.db, {
+              runId: input.runId,
+              messageId,
+              acknowledgedAt: Date.now(),
+            })
+          } else {
+            logger.warn('Schedule submission acknowledgement did not match; retaining pending state', {
+              runId: input.runId,
+            })
+          }
+        } catch {
+          logger.warn('Could not persist schedule submission acknowledgement; retaining pending state', {
+            runId: input.runId,
+          })
+        }
+      } finally {
+        submission.resolve()
+        if (active?.runId === input.runId) delete active.pendingSubmission
+      }
 
       if ((await ScheduleService.awaitCancelDecision(input.job.id, input.runId)) !== 'resume') {
         return
       }
 
+      if (Date.now() >= input.deadlineAt) throw new RunDeadlineAbortError(input.deadlineAt)
       input.sessionMonitor.markSubmitted()
 
+      cleanupHandedOff = true
+      submissionDeadline.clear()
       await this.monitorRunCompletion({
+        directory: input.directory,
+        deadlineAt: input.deadlineAt,
         sessionMonitor: input.sessionMonitor,
         repoId: input.repoId,
         repo: input.repo,
@@ -1317,10 +1654,45 @@ export class ScheduleService {
 
       const finishedAt = Date.now()
       const errorText = getErrorMessage(error)
+      if (promptSubmitted && Date.now() >= input.deadlineAt) {
+        cleanupHandedOff = true
+        input.sessionMonitor.dispose()
+        try {
+          const current = getScheduleRunById(this.db, input.repoId, input.job.id, input.runId)
+          if (current?.status === 'running') {
+            await this.expireRecoveredRun(input.job, current, {
+              repo: input.repo,
+              repoId: input.repoId,
+              serverId: input.serverId,
+              directory: input.directory,
+              client: input.client,
+            })
+          }
+        } catch {
+          logger.error('Failed to resolve an expired schedule submission', {
+            runId: input.runId,
+          })
+        }
+        return
+      }
       logger.error(`Failed to submit prompt for schedule ${input.job.id}:`, error)
 
       const currentRun = getScheduleRunById(this.db, input.repoId, input.job.id, input.runId)
       if (!currentRun || currentRun.status !== 'running') {
+        return
+      }
+
+      if (
+        promptSubmitted &&
+        (!isDefinitePromptRejection(error) ||
+          (await this.observeSubmittedMessage(input.client, input.sessionId, messageId)) !== 'absent')
+      ) {
+        cleanupHandedOff = true
+        input.sessionMonitor.dispose()
+        logger.warn('Schedule prompt delivery is unconfirmed; retaining execution resources', {
+          runId: input.runId,
+        })
+        void this.recoverRunningRun(input.job, currentRun)
         return
       }
 
@@ -1342,18 +1714,23 @@ export class ScheduleService {
 
       updateScheduleJobRunState(this.db, input.repoId, input.job.id, {
         lastRunAt: finishedAt,
-        nextRunAt: input.triggerSource === 'manual' ? input.job.nextRunAt : computeNextRunAtForJob(input.job, finishedAt),
+        nextRunAt:
+          input.triggerSource === 'manual' ? input.job.nextRunAt : computeNextRunAtForJob(input.job, finishedAt),
       })
     } finally {
-      await ScheduleService.awaitCancelDecision(input.job.id, input.runId)
-      input.sessionMonitor.dispose()
-      await this.teardownRunResources(input.repoId, input.job.id, input.runId, input.job, input.repo, input.sessionId)
-      ScheduleService.releaseActiveRun(input.job.id, input.runId)
-      ScheduleService.clearCancel(input.job.id, input.runId)
+      submissionDeadline.clear()
+      if (!cleanupHandedOff) {
+        await ScheduleService.awaitCancelDecision(input.job.id, input.runId)
+        input.sessionMonitor.dispose()
+        await this.teardownRunResources(input.repoId, input.job.id, input.runId, input.job, input.repo, input.sessionId)
+        ScheduleService.releaseActiveRun(input.job.id, input.runId)
+        ScheduleService.clearCancel(input.job.id, input.runId)
+      }
     }
   }
 
   private async monitorRunCompletion(input: {
+    directory: string
     sessionMonitor: SessionMonitor
     repoId: number | null
     repo: Repo | null
@@ -1364,30 +1741,40 @@ export class ScheduleService {
     sessionId: string
     sessionTitle: string
     triggerSource: ScheduleRunTriggerSource
+    deadlineAt?: number
   }): Promise<void> {
+    const deadline = input.deadlineAt === undefined ? undefined : new RunDeadline(input.deadlineAt, () => {})
+    let handedOff = false
     try {
-      const currentAssistantState = await this.readSettledAssistantState(input.client, input.sessionId)
+      const state = this.readSettledAssistantState(input.client, input.sessionId)
+      const currentAssistantState = await (deadline ? deadline.race(state) : state)
       if (currentAssistantState) {
         if ((await ScheduleService.awaitCancelDecision(input.job.id, input.runId)) !== 'resume') {
           return
         }
 
-        await this.finalizeRecoveredRun(input.job, {
-          id: input.runId,
-          repoId: input.repoId,
-          jobId: input.job.id,
-          sessionId: input.sessionId,
-          sessionTitle: input.sessionTitle,
-          triggerSource: input.triggerSource,
-        } as ScheduleRun, {
-          status: currentAssistantState.errorText ? 'failed' : 'completed',
-          responseText: currentAssistantState.responseText,
-          errorText: currentAssistantState.errorText,
-        }, input.repo)
+        await this.finalizeRecoveredRun(
+          input.job,
+          {
+            id: input.runId,
+            repoId: input.repoId,
+            jobId: input.job.id,
+            sessionId: input.sessionId,
+            sessionTitle: input.sessionTitle,
+            triggerSource: input.triggerSource,
+          } as ScheduleRun,
+          {
+            status: currentAssistantState.errorText ? 'failed' : 'completed',
+            responseText: currentAssistantState.responseText,
+            errorText: currentAssistantState.errorText,
+          },
+          input.repo,
+        )
         return
       }
 
-      const response = await this.waitForAssistantMessage(input.client, input.sessionId, input.sessionMonitor)
+      const responsePromise = this.waitForAssistantMessage(input.client, input.sessionId, input.sessionMonitor)
+      const response = await (deadline ? deadline.race(responsePromise) : responsePromise)
 
       if ((await ScheduleService.awaitCancelDecision(input.job.id, input.runId)) !== 'resume') {
         return
@@ -1438,15 +1825,35 @@ export class ScheduleService {
 
       updateScheduleJobRunState(this.db, input.repoId, input.job.id, {
         lastRunAt: finishedAt,
-        nextRunAt: input.triggerSource === 'manual' ? input.job.nextRunAt : computeNextRunAtForJob(input.job, finishedAt),
+        nextRunAt:
+          input.triggerSource === 'manual' ? input.job.nextRunAt : computeNextRunAtForJob(input.job, finishedAt),
       })
     } catch (error) {
+      if (error instanceof RunDeadlineAbortError) {
+        handedOff = true
+        input.sessionMonitor.dispose()
+        try {
+          const current = getScheduleRunById(this.db, input.repoId, input.job.id, input.runId)
+          if (current?.status === 'running') {
+            await this.expireRecoveredRun(input.job, current, {
+              repo: input.repo,
+              repoId: input.repoId,
+              serverId: input.serverId,
+              directory: input.directory,
+              client: input.client,
+            })
+          }
+        } catch {
+          logger.error('Failed to handle an expired recovered schedule run', {
+            runId: input.runId,
+          })
+        }
+        return
+      }
       if ((await ScheduleService.awaitCancelDecision(input.job.id, input.runId)) !== 'resume') {
         return
       }
 
-      const finishedAt = Date.now()
-      const errorText = getErrorMessage(error)
       logger.error(`Failed to monitor schedule ${input.job.id}:`, error)
 
       const currentRun = getScheduleRunById(this.db, input.repoId, input.job.id, input.runId)
@@ -1454,67 +1861,87 @@ export class ScheduleService {
         return
       }
 
-      updateScheduleRun(this.db, input.repoId, input.job.id, input.runId, {
-        status: 'failed',
-        finishedAt,
-        sessionId: input.sessionId,
-        sessionTitle: input.sessionTitle,
-        errorText,
-        logText: buildRunLog({
-          job: input.job,
-          triggerSource: input.triggerSource,
-          sessionId: input.sessionId,
-          sessionTitle: input.sessionTitle,
-          errorText,
-          finishedAt,
-        }),
-      })
-
-      updateScheduleJobRunState(this.db, input.repoId, input.job.id, {
-        lastRunAt: finishedAt,
-        nextRunAt: input.triggerSource === 'manual' ? input.job.nextRunAt : computeNextRunAtForJob(input.job, finishedAt),
+      handedOff = true
+      input.sessionMonitor.dispose()
+      void this.retryUnobservedRun(input.job, currentRun, {
+        repo: input.repo,
+        client: input.client,
+        directory: input.directory,
+        repoId: input.repoId,
+        serverId: input.serverId,
       })
     } finally {
-      await ScheduleService.awaitCancelDecision(input.job.id, input.runId)
-      input.sessionMonitor.dispose()
-      await this.teardownRunResources(input.repoId, input.job.id, input.runId, input.job, input.repo, input.sessionId)
-      ScheduleService.releaseActiveRun(input.job.id, input.runId)
-      ScheduleService.clearCancel(input.job.id, input.runId)
+      deadline?.clear()
+      if (!handedOff) {
+        await ScheduleService.awaitCancelDecision(input.job.id, input.runId)
+        input.sessionMonitor.dispose()
+        await this.teardownRunResources(input.repoId, input.job.id, input.runId, input.job, input.repo, input.sessionId)
+        ScheduleService.releaseActiveRun(input.job.id, input.runId)
+        ScheduleService.clearCancel(input.job.id, input.runId)
+      }
     }
   }
 
   private async recoverRunningRun(job: ScheduleJob, run: ScheduleRun): Promise<void> {
     const target = this.targetForJob(job)
     let repo: Repo | null = null
+    let resolved: ScheduleTargetContext | null = null
 
     try {
       const context = this.resolveTargetContext(target, job.directory)
+      resolved = context
       repo = context.repo
       const runDirectory = run.worktreePath ?? context.directory
 
       if (!run.sessionId) {
-        await this.finalizeRecoveredRun(job, run, {
-          status: 'failed',
-          errorText: 'This run was interrupted before completion and had no linked session to recover.',
-        }, repo)
+        await this.finalizeRecoveredRun(
+          job,
+          run,
+          {
+            status: 'failed',
+            errorText: 'This run was interrupted before completion and had no linked session to recover.',
+          },
+          repo,
+        )
         return
       }
 
+      const submission = getScheduleSubmission(this.db, run.id)
+      if (submission?.state === 'pending') {
+        void this.monitorPendingSubmission(job, run, context, submission.message_id)
+        return
+      }
       const outcome = await this.readAssistantOutcome(context.client, run.sessionId)
 
+      if (submission && outcome.kind === 'stopped') {
+        void this.monitorPendingSubmission(job, run, context, submission.message_id)
+        return
+      }
+
       if (outcome.kind === 'settled') {
-        await this.finalizeRecoveredRun(job, run, {
-          status: outcome.errorText ? 'failed' : 'completed',
-          responseText: outcome.responseText,
-          errorText: outcome.errorText,
-        }, repo)
+        await this.finalizeRecoveredRun(
+          job,
+          run,
+          {
+            status: outcome.errorText ? 'failed' : 'completed',
+            responseText: outcome.responseText,
+            errorText: outcome.errorText,
+          },
+          repo,
+        )
         return
       }
 
       if (outcome.kind === 'busy') {
+        const deadlineMs = getRunDeadlineMs()
+        if (run.startedAt + deadlineMs <= Date.now()) {
+          await this.expireRecoveredRun(job, run, context)
+          return
+        }
         const sessionMonitor = createSessionMonitor(runDirectory, run.sessionId, context.serverId)
         ScheduleService.attachSessionMonitor(job.id, run.id, sessionMonitor)
         void this.monitorRunCompletion({
+          directory: runDirectory,
           sessionMonitor,
           repoId: run.repoId,
           repo,
@@ -1525,22 +1952,178 @@ export class ScheduleService {
           sessionId: run.sessionId,
           sessionTitle: run.sessionTitle ?? buildSessionTitle(job),
           triggerSource: run.triggerSource,
+          deadlineAt: run.startedAt + deadlineMs,
         })
         return
       }
 
-      await this.finalizeRecoveredRun(job, run, {
-        status: 'failed',
-        responseText: outcome.responseText,
-        errorText: 'This run was interrupted before completion, likely because OpenCode Manager restarted while it was in progress. Open the linked session to inspect the partial output and rerun if needed.',
-      }, repo)
+      await this.finalizeRecoveredRun(
+        job,
+        run,
+        {
+          status: 'failed',
+          responseText: outcome.responseText,
+          errorText:
+            'This run was interrupted before completion, likely because OpenCode Manager restarted while it was in progress. Open the linked session to inspect the partial output and rerun if needed.',
+        },
+        repo,
+      )
     } catch (error) {
-      const errorText = getErrorMessage(error)
       logger.error(`Failed to recover schedule ${job.id}:`, error)
-      await this.finalizeRecoveredRun(job, run, {
-        status: 'failed',
-        errorText,
-      }, repo)
+      if (run.sessionId) {
+        void this.retryUnobservedRun(job, run, resolved)
+        return
+      }
+      const errorText = getErrorMessage(error)
+      await this.finalizeRecoveredRun(
+        job,
+        run,
+        {
+          status: 'failed',
+          errorText,
+        },
+        repo,
+      )
+    }
+  }
+
+  /**
+   * Retains a run whose execution state or target could not be read and retries recovery on the next
+   * session or server-connection signal, or after 30 seconds. Recovery resolves the target again, so a
+   * temporarily unavailable server keeps the run, its resources and its active-run reservation.
+   */
+  private async retryUnobservedRun(
+    job: ScheduleJob,
+    run: ScheduleRun,
+    context: ScheduleTargetContext | null,
+  ): Promise<void> {
+    if (!run.sessionId) return
+    logger.warn('Schedule execution state is unknown; retaining execution resources', { runId: run.id })
+    const directory = run.worktreePath ?? context?.directory ?? job.directory ?? ''
+    const serverId = context?.serverId ?? job.serverId ?? LOCAL_OPENCODE_SERVER_ID
+    const monitor = createSessionMonitor(directory, run.sessionId, serverId)
+    ScheduleService.attachSessionMonitor(job.id, run.id, monitor)
+    let latest: ScheduleRun | null = null
+    try {
+      while (true) {
+        if ((await monitor.nextSignal(30_000)).disposed) return
+        if ((await ScheduleService.awaitCancelDecision(job.id, run.id)) !== 'resume') return
+        try {
+          latest = getScheduleRunById(this.db, run.repoId, job.id, run.id)
+          break
+        } catch {
+          logger.warn('Could not read a retained schedule run; retrying', { runId: run.id })
+        }
+      }
+    } finally {
+      monitor.dispose()
+    }
+    if (latest?.status !== 'running') return
+    if (context && latest.startedAt + getRunDeadlineMs() <= Date.now()) {
+      await this.expireRecoveredRun(job, latest, context)
+      return
+    }
+    await this.recoverRunningRun(job, latest)
+  }
+
+  /** Pages a session's user messages for the submission's message ID; throws when paging cannot complete. */
+  private async findSubmittedMessage(
+    client: OpenCodeClient,
+    sessionId: string,
+    messageId: string,
+    observation: RunDeadline,
+  ): Promise<boolean> {
+    let cursor: string | undefined
+    const visited = new Set<string>()
+    for (let page = 0; page < 1000; page++) {
+      const messages = await observation.race(
+        client.api.message.list(
+          {
+            sessionID: sessionId,
+            type: 'user',
+            limit: 100,
+            ...(cursor ? { cursor } : { order: 'asc' }),
+          },
+          { signal: observation.signal },
+        ),
+      )
+      if (messages.data.some((message) => message.id === messageId && message.type === 'user')) return true
+      const next = messages.cursor.next
+      if (!next) return false
+      if (!messages.data.length || visited.has(next) || page === 999) {
+        throw new ScheduleServiceError('SUBMISSION_OBSERVATION_INCOMPLETE', 502)
+      }
+      visited.add(next)
+      cursor = next
+    }
+    return false
+  }
+
+  /**
+   * One bounded check of whether a prompt whose call failed was admitted anyway. Only a complete read
+   * without the message ID proves absence; any read failure leaves delivery unknown.
+   */
+  private async observeSubmittedMessage(
+    client: OpenCodeClient,
+    sessionId: string,
+    messageId: string,
+  ): Promise<'admitted' | 'absent' | 'unknown'> {
+    const observation = new RunDeadline(Date.now() + 10_000, () => {})
+    try {
+      return (await this.findSubmittedMessage(client, sessionId, messageId, observation)) ? 'admitted' : 'absent'
+    } catch {
+      return 'unknown'
+    } finally {
+      observation.clear()
+    }
+  }
+
+  private async monitorPendingSubmission(
+    job: ScheduleJob,
+    run: ScheduleRun,
+    context: ScheduleTargetContext,
+    messageId: string,
+  ): Promise<void> {
+    if (!run.sessionId) return
+    const monitor = createSessionMonitor(run.worktreePath ?? context.directory, run.sessionId, context.serverId)
+    ScheduleService.attachSessionMonitor(job.id, run.id, monitor)
+    try {
+      while (true) {
+        if ((await ScheduleService.awaitCancelDecision(job.id, run.id)) !== 'resume') return
+        const current = getScheduleRunById(this.db, run.repoId, job.id, run.id)
+        if (current?.status !== 'running') return
+        const observation = new RunDeadline(Date.now() + 10_000, () => {})
+        let observed = false
+        try {
+          if (await this.findSubmittedMessage(context.client, run.sessionId, messageId, observation)) {
+            const outcome = await observation.race(this.readAssistantOutcome(context.client, run.sessionId))
+            observed = outcome.kind !== 'stopped'
+          }
+        } catch {
+          logger.warn('Schedule submission remains unconfirmed; retaining execution resources', { runId: run.id })
+        } finally {
+          observation.clear()
+        }
+        if (observed) {
+          if ((await ScheduleService.awaitCancelDecision(job.id, run.id)) !== 'resume') return
+          if (getScheduleSubmission(this.db, run.id)?.state === 'pending') {
+            acknowledgeScheduleSubmission(this.db, {
+              runId: run.id,
+              messageId,
+              acknowledgedAt: Date.now(),
+            })
+          }
+          await this.recoverRunningRun(job, current)
+          return
+        }
+        if ((await monitor.nextSignal(30_000)).disposed) return
+      }
+    } catch {
+      logger.error('Failed to observe a pending schedule submission', {
+        runId: run.id,
+      })
+    } finally {
+      monitor.dispose()
     }
   }
 
@@ -1591,6 +2174,102 @@ export class ScheduleService {
     }
   }
 
+  private async expireRecoveredRun(job: ScheduleJob, run: ScheduleRun, context: ScheduleTargetContext): Promise<void> {
+    if (!run.sessionId) return
+    const errorText = buildRunDeadlineErrorText(getRunDeadlineMs())
+    const interrupted = await this.interruptExpiredSession(context.client, run.sessionId)
+    if ((await ScheduleService.awaitCancelDecision(job.id, run.id)) !== 'resume') {
+      ScheduleService.clearCancel(job.id, run.id)
+      return
+    }
+    const current = getScheduleRunById(this.db, run.repoId, job.id, run.id)
+    if (current?.status !== 'running') {
+      ScheduleService.releaseActiveRun(job.id, run.id)
+      return
+    }
+    if (!interrupted) {
+      updateScheduleRunMetadata(this.db, run.repoId, job.id, run.id, {
+        errorText,
+      })
+      void this.monitorExpiredRun(job, current, context)
+      return
+    }
+    await this.finalizeRecoveredRun(job, current, { status: 'failed', errorText }, context.repo)
+  }
+
+  private async monitorExpiredRun(job: ScheduleJob, run: ScheduleRun, context: ScheduleTargetContext): Promise<void> {
+    const sessionID = run.sessionId
+    if (!sessionID) return
+    const monitor = createSessionMonitor(run.worktreePath ?? context.directory, sessionID, context.serverId)
+    ScheduleService.attachSessionMonitor(job.id, run.id, monitor)
+    try {
+      while (true) {
+        if ((await ScheduleService.awaitCancelDecision(job.id, run.id)) !== 'resume') return
+        const current = getScheduleRunById(this.db, run.repoId, job.id, run.id)
+        if (!current || current.status !== 'running') return
+        const deadline = new RunDeadline(Date.now() + 10_000, () => {})
+        let inactive = false
+        try {
+          const active = await deadline.race(context.client.api.session.active({ signal: deadline.signal }))
+          inactive = !active[sessionID]
+        } catch (error) {
+          logger.warn('Could not observe an expired schedule session; preserving its resources', {
+            sessionID,
+            reason: error instanceof RunDeadlineAbortError ? 'timeout' : 'request-failed',
+          })
+        } finally {
+          deadline.clear()
+        }
+        if (inactive) {
+          if ((await ScheduleService.awaitCancelDecision(job.id, run.id)) !== 'resume') return
+          const latest = getScheduleRunById(this.db, run.repoId, job.id, run.id)
+          if (latest?.status === 'running') {
+            await this.finalizeRecoveredRun(
+              job,
+              latest,
+              {
+                status: 'failed',
+                errorText: latest.errorText ?? buildRunDeadlineErrorText(getRunDeadlineMs()),
+              },
+              context.repo,
+            )
+          }
+          return
+        }
+        if ((await monitor.nextSignal(30_000)).disposed) return
+      }
+    } catch {
+      logger.error('Failed to monitor an expired schedule run', {
+        runId: run.id,
+      })
+    } finally {
+      monitor.dispose()
+      const pending = ScheduleService.pendingCancels.get(job.id)
+      if (pending?.runId === run.id && pending.resolved) ScheduleService.clearCancel(job.id, run.id)
+    }
+  }
+
+  private async interruptExpiredSession(client: OpenCodeClient, sessionID: string): Promise<boolean> {
+    const deadline = new RunDeadline(Date.now() + 10_000, () => {})
+    try {
+      await deadline.race(client.api.session.interrupt({ sessionID }, { signal: deadline.signal }))
+      const active = await deadline.race(client.api.session.active({ signal: deadline.signal }))
+      if (active[sessionID]) {
+        logger.warn('Expired schedule session is still active; preserving its resources', { sessionID })
+        return false
+      }
+      return true
+    } catch (error) {
+      logger.warn('Could not confirm interruption of an expired schedule session; preserving its resources', {
+        sessionID,
+        reason: error instanceof RunDeadlineAbortError ? 'timeout' : 'request-failed',
+      })
+      return false
+    } finally {
+      deadline.clear()
+    }
+  }
+
   private loadRun(repoId: number | null, jobId: number, runId: number, fallback: ScheduleRun): ScheduleRun {
     return getScheduleRunById(this.db, repoId, jobId, runId) ?? fallback
   }
@@ -1604,6 +2283,17 @@ export class ScheduleService {
     repo: Repo | null,
     sessionId?: string,
   ): Promise<ScheduleRun> {
+    const owner = ScheduleService.activeRuns.get(jobId)
+    if (owner?.runId === run.id && owner.startupCancellation) {
+      if (sessionId)
+        updateScheduleRunMetadata(this.db, repoId, jobId, run.id, {
+          sessionId,
+        })
+      owner.pendingStartup?.resolve()
+      await ScheduleService.awaitCancelDecision(jobId, run.id)
+      ScheduleService.clearCancel(jobId, run.id)
+      return this.loadRun(repoId, jobId, run.id, run)
+    }
     if (sessionId) {
       await this.interruptCancelledSession(client, sessionId)
     }
@@ -1625,11 +2315,43 @@ export class ScheduleService {
     if (ScheduleService.activeTeardowns.has(key)) return
     ScheduleService.activeTeardowns.add(key)
     try {
-      const fresh = getScheduleRunById(this.db, repoId, jobId, runId)
-      if (repo && fresh?.worktreePath) {
-        await this.finalizeRunWorktree(repo, job, runId, fresh.worktreePath, fresh.runBranch, fresh.triggerSource, repoId, jobId)
+      try {
+        const run = getScheduleRunById(this.db, repoId, jobId, runId)
+        const rootSessionId = sessionId ?? run?.sessionId
+        if (run && rootSessionId && run.status !== 'running' && run.usage?.error !== null) {
+          const additional = run.outcomeReport?.additionalUsage ?? null
+          let snapshot
+          try {
+            const context = this.resolveTargetContext(this.targetForJob(job), job.directory)
+            snapshot = await captureScheduleRunUsage(context.client.api, rootSessionId, additional)
+          } catch {
+            snapshot = {
+              usage: buildFailedUsage('USAGE_SNAPSHOT_FAILED', additional),
+              agentUsed: null,
+            }
+          }
+          updateScheduleRunUsage(this.db, run, snapshot)
+        }
+      } catch {
+        logger.warn('Failed to persist scheduled run usage', { runId })
       }
-      await this.removeRunSandbox(sessionId ?? fresh?.sessionId ?? null)
+      const fresh = getScheduleRunById(this.db, repoId, jobId, runId)
+      try {
+        if (repo && fresh?.worktreePath) {
+          await this.finalizeRunWorktree(
+            repo,
+            job,
+            runId,
+            fresh.worktreePath,
+            fresh.runBranch,
+            fresh.triggerSource,
+            repoId,
+            jobId,
+          )
+        }
+      } finally {
+        await this.removeRunSandbox(sessionId ?? fresh?.sessionId ?? null)
+      }
     } finally {
       ScheduleService.activeTeardowns.delete(key)
     }
@@ -1653,10 +2375,15 @@ export class ScheduleService {
         runBranch,
         triggerSource,
       })
-      updateScheduleRunWorktree(this.db, repoId, jobId, runId, { worktreePath: remainingWorktreePath(), commitHash })
+      updateScheduleRunWorktree(this.db, repoId, jobId, runId, {
+        worktreePath: remainingWorktreePath(),
+        commitHash,
+      })
     } catch (error) {
       logger.error(`Failed to finalize worktree for run ${runId}:`, error)
-      updateScheduleRunWorktree(this.db, repoId, jobId, runId, { worktreePath: remainingWorktreePath() })
+      updateScheduleRunWorktree(this.db, repoId, jobId, runId, {
+        worktreePath: remainingWorktreePath(),
+      })
     }
   }
 
@@ -1668,7 +2395,9 @@ export class ScheduleService {
     try {
       await runtime.removeSessionSandbox(sessionId)
     } catch (error) {
-      logger.warn(`Failed to remove the sandbox microVM for scheduled run session ${sessionId}: ${getErrorMessage(error)}`)
+      logger.warn(
+        `Failed to remove the sandbox microVM for scheduled run session ${sessionId}: ${getErrorMessage(error)}`,
+      )
     }
   }
 
@@ -1684,10 +2413,17 @@ export class ScheduleService {
 
     const assistantState = await this.readAssistantReply(client, sessionId)
     if (assistantState?.completed || assistantState?.errorText) {
-      return { kind: 'settled', responseText: assistantState.responseText, errorText: assistantState.errorText }
+      return {
+        kind: 'settled',
+        responseText: assistantState.responseText,
+        errorText: assistantState.errorText,
+      }
     }
 
-    return { kind: 'stopped', responseText: assistantState?.responseText ?? null }
+    return {
+      kind: 'stopped',
+      responseText: assistantState?.responseText ?? null,
+    }
   }
 
   private async readSettledAssistantState(
@@ -1695,9 +2431,7 @@ export class ScheduleService {
     sessionId: string,
   ): Promise<{ responseText: string | null; errorText: string | null } | null> {
     const outcome = await this.readAssistantOutcome(client, sessionId)
-    return outcome.kind === 'settled'
-      ? { responseText: outcome.responseText, errorText: outcome.errorText }
-      : null
+    return outcome.kind === 'settled' ? { responseText: outcome.responseText, errorText: outcome.errorText } : null
   }
 
   private async waitForAssistantMessage(
@@ -1723,10 +2457,16 @@ export class ScheduleService {
       }
 
       if (outcome.kind === 'settled') {
-        return { responseText: outcome.responseText, errorText: outcome.errorText }
+        return {
+          responseText: outcome.responseText,
+          errorText: outcome.errorText,
+        }
       }
 
-      return { responseText: outcome.responseText, errorText: SESSION_STOPPED_ERROR }
+      return {
+        responseText: outcome.responseText,
+        errorText: SESSION_STOPPED_ERROR,
+      }
     }
   }
 
@@ -1749,17 +2489,21 @@ export class ScheduleService {
   private async listAgentIds(client: OpenCodeClient, directory: string): Promise<Set<string>> {
     try {
       const response = await client.api.agent.list(openCodeLocation(directory))
-      return new Set(response.data.map((agent) => agent.id))
-    } catch (error) {
-      throw new ScheduleServiceError(getErrorMessage(error) || 'Failed to list agents', 502)
+      return new Set(response.data.filter((agent) => agent.mode !== 'subagent').map((agent) => agent.id))
+    } catch {
+      throw new ScheduleServiceError('AGENT_CHECK_FAILED: Could not verify the agents available for this run.', 502)
     }
   }
 
   /**
    * OpenCode admits a prompt for a session whose agent does not exist at its location
-   * but never delivers it, so a scheduled run falls back to the default agent when its agent is gone.
+   * but never delivers it. Reject an unavailable selected agent instead of substituting another agent.
    */
-  private async resolveRunAgent(client: OpenCodeClient, directory: string, agentSlug: string | null): Promise<string | null> {
+  private async resolveRunAgent(
+    client: OpenCodeClient,
+    directory: string,
+    agentSlug: string | null,
+  ): Promise<string | null> {
     if (!agentSlug) {
       return null
     }
@@ -1768,11 +2512,17 @@ export class ScheduleService {
       return agentSlug
     }
 
-    logger.warn(`Agent "${agentSlug}" is not available in ${directory}; running the schedule with the default agent`)
-    return null
+    throw new ScheduleServiceError(
+      `AGENT_NOT_AVAILABLE: Agent "${agentSlug}" is not available in ${directory}. Choose an available primary agent or clear the agent selection.`,
+      422,
+    )
   }
 
-  private async assertAgentAvailable(client: OpenCodeClient, directory: string, agentSlug: string | null): Promise<void> {
+  private async assertAgentAvailable(
+    client: OpenCodeClient,
+    directory: string,
+    agentSlug: string | null,
+  ): Promise<void> {
     if (!agentSlug) {
       return
     }
@@ -1790,7 +2540,11 @@ export class ScheduleService {
    * session starts. Schedule-only servers are added to that location, and configured servers
    * are connected even when their config disables them; both last until OpenCode restarts.
    */
-  private async connectMcpServers(client: OpenCodeClient, directory: string, servers: ScheduleJob['mcpServers']): Promise<void> {
+  private async connectMcpServers(
+    client: OpenCodeClient,
+    directory: string,
+    servers: ScheduleJob['mcpServers'],
+  ): Promise<void> {
     if (servers.length === 0) {
       return
     }
@@ -1800,9 +2554,19 @@ export class ScheduleService {
     const readStatuses = async () => mcpStatusByName((await api.mcp.list(location)).data)
 
     try {
-      await Promise.all(servers.flatMap((server) =>
-        server.config ? [api.mcp.add({ server: server.name, config: server.config, ...location })] : [],
-      ))
+      await Promise.all(
+        servers.flatMap((server) =>
+          server.config
+            ? [
+                api.mcp.add({
+                  server: server.name,
+                  config: server.config,
+                  ...location,
+                }),
+              ]
+            : [],
+        ),
+      )
 
       const statuses = await readStatuses()
       const missing = servers.filter((server) => !statuses[server.name]).map((server) => server.name)
@@ -1810,15 +2574,17 @@ export class ScheduleService {
         throw new ScheduleServiceError(`MCP servers are not configured for this location: ${missing.join(', ')}`, 400)
       }
 
-      await Promise.all(servers
-        .filter((server) => statuses[server.name]?.status !== 'connected')
-        .map((server) => api.mcp.connect({ server: server.name, ...location })))
+      await Promise.all(
+        servers
+          .filter((server) => statuses[server.name]?.status !== 'connected')
+          .map((server) => api.mcp.connect({ server: server.name, ...location })),
+      )
 
       const connected = await readStatuses()
       const failed = servers.flatMap((server) => {
         const status = connected[server.name]
         if (status?.status === 'connected') return []
-        const reason = status && 'error' in status ? status.error : status?.status ?? 'missing'
+        const reason = status && 'error' in status ? status.error : (status?.status ?? 'missing')
         return [`${server.name} (${reason})`]
       })
       if (failed.length > 0) {
@@ -1864,7 +2630,12 @@ export class ScheduleService {
     if (repoId === ASSISTANT_REPO_ID) {
       const repo = getRepoById(this.db, ASSISTANT_REPO_ID)
       if (repo) return repo
-      return { ...buildAssistantRepo(), lastAccessedAt: Date.now(), isLocal: true, currentBranch: undefined }
+      return {
+        ...buildAssistantRepo(),
+        lastAccessedAt: Date.now(),
+        isLocal: true,
+        currentBranch: undefined,
+      }
     }
     const repo = getRepoById(this.db, repoId)
     if (!repo) {
@@ -2045,7 +2816,7 @@ export class ScheduleRunner {
         stop: () => {
           isStopped = true
           if (timeout) clearTimeout(timeout)
-        }
+        },
       })
     }
   }
@@ -2071,7 +2842,9 @@ export class ScheduleRunner {
     logger.info(`Registering ${jobs.length} enabled schedule jobs`)
     for (const job of jobs) {
       try {
-        logger.info(`Registering job ${job.id}: ${job.name} (mode=${job.scheduleMode}, cron=${job.cronExpression}, tz=${job.timezone})`)
+        logger.info(
+          `Registering job ${job.id}: ${job.name} (mode=${job.scheduleMode}, cron=${job.cronExpression}, tz=${job.timezone})`,
+        )
         this.registerJob(job)
         logger.info(`Job ${job.id} registered, cron jobs map size: ${this.cronJobs.size}`)
       } catch (error) {

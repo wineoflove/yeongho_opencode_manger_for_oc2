@@ -2,7 +2,6 @@ import {
   assistantText,
   sessionIDFromEvent,
   type OpenCodeApi,
-  type SessionMessageAssistant,
   type SessionMessageInfo,
 } from '@opencode-manager/shared/opencode'
 import { LOCAL_OPENCODE_SERVER_ID } from '@opencode-manager/shared/schemas'
@@ -23,6 +22,8 @@ export interface AssistantReplyState {
 export interface SessionSettleSignal {
   errorText: string | null
 }
+
+const SESSION_FAILED_ERROR = 'The session ended with a failure.'
 
 export function truncateSessionReply(text: string): string {
   return truncateText(text, SESSION_REPLY_MAX_LENGTH, SESSION_REPLY_TRUNCATION_MARKER).text
@@ -98,18 +99,26 @@ export function waitForSessionSettled(
   })
 }
 
+/**
+ * Reply state of the newest assistant message in a newest-first message list. The newest idle marker after that message
+ * decides whether OpenCode terminalized the turn: when it failed, its error is reported (with no reply text when no
+ * assistant message exists), so a turn OpenCode ended, for example after exhausting its resume budget, is not mistaken
+ * for a run interrupted by a Manager restart. Idle markers older than the assistant message never override it.
+ */
 export function getLatestAssistantReplyState(messages: SessionMessageInfo[]): AssistantReplyState | null {
-  const assistantMessage = messages.find(
-    (message): message is SessionMessageAssistant => message.type === 'assistant',
-  )
+  const index = messages.findIndex((message) => message.type === 'assistant')
+  const assistantMessage = index === -1 ? undefined : messages[index]
+  const idle = (index === -1 ? messages : messages.slice(0, index)).find((message) => message.type === 'idle')
+  const idleError =
+    idle?.type === 'idle' && idle.outcome === 'failed' ? (idle.error?.message ?? SESSION_FAILED_ERROR) : null
 
-  if (!assistantMessage) {
-    return null
+  if (!assistantMessage || assistantMessage.type !== 'assistant') {
+    return idleError ? { responseText: null, errorText: idleError, completed: false } : null
   }
 
   return {
     responseText: assistantText(assistantMessage.content, { stripThink: true }) || null,
-    errorText: assistantMessage.error?.message ?? null,
+    errorText: assistantMessage.error?.message ?? idleError,
     completed: Boolean(assistantMessage.time.completed),
   }
 }

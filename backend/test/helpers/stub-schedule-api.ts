@@ -2,6 +2,7 @@ import { vi } from 'vitest'
 import type {
   McpStatus,
   OpenCodeApi,
+  SessionInfo,
   SessionMessageAssistant,
   SessionMessageInfo,
   SkillInfo,
@@ -9,6 +10,8 @@ import type {
 
 export interface ScheduleApiState {
   sessionID: string
+  sessionInfo?: SessionInfo
+  sessionError?: Error
   messages: SessionMessageInfo[]
   active: Record<string, { type: 'running' }>
   skills: SkillInfo[]
@@ -41,13 +44,40 @@ export function createStubScheduleApi(state: Partial<ScheduleApiState> = {}): Sc
   }
 
   const session = {
+    get: vi.fn(async () => {
+      if (resolved.sessionError) throw resolved.sessionError
+      return (
+        resolved.sessionInfo ?? {
+          id: resolved.sessionID,
+          projectID: 'project-schedule',
+          title: 'Scheduled run',
+          location: { directory: '/tmp/repo' },
+          time: { created: 1, updated: 2 },
+          cost: 0,
+          tokens: {
+            input: 0,
+            output: 0,
+            reasoning: 0,
+            cache: { read: 0, write: 0 },
+          },
+        }
+      )
+    }),
+    list: vi.fn(async () => ({ data: [], cursor: {} })),
     create: vi.fn(async () => {
       if (resolved.createError) throw resolved.createError
       return { id: resolved.sessionID }
     }),
-    prompt: vi.fn(async () => {
+    prompt: vi.fn(async (input: { sessionID: string; id?: string | null; text: string }) => {
       if (resolved.promptError) throw resolved.promptError
-      return {}
+      return {
+        id: input.id ?? 'msg-fixture',
+        sessionID: input.sessionID,
+        time: { created: Date.now() },
+        type: 'user',
+        payload: { text: input.text },
+        delivery: 'queue',
+      }
     }),
     interrupt: vi.fn(async () => {
       if (resolved.interruptError) throw resolved.interruptError
@@ -74,18 +104,26 @@ export function createStubScheduleApi(state: Partial<ScheduleApiState> = {}): Sc
       }),
     },
     agent: {
-      list: vi.fn(async () => ({ location: { directory: '' }, data: resolved.agents.map((id) => ({ id, name: id })) })),
+      list: vi.fn(async () => ({
+        location: { directory: '' },
+        data: resolved.agents.map((id) => ({ id, name: id })),
+      })),
     },
     mcp: {
       list: vi.fn(async () => ({
         location: { directory: '' },
-        data: Object.entries(resolved.mcp).map(([name, status]) => ({ name, status })),
+        data: Object.entries(resolved.mcp).map(([name, status]) => ({
+          name,
+          status,
+        })),
       })),
       add: vi.fn(async ({ server }: { server: string }) => {
         resolved.mcp[server] = { status: 'pending' }
       }),
       connect: vi.fn(async ({ server }: { server: string }) => {
-        resolved.mcp[server] = resolved.mcpConnectResults[server] ?? { status: 'connected' }
+        resolved.mcp[server] = resolved.mcpConnectResults[server] ?? {
+          status: 'connected',
+        }
       }),
     },
   }
@@ -97,7 +135,11 @@ let messageSequence = 0
 
 export function assistantMessage(
   text: string,
-  options: { completed?: boolean; error?: string; content?: SessionMessageAssistant['content'] } = {},
+  options: {
+    completed?: boolean
+    error?: string
+    content?: SessionMessageAssistant['content']
+  } = {},
 ): SessionMessageInfo {
   messageSequence += 1
   const created = Date.now()
