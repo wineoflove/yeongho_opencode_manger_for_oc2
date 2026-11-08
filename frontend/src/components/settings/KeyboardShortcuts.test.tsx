@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { getLocale, setLocale } from '@/i18n/locale'
 import { KeyboardShortcuts } from './KeyboardShortcuts'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { DEFAULT_DIRECT_SHORTCUTS, DEFAULT_KEYBOARD_SHORTCUTS, DEFAULT_LEADER_KEY } from '@/api/types/settings'
@@ -48,6 +49,33 @@ const makeFile = (content: string, name: string) => {
   return file
 }
 
+const DEFAULT_ACTION_LABELS: Record<string, string> = {
+  submit: 'Submit',
+  abort: 'Abort',
+  clearPrompt: 'Clear prompt',
+  toggleMode: 'Toggle mode',
+  undo: 'Undo',
+  redo: 'Redo',
+  compact: 'Compact',
+  fork: 'Fork',
+  timeline: 'Timeline',
+  exportSession: 'Export session',
+  selectModel: 'Select model',
+  variantCycle: 'Cycle variant',
+  favoriteCycle: 'Cycle favorite model',
+  halfPageUp: 'Half page up',
+  halfPageDown: 'Half page down',
+  speakVisible: 'Read visible replies',
+  settings: 'Settings',
+  sessions: 'Sessions',
+  switchPickerTab: 'Switch picker tab',
+  newSession: 'New session',
+  closeSession: 'Close session',
+  toggleSidebar: 'Toggle sidebar',
+  toggleTerminal: 'Toggle terminal',
+  toggleSourceControl: 'Toggle source control',
+}
+
 describe('KeyboardShortcuts layout', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -55,10 +83,26 @@ describe('KeyboardShortcuts layout', () => {
     render(<KeyboardShortcuts />)
     expect(screen.getByRole('region', { name: 'Conversation actions' })).toBeInTheDocument()
     const navigation = screen.getByRole('region', { name: 'Navigation' })
-    for (const action of [...Object.keys(DEFAULT_KEYBOARD_SHORTCUTS), 'customAction']) {
-      expect(screen.getAllByText(action.replace(/([A-Z])/g, ' $1').trim(), { exact: true })).toHaveLength(1)
+    for (const action of Object.keys(DEFAULT_KEYBOARD_SHORTCUTS)) {
+      expect(DEFAULT_ACTION_LABELS[action], action).toBeDefined()
+      expect(screen.getAllByText(DEFAULT_ACTION_LABELS[action]!, { exact: true })).toHaveLength(1)
     }
     expect(within(navigation).getByText('custom Action')).toBeInTheDocument()
+  })
+
+  it('labels the shortcut actions in Korean', () => {
+    const previous = getLocale()
+    setLocale('ko')
+    try {
+      render(<KeyboardShortcuts />)
+      expect(screen.getByText('입력 지우기')).toBeInTheDocument()
+      expect(screen.getByText('반 페이지 위로')).toBeInTheDocument()
+      expect(screen.getByText('소스 제어 전환')).toBeInTheDocument()
+      expect(screen.queryByText('clear Prompt')).not.toBeInTheDocument()
+      expect(screen.queryByText('half Page Up')).not.toBeInTheDocument()
+    } finally {
+      setLocale(previous)
+    }
   })
 
   it('keeps recording focused through modifier updates and saves the selected action', () => {
@@ -154,7 +198,7 @@ describe('KeyboardShortcuts layout', () => {
       directShortcuts: [...DEFAULT_DIRECT_SHORTCUTS, 'customAction'],
     })
     expect(showToast.info).toHaveBeenCalledWith('Shortcut conflict resolved', {
-      description: 'Unbound to avoid conflicts: variant cycle',
+      description: 'Unbound to avoid conflicts: cycle variant',
     })
   })
 
@@ -246,5 +290,32 @@ describe('KeyboardShortcuts TUI import', () => {
       description:
         'Unbound to avoid conflicts: toggle mode. Skipped: a (unsupported), b (unsupported), c (unsupported), d (unsupported), e (unsupported) and 1 more',
     })
+  })
+
+  it('reports skipped entries in Korean', async () => {
+    const previous = getLocale()
+    setLocale('ko')
+    try {
+      const actual = await vi.importActual<typeof import('@/lib/tuiKeybindImport')>('@/lib/tuiKeybindImport')
+      const parsed = actual.parseTuiKeybindConfig(
+        JSON.stringify({ leader: 'none', keybinds: { 'session.undo': 'gg', 'session.redo': 'hyper+x' } }),
+      )
+      expect(parsed.skipped.map((entry) => entry.reason)).toEqual(
+        expect.arrayContaining(['지원하지 않는 키 "gg"']),
+      )
+      expect(JSON.stringify(parsed.skipped)).not.toMatch(/unsupported|missing key|leader key is disabled/)
+
+      const skipped = ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => ({ name, reason: '지원하지 않는 값' }))
+      parseTuiKeybindConfig.mockReturnValue({ shortcuts: {}, leaderActions: [], directActions: [], skipped })
+      const { container } = render(<KeyboardShortcuts />)
+      fireEvent.change(getFileInput(container), { target: { files: [makeFile('{}', 'tui.json')] } })
+
+      await waitFor(() => expect(showToast.info).toHaveBeenCalled())
+      const [, options] = showToast.info.mock.calls.at(-1) ?? []
+      expect(options?.description).toMatch(/외 1개$/)
+      expect(options?.description).not.toMatch(/ and \d+ more/)
+    } finally {
+      setLocale(previous)
+    }
   })
 })

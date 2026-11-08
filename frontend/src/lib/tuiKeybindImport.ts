@@ -2,6 +2,7 @@ import { isRecord } from '@opencode-manager/shared/utils'
 import type { KeyboardShortcutAction } from '@/api/types/settings'
 import { parseJsonc } from '@/lib/jsonc'
 import { normalizeShortcut } from '@/lib/keyboardShortcuts'
+import { t } from '@/i18n/translate'
 
 export interface TuiKeybindImport {
   leaderKey?: string
@@ -129,19 +130,19 @@ function splitToken(token: string): string[] {
 
 function convertToken(token: string): ConvertedAlternative {
   const lower = token.trim().toLowerCase()
-  if (!lower) return { reason: 'empty key' }
+  if (!lower) return { reason: t('empty key') }
   const leader = lower.startsWith('<leader>')
   const body = leader ? lower.slice('<leader>'.length) : lower
-  if (!body) return { reason: 'missing key after <leader>' }
+  if (!body) return { reason: t('missing key after <leader>') }
   const parts = splitToken(body)
-  if (parts.length === 0) return { reason: `unsupported key "${token.trim()}"` }
+  if (parts.length === 0) return { reason: t('unsupported key "{key}"', { key: token.trim() }) }
   const keyPart = parts[parts.length - 1]!
   const key = convertKey(keyPart)
-  if (!key) return { reason: `unsupported key "${keyPart}"` }
+  if (!key) return { reason: t('unsupported key "{key}"', { key: keyPart }) }
   const modifiers: string[] = []
   for (const part of parts.slice(0, -1)) {
     const label = MODIFIER_LABELS.get(part)
-    if (!label) return { reason: `unsupported modifier "${part}"` }
+    if (!label) return { reason: t('unsupported modifier "{modifier}"', { modifier: part }) }
     modifiers.push(label)
   }
   return { shortcut: normalizeShortcut([...modifiers, key].join('+')), leader }
@@ -151,10 +152,10 @@ function convertAlternative(alternative: Alternative): ConvertedAlternative {
   if (typeof alternative === 'string') return convertToken(alternative)
   const leader = alternative.name.startsWith('<leader>')
   const name = leader ? alternative.name.slice('<leader>'.length) : alternative.name
-  if (!name) return { reason: 'missing key after <leader>' }
-  if (alternative.hyper) return { reason: 'unsupported modifier "hyper"' }
+  if (!name) return { reason: t('missing key after <leader>') }
+  if (alternative.hyper) return { reason: t('unsupported modifier "{modifier}"', { modifier: 'hyper' }) }
   const key = convertKey(name)
-  if (!key) return { reason: `unsupported key "${name}"` }
+  if (!key) return { reason: t('unsupported key "{key}"', { key: name }) }
   const modifiers: string[] = []
   if (alternative.ctrl) modifiers.push('Ctrl')
   if (alternative.shift) modifiers.push('Shift')
@@ -200,7 +201,7 @@ function resolveBinding(value: unknown, preferLeader: boolean): ResolvedBinding 
   }
   if (preferLeader && leaderShortcut !== null) return { kind: 'leader', shortcut: leaderShortcut }
   if (directShortcut !== null) return { kind: 'direct', shortcut: directShortcut }
-  return { kind: 'unconvertible', reason: reason ?? 'unsupported value' }
+  return { kind: 'unconvertible', reason: reason ?? t('unsupported value') }
 }
 
 /**
@@ -209,7 +210,7 @@ function resolveBinding(value: unknown, preferLeader: boolean): ResolvedBinding 
 export function parseTuiKeybindConfig(content: string): TuiKeybindImport {
   const root = parseJsonc<unknown>(content)
   if (!isRecord(root) || !isRecord(root.keybinds)) {
-    throw new Error('No keybinds found in this file')
+    throw new Error(t('No keybinds found in this file'))
   }
   const keybinds = root.keybinds
   const shortcuts: Partial<Record<KeyboardShortcutAction, string>> = {}
@@ -221,7 +222,7 @@ export function parseTuiKeybindConfig(content: string): TuiKeybindImport {
   if ('leader' in keybinds) {
     const resolved = resolveBinding(keybinds.leader, false)
     if (resolved.kind === 'disabled') {
-      skipped.push({ name: 'leader', reason: 'leader key is disabled' })
+      skipped.push({ name: 'leader', reason: t('leader key is disabled') })
     } else if (resolved.kind === 'unconvertible') {
       skipped.push({ name: 'leader', reason: resolved.reason })
     } else {

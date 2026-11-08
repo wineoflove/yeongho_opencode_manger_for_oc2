@@ -5,6 +5,7 @@ import type { KeyboardShortcutAction } from '@/api/types/settings'
 import { findShortcutAction, formatShortcutEvent, hasCommandModifier, resolveShortcutBindings } from '@/lib/keyboardShortcuts'
 import { isPromptInput, isTextEntryElement } from '@/lib/domTargets'
 import { hasOpenOverlay } from '@/lib/overlayFocus'
+import { t } from '@/i18n/translate'
 
 const LEADER_TIMEOUT = 2000
 
@@ -148,7 +149,7 @@ export function KeyboardShortcutsProvider({ children }: { children: ReactNode })
       {children}
       {leaderActive && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-primary/90 text-primary-foreground border border-primary shadow-lg backdrop-blur-md animate-pulse">
-          <span className="text-sm font-medium">Waiting for shortcut key...</span>
+          <span className="text-sm font-medium">{t('Waiting for shortcut key...')}</span>
         </div>
       )}
     </KeyboardShortcutsRegistryContext.Provider>
