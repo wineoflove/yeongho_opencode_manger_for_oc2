@@ -4,9 +4,22 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/lib/toast";
-import { formatDistanceToNow } from "date-fns";
+import { TelegramNotificationSettings } from "./TelegramNotificationSettings";
+import { formatRelativeTime } from "@/i18n/format";
+import { t } from "@/i18n/translate";
 
 export function NotificationSettings() {
+  return (
+    <>
+      <PushNotificationSettings />
+      <div className="mt-6 w-full max-w-7xl">
+        <TelegramNotificationSettings />
+      </div>
+    </>
+  );
+}
+
+function PushNotificationSettings() {
   const {
     isSupported,
     isAvailable,
@@ -26,14 +39,14 @@ export function NotificationSettings() {
 
   if (!isSupported) {
     return (
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card border border-border rounded-lg p-6 break-keep">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          Push Notifications
+          {t("Push Notifications")}
         </h2>
         <div className="flex items-center gap-3 text-muted-foreground">
           <BellOff className="h-5 w-5" />
           <p className="text-sm">
-            Push notifications are not supported in this browser.
+            {t("Push notifications are not supported in this browser.")}
           </p>
         </div>
       </div>
@@ -42,15 +55,14 @@ export function NotificationSettings() {
 
   if (!isAvailable) {
     return (
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card border border-border rounded-lg p-6 break-keep">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          Push Notifications
+          {t("Push Notifications")}
         </h2>
         <div className="flex items-center gap-3 text-muted-foreground">
           <BellOff className="h-5 w-5" />
           <p className="text-sm">
-            Push notifications are not configured on the server. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment
-            variables to enable.
+            {t("Push notifications are not configured on the server. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables to enable.")}
           </p>
         </div>
       </div>
@@ -59,15 +71,14 @@ export function NotificationSettings() {
 
   if (permission === "denied") {
     return (
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card border border-border rounded-lg p-6 break-keep">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          Push Notifications
+          {t("Push Notifications")}
         </h2>
         <div className="flex items-center gap-3 text-warning">
           <BellOff className="h-5 w-5" />
           <p className="text-sm">
-            Notification permission was denied. Please enable notifications in
-            your browser settings for this site.
+            {t("Notification permission was denied. Please enable notifications in your browser settings for this site.")}
           </p>
         </div>
       </div>
@@ -77,18 +88,18 @@ export function NotificationSettings() {
   const handleEnable = async () => {
     try {
       await enable();
-      showToast.success("Push notifications enabled");
+      showToast.success(t("Push notifications enabled"));
     } catch {
-      showToast.error("Failed to enable push notifications");
+      showToast.error(t("Failed to enable push notifications"));
     }
   };
 
   const handleDisable = async () => {
     try {
       await disable();
-      showToast.success("Push notifications disabled");
+      showToast.success(t("Push notifications disabled"));
     } catch {
-      showToast.error("Failed to disable push notifications");
+      showToast.error(t("Failed to disable push notifications"));
     }
   };
 
@@ -96,21 +107,21 @@ export function NotificationSettings() {
     sendTest(undefined, {
       onSuccess: (data) => {
         showToast.success(
-          `Test notification sent to ${data.devicesNotified} device(s)`
+          t("Test notification sent to {count} device(s)", { count: data.devicesNotified })
         );
       },
       onError: () => {
-        showToast.error("Failed to send test notification");
+        showToast.error(t("Failed to send test notification"));
       },
     });
   };
 
   return (
-    <div className="@container w-full max-w-7xl space-y-6">
+    <div className="@container w-full max-w-7xl space-y-6 break-keep">
       <div className="grid gap-6 @min-[1000px]:grid-cols-[2fr_1fr] @min-[1000px]:items-start">
         <div className="min-w-0 bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-semibold text-foreground mb-6">
-            Push Notifications
+            {t("Push Notifications")}
           </h2>
 
           <div className="space-y-6">
@@ -118,10 +129,10 @@ export function NotificationSettings() {
               <div className="flex items-start justify-between gap-4 py-3">
                 <div className="min-w-0 space-y-0.5">
                   <Label htmlFor="notificationsEnabled" className="text-base">
-                    Enable push notifications
+                    {t("Enable push notifications")}
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Receive notifications when the app is in the background
+                    {t("Receive notifications when the app is in the background")}
                   </p>
                 </div>
                 <Switch
@@ -138,17 +149,17 @@ export function NotificationSettings() {
                 <>
                   <div className="py-3">
                     <h3 className="text-sm font-medium text-foreground">
-                      Notification Events
+                      {t("Notification Events")}
                     </h3>
                   </div>
 
                   <div className="flex items-start justify-between gap-4 py-3">
                     <div className="min-w-0 space-y-0.5">
                       <Label htmlFor="notifPermission" className="text-base">
-                        Permission requests
+                        {t("Permission requests")}
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        When the agent needs approval to proceed
+                        {t("When the agent needs approval to proceed")}
                       </p>
                     </div>
                     <Switch
@@ -163,10 +174,10 @@ export function NotificationSettings() {
                   <div className="flex items-start justify-between gap-4 py-3">
                     <div className="min-w-0 space-y-0.5">
                       <Label htmlFor="notifQuestion" className="text-base">
-                        Agent questions
+                        {t("Agent questions")}
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        When the agent has a question for you
+                        {t("When the agent has a question for you")}
                       </p>
                     </div>
                     <Switch
@@ -181,10 +192,10 @@ export function NotificationSettings() {
                   <div className="flex items-start justify-between gap-4 py-3">
                     <div className="min-w-0 space-y-0.5">
                       <Label htmlFor="notifError" className="text-base">
-                        Session errors
+                        {t("Session errors")}
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        When a session encounters an error
+                        {t("When a session encounters an error")}
                       </p>
                     </div>
                     <Switch
@@ -199,10 +210,10 @@ export function NotificationSettings() {
                   <div className="flex items-start justify-between gap-4 py-3">
                     <div className="min-w-0 space-y-0.5">
                       <Label htmlFor="notifIdle" className="text-base">
-                        Session completion
+                        {t("Session completion")}
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        When a session finishes processing
+                        {t("When a session finishes processing")}
                       </p>
                     </div>
                     <Switch
@@ -217,10 +228,10 @@ export function NotificationSettings() {
                   <div className="flex items-start justify-between gap-4 py-3">
                     <div className="min-w-0 space-y-0.5">
                       <Label htmlFor="notifGoalOutcome" className="text-base">
-                        Goal outcomes
+                        {t("Goal outcomes")}
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        When a session goal completes, blocks or stops
+                        {t("When a session goal completes, blocks or stops")}
                       </p>
                     </div>
                     <Switch
@@ -248,7 +259,7 @@ export function NotificationSettings() {
                   ) : (
                     <Send className="h-4 w-4 mr-2" />
                   )}
-                  Send test notification
+                  {t("Send test notification")}
                 </Button>
               </div>
             )}
@@ -258,7 +269,7 @@ export function NotificationSettings() {
         {isEnabled && (
           <div className="min-w-0 bg-card border border-border rounded-lg p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4">
-              Registered Devices
+              {t("Registered Devices")}
             </h2>
 
             {isLoadingSubscriptions ? (
@@ -267,7 +278,7 @@ export function NotificationSettings() {
               </div>
             ) : subscriptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No devices registered for push notifications.
+                {t("No devices registered for push notifications.")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -284,8 +295,8 @@ export function NotificationSettings() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {sub.lastUsedAt
-                            ? `Last used ${formatDistanceToNow(sub.lastUsedAt, { addSuffix: true })}`
-                            : `Added ${formatDistanceToNow(sub.createdAt, { addSuffix: true })}`}
+                            ? t("Last used {time}", { time: formatRelativeTime(sub.lastUsedAt) })
+                            : t("Added {time}", { time: formatRelativeTime(sub.createdAt) })}
                         </p>
                       </div>
                     </div>

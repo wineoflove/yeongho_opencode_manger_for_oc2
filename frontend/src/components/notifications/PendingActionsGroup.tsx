@@ -2,6 +2,7 @@ import { Bell, HelpCircle } from 'lucide-react'
 import { PendingActionBadge } from '@/components/ui/pending-action-badge'
 import { ScheduleReportsBell } from '@/components/notifications/ScheduleReportsBell'
 import { usePermissions, useForms } from '@/contexts/EventContext'
+import { t } from '@/i18n/translate'
 
 interface PendingActionsGroupProps {
   showScheduleReports?: boolean
@@ -22,14 +23,14 @@ export function PendingActionsGroup({ showScheduleReports = true }: PendingActio
           navigateToPermission()
           setShowDialog(true)
         }}
-        label="permission"
+        label={t('permission')}
       />
       <PendingActionBadge
         count={formCount}
         icon={HelpCircle}
         color="blue"
         onClick={navigateToCurrent}
-        label="form"
+        label={t('form')}
       />
     </>
   )

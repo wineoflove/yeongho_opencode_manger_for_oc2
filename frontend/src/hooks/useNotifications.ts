@@ -9,6 +9,7 @@ import {
 import type { NotificationPreferences } from "@/api/types/settings";
 import type { PushSubscriptionRecord } from "@opencode-manager/shared/types";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "@opencode-manager/shared/schemas";
+import { t } from "@/i18n/translate";
 
 type PermissionState = NotificationPermission | "unsupported";
 
@@ -61,8 +62,8 @@ export function useNotifications() {
       if (registered) return registered;
 
       const reg = await getServiceWorkerRegistration();
-      if (!reg) throw new Error("Service worker not registered");
-      if (!vapidData?.publicKey) throw new Error("VAPID key not available");
+      if (!reg) throw new Error(t("Service worker not registered"));
+      if (!vapidData?.publicKey) throw new Error(t("VAPID key not available"));
 
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,

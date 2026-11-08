@@ -1,8 +1,29 @@
 import type { PushSubscriptionRecord } from "@opencode-manager/shared/types";
+import type {
+  TelegramSettingsResponse,
+  TelegramTestNotificationResponse,
+  UpdateTelegramSettingsRequest,
+} from "@opencode-manager/shared/schemas";
 import { API_BASE_URL } from "@/config";
 import { fetchWrapper } from "./fetchWrapper";
 
 export const notificationsApi = {
+  getTelegramSettings: async (): Promise<TelegramSettingsResponse> => {
+    return fetchWrapper(`${API_BASE_URL}/api/notifications/telegram`);
+  },
+
+  updateTelegramSettings: async (settings: UpdateTelegramSettingsRequest): Promise<TelegramSettingsResponse> => {
+    return fetchWrapper(`${API_BASE_URL}/api/notifications/telegram`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
+  },
+
+  testTelegram: async (): Promise<TelegramTestNotificationResponse> => {
+    return fetchWrapper(`${API_BASE_URL}/api/notifications/telegram/test`, { method: "POST" });
+  },
+
   getVapidPublicKey: async (): Promise<{ publicKey: string }> => {
     return fetchWrapper(`${API_BASE_URL}/api/notifications/vapid-public-key`);
   },

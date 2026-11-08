@@ -7,6 +7,9 @@ import { showToast } from '@/lib/toast'
 import type { PushSubscriptionRecord } from '@opencode-manager/shared/types'
 
 vi.mock('@/hooks/useNotifications')
+vi.mock('@/api/notifications', () => ({
+  notificationsApi: { getTelegramSettings: vi.fn(() => new Promise(() => {})) },
+}))
 vi.mock('@/lib/toast', () => ({
   showToast: { success: vi.fn(), error: vi.fn() },
 }))
