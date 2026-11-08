@@ -11,14 +11,15 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, UserPlus, AlertCircle } from 'lucide-react'
 import type { AuthConfig } from '@/lib/auth-loaders'
+import { msg, t } from '@/i18n/translate'
 
 const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  name: z.string().min(2, msg('Name must be at least 2 characters')),
+  email: z.string().email(msg('Invalid email address')),
+  password: z.string().min(8, msg('Password must be at least 8 characters')),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: msg("Passwords don't match"),
   path: ['confirmPassword'],
 })
 
@@ -63,8 +64,8 @@ export function Register() {
           />
           <p className="text-sm text-muted-foreground">
             {config.isFirstUser
-              ? 'Create the first admin account'
-              : 'Create your account'}
+              ? t('Create the first admin account')
+              : t('Create your account')}
           </p>
         </div>
 
@@ -78,21 +79,21 @@ export function Register() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm text-muted-foreground">Name</Label>
+              <Label htmlFor="name" className="text-sm text-muted-foreground">{t('Name')}</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Your name"
+                placeholder={t('Your name')}
                 className="bg-input border-border focus:border-primary"
                 {...register('name')}
                 aria-invalid={!!errors.name}
               />
               {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
+                <p className="text-sm text-destructive">{t(errors.name.message ?? '')}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm text-muted-foreground">Email</Label>
+              <Label htmlFor="email" className="text-sm text-muted-foreground">{t('Email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -102,35 +103,35 @@ export function Register() {
                 aria-invalid={!!errors.email}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-destructive">{t(errors.email.message ?? '')}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm text-muted-foreground">Password</Label>
+              <Label htmlFor="password" className="text-sm text-muted-foreground">{t('Password')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="At least 8 characters"
+                placeholder={t('At least 8 characters')}
                 className="bg-input border-border focus:border-primary"
                 {...register('password')}
                 aria-invalid={!!errors.password}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p className="text-sm text-destructive">{t(errors.password.message ?? '')}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-sm text-muted-foreground">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-sm text-muted-foreground">{t('Confirm Password')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="Confirm your password"
+                placeholder={t('Confirm your password')}
                 className="bg-input border-border focus:border-primary"
                 {...register('confirmPassword')}
                 aria-invalid={!!errors.confirmPassword}
               />
               {errors.confirmPassword && (
-                <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
+                <p className="text-sm text-destructive">{t(errors.confirmPassword.message ?? '')}</p>
               )}
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -139,15 +140,15 @@ export function Register() {
               ) : (
                 <UserPlus className="mr-2 h-4 w-4" />
               )}
-              {config.isFirstUser ? 'Create Admin Account' : 'Create Account'}
+              {config.isFirstUser ? t('Create Admin Account') : t('Create Account')}
             </Button>
           </form>
         </div>
 
         <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{' '}
+          {t('Already have an account?')}{' '}
           <Link to="/login" className="text-primary hover:underline transition-colors">
-            Sign in
+            {t('Sign in')}
           </Link>
         </p>
       </div>

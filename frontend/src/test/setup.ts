@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom/vitest'
+import { beforeEach } from 'vitest'
+import { setLocale } from '@/i18n/locale'
 
 const testStorage = (() => {
   const store = new Map<string, string>()
@@ -29,3 +31,5 @@ global.ResizeObserver = class ResizeObserver {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
 }
+
+beforeEach(() => setLocale('en'))

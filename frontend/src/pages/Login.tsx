@@ -13,10 +13,11 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Github, KeyRound, Mail, AlertCircle, ScanLine } from 'lucide-react'
 import type { AuthConfig } from '@/lib/auth-loaders'
+import { msg, t } from '@/i18n/translate'
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email(msg('Invalid email address')),
+  password: z.string().min(1, msg('Password is required')),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -83,11 +84,11 @@ export function Login() {
     setError(null)
     const link = parseManagerBrowserPairingLink(text)
     if (!link) {
-      setError('That QR code is not a Manager sign-in code.')
+      setError(t('That QR code is not a Manager sign-in code.'))
       return
     }
     if (link.origin !== window.location.origin) {
-      setError(`This QR code is for ${link.origin}. Open that address to sign in.`)
+      setError(t('This QR code is for {origin}. Open that address to sign in.', { origin: link.origin }))
       return
     }
     setIsRedeeming(true)
@@ -131,7 +132,7 @@ export function Login() {
             disabled={isRedeeming}
           >
             <ScanLine className="mr-2 h-4 w-4" />
-            Sign in with QR code
+            {t('Sign in with QR code')}
           </Button>
 
           {hasPasskey && (
@@ -146,7 +147,7 @@ export function Login() {
               ) : (
                 <KeyRound className="mr-2 h-4 w-4" />
               )}
-              Sign in with Passkey
+              {t('Sign in with Passkey')}
             </Button>
           )}
 
@@ -164,7 +165,7 @@ export function Login() {
                   ) : (
                     <Github className="mr-2 h-4 w-4" />
                   )}
-                  Continue with GitHub
+                  {t('Continue with GitHub')}
                 </Button>
               )}
               {config.enabledProviders.includes('google') && (
@@ -196,7 +197,7 @@ export function Login() {
                       />
                     </svg>
                   )}
-                  Continue with Google
+                  {t('Continue with Google')}
                 </Button>
               )}
               {config.enabledProviders.includes('discord') && (
@@ -216,7 +217,7 @@ export function Login() {
                       />
                     </svg>
                   )}
-                  Continue with Discord
+                  {t('Continue with Discord')}
                 </Button>
               )}
             </div>
@@ -228,7 +229,7 @@ export function Login() {
                 <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
+                <span className="bg-card px-2 text-muted-foreground">{t('Or continue with email')}</span>
               </div>
             </div>
           )}
@@ -236,7 +237,7 @@ export function Login() {
           {hasCredentials && (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm text-muted-foreground">Email</Label>
+                <Label htmlFor="email" className="text-sm text-muted-foreground">{t('Email')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -246,11 +247,11 @@ export function Login() {
                   aria-invalid={!!errors.email}
                 />
                 {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email.message}</p>
+                  <p className="text-sm text-destructive">{t(errors.email.message ?? '')}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm text-muted-foreground">Password</Label>
+                <Label htmlFor="password" className="text-sm text-muted-foreground">{t('Password')}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -260,7 +261,7 @@ export function Login() {
                   aria-invalid={!!errors.password}
                 />
                 {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password.message}</p>
+                  <p className="text-sm text-destructive">{t(errors.password.message ?? '')}</p>
                 )}
               </div>
               <Button type="submit" className="w-full" disabled={isSubmitting || isPasskeyLoading}>
@@ -269,7 +270,7 @@ export function Login() {
                 ) : (
                   <Mail className="mr-2 h-4 w-4" />
                 )}
-                Sign In
+                {t('Sign In')}
               </Button>
             </form>
           )}
@@ -279,9 +280,9 @@ export function Login() {
           open={isScannerOpen}
           onOpenChange={setIsScannerOpen}
           onResult={handleScan}
-          title="Scan sign-in QR code"
-          description="Scan the Browser / PWA QR code from Settings → Account → Connect a device on a signed-in Manager."
-          fallbackHint="Sign in with your password instead."
+          title={t('Scan sign-in QR code')}
+          description={t('Scan the Browser / PWA QR code from Settings → Account → Connect a device on a signed-in Manager.')}
+          fallbackHint={t('Sign in with your password instead.')}
         />
       </div>
     </div>

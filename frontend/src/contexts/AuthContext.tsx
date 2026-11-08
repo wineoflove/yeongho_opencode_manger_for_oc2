@@ -13,9 +13,10 @@ import {
   reconcileStoredAuthUser,
   type StoredAuthUser,
 } from '@/lib/authSession'
+import { msg, t } from '@/i18n/translate'
 
-const RATE_LIMITED_MESSAGE = 'Too many attempts. Wait a minute and try again.'
-const SIGN_IN_FAILED_MESSAGE = 'Sign-in failed'
+const RATE_LIMITED_MESSAGE = msg('Too many attempts. Wait a minute and try again.')
+const SIGN_IN_FAILED_MESSAGE = msg('Sign-in failed')
 
 interface AuthConfig {
   enabledProviders: string[]
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     const result = await signIn.email({ email, password })
     if (result.error) {
-      return { error: result.error.message || 'Sign in failed' }
+      return { error: result.error.message || t('Sign in failed') }
     }
     await refetch()
     navigate(redirectTarget, { replace: true })
@@ -101,7 +102,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await signIn.social({ provider, callbackURL: redirectTarget })
       return {}
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'OAuth sign in failed' }
+      return { error: err instanceof Error ? err.message : t('OAuth sign in failed') }
     }
   }, [redirectTarget])
 
@@ -109,13 +110,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const result = await authClient.signIn.passkey()
       if (result.error) {
-        return { error: result.error.message || 'Passkey sign in failed' }
+        return { error: result.error.message || t('Passkey sign in failed') }
       }
       await refetch()
       navigate(redirectTarget, { replace: true })
       return {}
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Passkey sign in failed' }
+      return { error: err instanceof Error ? err.message : t('Passkey sign in failed') }
     }
   }, [refetch, navigate, redirectTarget])
 
@@ -128,9 +129,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await refetch()
     } catch (err) {
       if (err instanceof FetchError && err.statusCode === 429) {
-        return { error: RATE_LIMITED_MESSAGE }
+        return { error: t(RATE_LIMITED_MESSAGE) }
       }
-      return { error: err instanceof Error && err.message ? err.message : SIGN_IN_FAILED_MESSAGE }
+      return { error: err instanceof Error && err.message ? err.message : t(SIGN_IN_FAILED_MESSAGE) }
     }
     navigate(redirectTarget, { replace: true })
     return {}
@@ -139,7 +140,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signUpWithEmail = useCallback(async (email: string, password: string, name: string) => {
     const result = await signUp.email({ email, password, name })
     if (result.error) {
-      return { error: result.error.message || 'Sign up failed' }
+      return { error: result.error.message || t('Sign up failed') }
     }
     await refetch()
     navigate(redirectTarget, { replace: true })
@@ -149,7 +150,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const addPasskey = useCallback(async (name?: string) => {
     const result = await authClient.passkey.addPasskey({ name })
     if (result.error) {
-      return { error: result.error.message || 'Failed to add passkey' }
+      return { error: result.error.message || t('Failed to add passkey') }
     }
     return {}
   }, [])

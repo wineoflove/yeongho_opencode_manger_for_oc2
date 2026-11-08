@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DEFAULT_USER_PREFERENCES } from '@opencode-manager/shared/schemas'
 import { createUseSettingsMock } from '@/test/test-utils'
 import { ConnectDeviceSettings } from './ConnectDeviceSettings'
+import { getLocale, setLocale } from '@/i18n/locale'
 
 const UNAVAILABLE_MESSAGE =
   'This page is open on localhost, which other devices cannot reach. Open the Manager at its public or LAN address to pair a device.'
@@ -116,6 +117,28 @@ describe('ConnectDeviceSettings', () => {
 
     expect(screen.queryByAltText('Mobile app pairing QR code')).not.toBeInTheDocument()
     expect(mocks.createDevicePairingLinks).not.toHaveBeenCalled()
+  })
+
+  it('explains why pairing is unavailable in Korean from the reason code', async () => {
+    const previous = getLocale()
+    setLocale('ko')
+    try {
+      mocks.getDevicePairingAvailability.mockResolvedValue({
+        available: false,
+        reason: 'loopback',
+        message: UNAVAILABLE_MESSAGE,
+      })
+      renderSettings()
+
+      expect(
+        await screen.findByText(
+          '이 페이지는 localhost로 열려 있어 다른 기기가 접속할 수 없습니다. 공개 주소나 LAN 주소로 Manager를 연 뒤 기기를 연결하세요.',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.queryByText(UNAVAILABLE_MESSAGE)).not.toBeInTheDocument()
+    } finally {
+      setLocale(previous)
+    }
   })
 
   it('keeps the QR code button enabled when the availability check fails', async () => {

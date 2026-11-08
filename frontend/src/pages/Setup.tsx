@@ -9,11 +9,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, UserPlus, AlertCircle } from 'lucide-react'
+import { msg, t } from '@/i18n/translate'
 
 const setupSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  name: z.string().min(2, msg('Name must be at least 2 characters')),
+  email: z.string().email(msg('Invalid email address')),
+  password: z.string().min(8, msg('Password must be at least 8 characters')),
 })
 
 type SetupFormData = z.infer<typeof setupSchema>
@@ -54,7 +55,7 @@ export function Setup() {
             alt="OpenCode Manager"
             className="h-8 w-auto"
           />
-          <p className="text-sm text-muted-foreground">Create Admin Account</p>
+          <p className="text-sm text-muted-foreground">{t('Create Admin Account')}</p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-6 space-y-4">
@@ -67,21 +68,21 @@ export function Setup() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm text-muted-foreground">Name</Label>
+              <Label htmlFor="name" className="text-sm text-muted-foreground">{t('Name')}</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Your name"
+                placeholder={t('Your name')}
                 className="bg-input border-border focus:border-primary"
                 {...register('name')}
                 aria-invalid={!!errors.name}
               />
               {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
+                <p className="text-sm text-destructive">{t(errors.name.message ?? '')}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm text-muted-foreground">Email</Label>
+              <Label htmlFor="email" className="text-sm text-muted-foreground">{t('Email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -91,21 +92,21 @@ export function Setup() {
                 aria-invalid={!!errors.email}
               />
               {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
+                <p className="text-sm text-destructive">{t(errors.email.message ?? '')}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm text-muted-foreground">Password</Label>
+              <Label htmlFor="password" className="text-sm text-muted-foreground">{t('Password')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="At least 8 characters"
+                placeholder={t('At least 8 characters')}
                 className="bg-input border-border focus:border-primary"
                 {...register('password')}
                 aria-invalid={!!errors.password}
               />
               {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
+                <p className="text-sm text-destructive">{t(errors.password.message ?? '')}</p>
               )}
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -114,7 +115,7 @@ export function Setup() {
               ) : (
                 <UserPlus className="mr-2 h-4 w-4" />
               )}
-              Create Admin Account
+              {t('Create Admin Account')}
             </Button>
           </form>
         </div>

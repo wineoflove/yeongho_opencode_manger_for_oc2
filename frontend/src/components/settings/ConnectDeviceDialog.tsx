@@ -8,32 +8,30 @@ import {
 import { useCreateDevicePairingLinks, useInvalidatePairedDevices } from '@/hooks/useDevicePairing'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PairingQrCode } from './PairingQrCode'
+import { t, msg } from '@/i18n/translate'
 
 const WARNING_MESSAGES: Record<DevicePairingLinkWarning, string> = {
-  'plain-http': 'This address uses plain HTTP, so the sign-in code travels unencrypted.',
-  loopback: 'This address is localhost; other devices cannot reach it.',
-  'headers-unreadable': 'Stored remote access headers could not be decrypted and are not included.',
+  'plain-http': msg('This address uses plain HTTP, so the sign-in code travels unencrypted.'),
+  loopback: msg('This address is localhost; other devices cannot reach it.'),
+  'headers-unreadable': msg('Stored remote access headers could not be decrypted and are not included.'),
 }
 
-const INSECURE_ORIGIN_EXPLANATION =
-  "The mobile app QR code needs HTTPS. Use an HTTPS address, or turn on 'Allow plain-HTTP app links on private networks' if this Manager uses a private IP address."
+const INSECURE_ORIGIN_EXPLANATION = msg(
+  "The mobile app QR code needs HTTPS. Use an HTTPS address, or turn on 'Allow plain-HTTP app links on private networks' if this Manager uses a private IP address.",
+)
 
-const SCREEN_SHARING_WARNING =
-  "This QR code contains your remote access headers. Don't show it while screen sharing or recording."
+const SCREEN_SHARING_WARNING = msg(
+  "This QR code contains your remote access headers. Don't show it while screen sharing or recording.",
+)
 
-const BROWSER_HINT =
-  "Scan with your phone camera to sign in the browser or installed app. In an iPhone home-screen app, use 'Sign in with QR code' on its sign-in screen."
+const BROWSER_HINT = msg(
+  "Scan with your phone camera to sign in the browser or installed app. In an iPhone home-screen app, use 'Sign in with QR code' on its sign-in screen.",
+)
 
-const LINKS_FAILED_MESSAGE = 'Failed to create pairing links'
+const LINKS_FAILED_MESSAGE = msg('Failed to create pairing links')
 
 interface ConnectDeviceDialogProps {
   open: boolean
@@ -71,9 +69,7 @@ export function ConnectDeviceDialog({ open, onOpenChange }: ConnectDeviceDialogP
           setLinks(null)
           setLocalExpiresAt(null)
           setError(
-            requestError instanceof Error && requestError.message
-              ? requestError.message
-              : LINKS_FAILED_MESSAGE,
+            requestError instanceof Error && requestError.message ? requestError.message : t(LINKS_FAILED_MESSAGE),
           )
         },
       },
@@ -118,11 +114,9 @@ export function ConnectDeviceDialog({ open, onOpenChange }: ConnectDeviceDialogP
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5" />
-            Connect a device
+            {t('Connect a device')}
           </DialogTitle>
-          <DialogDescription>
-            Scan a code with the mobile app or your phone camera to sign in.
-          </DialogDescription>
+          <DialogDescription>{t('Scan a code with the mobile app or your phone camera to sign in.')}</DialogDescription>
         </DialogHeader>
 
         {error ? (
@@ -132,34 +126,32 @@ export function ConnectDeviceDialog({ open, onOpenChange }: ConnectDeviceDialogP
               <AlertDescription>{error}</AlertDescription>
             </Alert>
             <Button variant="outline" onClick={requestLinks} disabled={isPending}>
-              {isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Try again
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              {t('Try again')}
             </Button>
           </div>
         ) : !links ? (
           <div className="flex items-center justify-center gap-2 py-8">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <p className="text-sm text-muted-foreground">Creating a pairing code…</p>
+            <p className="text-sm text-muted-foreground">{t('Creating a pairing code…')}</p>
           </div>
         ) : (
           <div className="space-y-3">
             {localExpiresAt !== null && (
               <p className="text-sm text-muted-foreground">
-                Expires in {formatCountdown(localExpiresAt, now)}
+                {t('Expires in {time}', {
+                  time: formatCountdown(localExpiresAt, now),
+                })}
               </p>
             )}
 
             <Tabs defaultValue="mobile">
               <TabsList className="w-full">
                 <TabsTrigger value="mobile" className="flex-1">
-                  Mobile app
+                  {t('Mobile app')}
                 </TabsTrigger>
                 <TabsTrigger value="browser" className="flex-1">
-                  Browser / PWA
+                  {t('Browser / PWA')}
                 </TabsTrigger>
               </TabsList>
 
@@ -169,36 +161,38 @@ export function ConnectDeviceDialog({ open, onOpenChange }: ConnectDeviceDialogP
                     <div className="mx-auto w-full max-w-64">
                       <PairingQrCode
                         value={links.appLink}
-                        label="Mobile app pairing QR code"
+                        label={t('Mobile app pairing QR code')}
                         blurred={!revealed}
                       />
                     </div>
                     <Button variant="outline" onClick={() => setRevealed((current) => !current)}>
-                      {revealed ? 'Hide QR code' : 'Reveal QR code'}
+                      {revealed ? t('Hide QR code') : t('Reveal QR code')}
                     </Button>
-                    <p className="text-xs text-muted-foreground">{SCREEN_SHARING_WARNING}</p>
+                    <p className="text-xs text-muted-foreground">{t(SCREEN_SHARING_WARNING)}</p>
                     <p className="text-xs text-muted-foreground">
                       {links.headerNames.length > 0
-                        ? `Includes headers: ${links.headerNames.join(', ')}`
-                        : 'No remote access headers are included.'}
+                        ? t('Includes headers: {headers}', {
+                            headers: links.headerNames.join(', '),
+                          })
+                        : t('No remote access headers are included.')}
                     </p>
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">{INSECURE_ORIGIN_EXPLANATION}</p>
+                  <p className="text-sm text-muted-foreground">{t(INSECURE_ORIGIN_EXPLANATION)}</p>
                 )}
               </TabsContent>
 
               <TabsContent value="browser" className="space-y-3">
                 <div className="mx-auto w-full max-w-64">
-                  <PairingQrCode value={links.browserLink} label="Browser sign-in QR code" />
+                  <PairingQrCode value={links.browserLink} label={t('Browser sign-in QR code')} />
                 </div>
-                <p className="text-xs text-muted-foreground">{BROWSER_HINT}</p>
+                <p className="text-xs text-muted-foreground">{t(BROWSER_HINT)}</p>
               </TabsContent>
             </Tabs>
 
             {links.warnings.map((warning) => (
               <p key={warning} className="text-xs text-muted-foreground">
-                {WARNING_MESSAGES[warning]}
+                {t(WARNING_MESSAGES[warning])}
               </p>
             ))}
           </div>

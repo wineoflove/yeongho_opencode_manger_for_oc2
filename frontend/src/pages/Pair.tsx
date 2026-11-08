@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/hooks/useTheme'
 import { getSession } from '@/lib/auth-client'
+import { t } from '@/i18n/translate'
 
 type PairState = 'redeeming' | 'missing' | 'error'
 
@@ -42,7 +43,7 @@ export function Pair() {
 
       const session = await getSession()
       if (session?.data?.user) {
-        showToast.info('Already signed in')
+        showToast.info(t('Already signed in'))
         navigate('/', { replace: true })
         return
       }
@@ -55,7 +56,7 @@ export function Pair() {
     }
 
     void run().catch((error: unknown) => {
-      setErrorMessage(error instanceof Error && error.message ? error.message : 'Sign-in failed')
+      setErrorMessage(error instanceof Error && error.message ? error.message : t('Sign-in failed'))
       setState('error')
     })
   }, [code, navigate, signInWithPairingCode])
@@ -75,7 +76,7 @@ export function Pair() {
           {state === 'redeeming' && (
             <div className="flex items-center justify-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <p className="text-sm text-muted-foreground">Signing you in…</p>
+              <p className="text-sm text-muted-foreground">{t('Signing you in…')}</p>
             </div>
           )}
 
@@ -83,10 +84,10 @@ export function Pair() {
             <>
               <Alert>
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>No pairing code was found</AlertDescription>
+                <AlertDescription>{t('No pairing code was found')}</AlertDescription>
               </Alert>
               <Button asChild variant="outline" className="w-full">
-                <Link to="/login">Sign in</Link>
+                <Link to="/login">{t('Sign in')}</Link>
               </Button>
             </>
           )}
@@ -98,7 +99,7 @@ export function Pair() {
                 <AlertDescription>{errorMessage}</AlertDescription>
               </Alert>
               <Button asChild variant="outline" className="w-full">
-                <Link to="/login">Sign in</Link>
+                <Link to="/login">{t('Sign in')}</Link>
               </Button>
             </>
           )}
