@@ -28,7 +28,9 @@ const azureProvider = providerFixture('azure', 'Azure')
 const anthropicProvider = providerFixture('anthropic', 'Anthropic')
 
 function renderDialog(provider: Provider, onSuccess = vi.fn()) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   render(
     <QueryClientProvider client={queryClient}>
       <ApiKeyDialog open onOpenChange={vi.fn()} provider={provider} onSuccess={onSuccess} />
@@ -88,6 +90,37 @@ describe('ApiKeyDialog', () => {
       })
     })
     expect(onSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads form fields and stores a key using the distinct integration ID', async () => {
+    const user = userEvent.setup()
+    const { onSuccess } = renderDialog({
+      ...providerFixture('deployment-models', 'Deployment models'),
+      integrationID: 'azure',
+    })
+    await user.type(await screen.findByLabelText('API Key'), 'fixture-key')
+    expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled()
+    await user.type(screen.getByLabelText('Enter Azure Resource Name'), 'fixture-resource')
+    await user.click(screen.getByRole('button', { name: 'Connect' }))
+    await waitFor(() =>
+      expect(providerCredentialsApi.set).toHaveBeenCalledExactlyOnceWith('azure', 'fixture-key', {
+        resourceName: 'fixture-resource',
+      }),
+    )
+    expect(onSuccess).toHaveBeenCalledOnce()
+  })
+
+  it('shows only server-declared environment names for the authentication integration', async () => {
+    vi.mocked(oauthApi.getAuthMethods).mockResolvedValue({
+      'auth-provider': [{ type: 'key' }, { type: 'env', names: ['DECLARED_TOKEN'] }],
+    })
+    renderDialog({
+      ...providerFixture('model-provider', 'Models'),
+      integrationID: 'auth-provider',
+    })
+    expect(await screen.findByText('DECLARED_TOKEN')).toBeInTheDocument()
+    expect(screen.queryByText('MODEL-PROVIDER_API_KEY')).not.toBeInTheDocument()
+    expect(providerCredentialsApi.set).not.toHaveBeenCalled()
   })
 
   it('keeps Connect disabled until the required key method field is filled', async () => {

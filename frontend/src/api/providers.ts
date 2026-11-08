@@ -1,6 +1,6 @@
-import { API_BASE_URL } from "@/config";
-import { fetchWrapper } from "./fetchWrapper";
-import { callOpenCode } from "./opencodeApi";
+import { API_BASE_URL } from '@/config'
+import { fetchWrapper } from './fetchWrapper'
+import { callOpenCode } from './opencodeApi'
 import {
   compareCatalogModels,
   formatOpenCodeModelRef,
@@ -15,30 +15,37 @@ import {
   type ModelPreference,
   type ModelPreferenceModel,
   type ModelRef,
-} from "@opencode-manager/shared/opencode";
-import type { CredentialListResponse, CredentialStatusResponse } from "@opencode-manager/shared/schemas";
+} from '@opencode-manager/shared/opencode'
+import type { CredentialListResponse, CredentialStatusResponse } from '@opencode-manager/shared/schemas'
 
 export interface Model {
-  id: string;
-  key?: string;
-  name: string;
+  id: string
+  key?: string
+  name: string
   limit?: {
-    context: number;
-    output: number;
-  };
-  released: number;
-  free: boolean;
+    context: number
+    output: number
+  }
+  released: number
+  free: boolean
+  /** Base-tier price in USD per million tokens, when the catalog lists one. */
+  price?: { input: number; output: number }
+  status?: ModelInfo['status']
+  tools?: boolean
+  /** Whether the model accepts image or document input. */
+  attachments?: boolean
 }
 
 export interface Provider {
-  id: string;
-  name: string;
-  models: Model[];
+  integrationID?: string
+  id: string
+  name: string
+  models: Model[]
 }
 
 export interface ProviderCatalog {
-  providers: Provider[];
-  models: ModelInfo[];
+  providers: Provider[]
+  models: ModelInfo[]
 }
 
 export type ModelSelection = ModelPreferenceModel
@@ -56,74 +63,75 @@ function mapModelInfo(model: ModelInfo): Model {
     },
     released: model.time.released,
     free: isModelFree(model),
-  };
+    ...baseModelPrice(model),
+    status: model.status,
+    tools: model.capabilities.tools,
+    attachments: model.capabilities.input.some((kind) => kind !== 'text'),
+  }
+}
+
+function baseModelPrice(model: ModelInfo): Pick<Model, 'price'> {
+  const base = model.cost.find((cost) => cost.tier === undefined) ?? model.cost[0]
+  return base ? { price: { input: base.input, output: base.output } } : {}
 }
 
 export async function getProviders(directory?: string, serverId?: string): Promise<ProviderCatalog> {
   try {
-    const location = openCodeLocation(directory);
+    const location = openCodeLocation(directory)
     const [providerResult, modelResult] = await callOpenCode(
       (api) => Promise.all([api.provider.list(location), api.model.list(location)]),
       serverId,
-    );
+    )
 
-    const activeProviders = providerResult.data.filter(isActiveCatalogProvider);
+    const activeProviders = providerResult.data.filter(isActiveCatalogProvider)
 
     const providers = activeProviders.map((provider): Provider => {
       const models = modelResult.data
         .filter((model) => model.providerID === provider.id && isSelectableCatalogModel(model))
-        .map(mapModelInfo);
+        .map(mapModelInfo)
 
       models.sort((a, b) =>
         compareCatalogModels(
           { ...a, providerID: provider.id, providerName: provider.name },
           { ...b, providerID: provider.id, providerName: provider.name },
         ),
-      );
+      )
 
       return {
         id: provider.id,
+        ...(provider.integrationID ? { integrationID: provider.integrationID } : {}),
         name: provider.name,
         models,
-      };
-    });
+      }
+    })
 
     providers.sort((a, b) =>
-      compareCatalogModels(
-        { providerID: a.id, providerName: a.name },
-        { providerID: b.id, providerName: b.name },
-      ),
-    );
+      compareCatalogModels({ providerID: a.id, providerName: a.name }, { providerID: b.id, providerName: b.name }),
+    )
 
-    return { providers, models: modelResult.data };
+    return { providers, models: modelResult.data }
   } catch {
-    return { providers: [], models: [] };
+    return { providers: [], models: [] }
   }
 }
 
-export async function getOpenCodeConfiguredModel(
-  directory?: string,
-  serverId?: string,
-): Promise<string | null> {
+export async function getOpenCodeConfiguredModel(directory?: string, serverId?: string): Promise<string | null> {
   try {
-    const entries = await callOpenCode((api) => api.config.get(openCodeLocation(directory)), serverId);
-    const ref = selectConfiguredModelRef(entries);
-    return ref ? formatOpenCodeModelRef(ref) : null;
+    const entries = await callOpenCode((api) => api.config.get(openCodeLocation(directory)), serverId)
+    const ref = selectConfiguredModelRef(entries)
+    return ref ? formatOpenCodeModelRef(ref) : null
   } catch {
-    return null;
+    return null
   }
 }
 
-export async function getOpenCodeServerDefaultModel(
-  directory?: string,
-  serverId?: string,
-): Promise<ModelRef | null> {
+export async function getOpenCodeServerDefaultModel(directory?: string, serverId?: string): Promise<ModelRef | null> {
   try {
-    const result = await callOpenCode((api) => api.model.default(openCodeLocation(directory)), serverId);
-    const model = result.data;
-    return model ? { providerID: model.providerID, id: model.id } : null;
+    const result = await callOpenCode((api) => api.model.default(openCodeLocation(directory)), serverId)
+    const model = result.data
+    return model ? { providerID: model.providerID, id: model.id } : null
   } catch {
-    return null;
+    return null
   }
 }
 
@@ -135,11 +143,11 @@ export async function saveOpenCodeModelVariant(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ variant: { model, value: value ?? null } }),
-  });
+  })
 }
 
 export async function getOpenCodeModelState(): Promise<OpenCodeModelState> {
-  return await fetchWrapper<OpenCodeModelState>(`${API_BASE_URL}/api/providers/model-state`);
+  return await fetchWrapper<OpenCodeModelState>(`${API_BASE_URL}/api/providers/model-state`)
 }
 
 export async function addOpenCodeRecentModel(model: ModelSelection): Promise<OpenCodeModelState> {
@@ -147,7 +155,7 @@ export async function addOpenCodeRecentModel(model: ModelSelection): Promise<Ope
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ recent: model }),
-  });
+  })
 }
 
 export async function removeOpenCodeRecentModel(model: ModelSelection): Promise<OpenCodeModelState> {
@@ -155,7 +163,7 @@ export async function removeOpenCodeRecentModel(model: ModelSelection): Promise<
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ removeRecent: model }),
-  });
+  })
 }
 
 export async function toggleOpenCodeFavoriteModel(model: ModelSelection): Promise<OpenCodeModelState> {
@@ -163,36 +171,39 @@ export async function toggleOpenCodeFavoriteModel(model: ModelSelection): Promis
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ favorite: model }),
-  });
+  })
 }
 
 export function formatModelName(model: Model): string {
-  return model.name || model.id;
+  return model.name || model.id
 }
 
 export function providerModelRef(provider: { id: string }, model: { id: string; key?: string }): string {
-  return formatOpenCodeModelRef({ providerID: provider.id, id: model.key ?? model.id });
+  return formatOpenCodeModelRef({
+    providerID: provider.id,
+    id: model.key ?? model.id,
+  })
 }
 
 export function modelSelectionRef(model: ModelSelection): string {
-  return modelPreferenceKey(model);
+  return modelPreferenceKey(model)
 }
 
 export function formatProviderName(provider: Provider): string {
-  return provider.name || provider.id;
+  return provider.name || provider.id
 }
 
 export const providerCredentialsApi = {
   list: async (): Promise<string[]> => {
-    const { providers } = await fetchWrapper<CredentialListResponse>(`${API_BASE_URL}/api/providers/credentials`);
-    return providers;
+    const { providers } = await fetchWrapper<CredentialListResponse>(`${API_BASE_URL}/api/providers/credentials`)
+    return providers
   },
 
   getStatus: async (providerId: string): Promise<boolean> => {
     const { hasCredentials } = await fetchWrapper<CredentialStatusResponse>(
-      `${API_BASE_URL}/api/providers/${providerId}/credentials/status`
-    );
-    return hasCredentials;
+      `${API_BASE_URL}/api/providers/${providerId}/credentials/status`,
+    )
+    return hasCredentials
   },
 
   set: async (providerId: string, apiKey: string, answer?: FormAnswer): Promise<void> => {
@@ -200,12 +211,12 @@ export const providerCredentialsApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ apiKey, answer }),
-    });
+    })
   },
 
   delete: async (providerId: string): Promise<void> => {
     await fetchWrapper(`${API_BASE_URL}/api/providers/${providerId}/credentials`, {
       method: 'DELETE',
-    });
+    })
   },
-};
+}

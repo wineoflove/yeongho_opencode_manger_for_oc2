@@ -49,17 +49,51 @@ function makeAnthropicModel(overrides: Record<string, unknown> = {}) {
 }
 
 describe('getProviders', () => {
+  it('preserves a distinct authentication integration without changing model provider identity', async () => {
+    mockProviderList.mockResolvedValue({
+      location: { directory: '/repo' },
+      data: [
+        {
+          id: 'model-provider',
+          name: 'Fixture',
+          integrationID: 'auth-provider',
+          activation: 'enabled',
+        },
+      ],
+    })
+    mockModelList.mockResolvedValue({
+      location: { directory: '/repo' },
+      data: [makeAnthropicModel({ providerID: 'model-provider' })],
+    })
+    const result = await getProviders('/repo')
+    expect(result.providers[0]).toMatchObject({
+      id: 'model-provider',
+      integrationID: 'auth-provider',
+    })
+    expect(result.models[0].providerID).toBe('model-provider')
+  })
   beforeEach(() => {
     vi.clearAllMocks()
-    mockProviderList.mockResolvedValue({ location: { directory: '/repo' }, data: [] })
-    mockModelList.mockResolvedValue({ location: { directory: '/repo' }, data: [] })
+    mockProviderList.mockResolvedValue({
+      location: { directory: '/repo' },
+      data: [],
+    })
+    mockModelList.mockResolvedValue({
+      location: { directory: '/repo' },
+      data: [],
+    })
   })
 
   it('maps V2 providers and models into the UI shape', async () => {
     mockProviderList.mockResolvedValue({
       location: { directory: '/repo' },
       data: [
-        { id: 'anthropic', name: 'Anthropic', activation: 'enabled', package: '@opencode/ai/providers/anthropic' },
+        {
+          id: 'anthropic',
+          name: 'Anthropic',
+          activation: 'enabled',
+          package: '@opencode/ai/providers/anthropic',
+        },
       ],
     })
     mockModelList.mockResolvedValue({
@@ -84,7 +118,10 @@ describe('getProviders', () => {
     const result = await getProviders('/repo')
 
     expect(result.providers).toHaveLength(1)
-    expect(result.providers[0]).toMatchObject({ id: 'anthropic', name: 'Anthropic' })
+    expect(result.providers[0]).toMatchObject({
+      id: 'anthropic',
+      name: 'Anthropic',
+    })
     expect(result.providers[0].models).toHaveLength(1)
     expect(result.providers[0].models[0]).toMatchObject({
       key: 'claude-sonnet-4',
@@ -104,7 +141,12 @@ describe('getProviders', () => {
     })
     mockModelList.mockResolvedValue({
       location: { directory: '/repo' },
-      data: [makeAnthropicModel({ providerID: 'opencode', cost: [{ input: 0, output: 0 }] })],
+      data: [
+        makeAnthropicModel({
+          providerID: 'opencode',
+          cost: [{ input: 0, output: 0 }],
+        }),
+      ],
     })
 
     const result = await getProviders('/repo')
@@ -124,8 +166,16 @@ describe('getProviders', () => {
       location: { directory: '/repo' },
       data: [
         makeAnthropicModel(),
-        makeAnthropicModel({ id: 'claude-disabled', modelID: 'claude-disabled', enabled: false }),
-        makeAnthropicModel({ id: 'claude-off-provider', modelID: 'claude-off-provider', providerID: 'disabled-provider' }),
+        makeAnthropicModel({
+          id: 'claude-disabled',
+          modelID: 'claude-disabled',
+          enabled: false,
+        }),
+        makeAnthropicModel({
+          id: 'claude-off-provider',
+          modelID: 'claude-off-provider',
+          providerID: 'disabled-provider',
+        }),
       ],
     })
 
@@ -148,20 +198,33 @@ describe('getProviders', () => {
     mockModelList.mockResolvedValue({
       location: { directory: '/repo' },
       data: [
-        makeAnthropicModel({ id: 'paid-new', modelID: 'paid-new', providerID: 'opencode', time: { released: 300 }, cost: [{ input: 1, output: 1 }] }),
-        makeAnthropicModel({ id: 'free', modelID: 'free', providerID: 'opencode', time: { released: 100 }, cost: [{ input: 0, output: 0 }] }),
-        makeAnthropicModel({ id: 'paid-old', modelID: 'paid-old', providerID: 'opencode', time: { released: 200 }, cost: [{ input: 1, output: 1 }] }),
+        makeAnthropicModel({
+          id: 'paid-new',
+          modelID: 'paid-new',
+          providerID: 'opencode',
+          time: { released: 300 },
+          cost: [{ input: 1, output: 1 }],
+        }),
+        makeAnthropicModel({
+          id: 'free',
+          modelID: 'free',
+          providerID: 'opencode',
+          time: { released: 100 },
+          cost: [{ input: 0, output: 0 }],
+        }),
+        makeAnthropicModel({
+          id: 'paid-old',
+          modelID: 'paid-old',
+          providerID: 'opencode',
+          time: { released: 200 },
+          cost: [{ input: 1, output: 1 }],
+        }),
       ],
     })
 
     const result = await getProviders('/repo')
 
-    expect(result.providers.map((provider) => provider.id)).toEqual([
-      'opencode-go',
-      'opencode',
-      'alpha',
-      'zeta',
-    ])
+    expect(result.providers.map((provider) => provider.id)).toEqual(['opencode-go', 'opencode', 'alpha', 'zeta'])
     const opencode = result.providers.find((provider) => provider.id === 'opencode')
     expect(opencode?.models.map((model) => model.id)).toEqual(['free', 'paid-new', 'paid-old'])
   })
@@ -182,15 +245,27 @@ describe('getOpenCodeConfiguredModel', () => {
   })
 
   it('keeps the variant of a string config model', async () => {
-    mockConfigGet.mockResolvedValue([{ type: 'document', info: { model: 'anthropic/claude-sonnet-4#thinking' } }])
+    mockConfigGet.mockResolvedValue([
+      {
+        type: 'document',
+        info: { model: 'anthropic/claude-sonnet-4#thinking' },
+      },
+    ])
 
     await expect(getOpenCodeConfiguredModel('/repo')).resolves.toBe('anthropic/claude-sonnet-4#thinking')
-    expect(mockConfigGet).toHaveBeenCalledWith({ location: { directory: '/repo' } })
+    expect(mockConfigGet).toHaveBeenCalledWith({
+      location: { directory: '/repo' },
+    })
   })
 
   it('formats an object config model the same way', async () => {
     mockConfigGet.mockResolvedValue([
-      { type: 'document', info: { model: { providerID: 'openai', model: 'gpt-4o', variant: 'high' } } },
+      {
+        type: 'document',
+        info: {
+          model: { providerID: 'openai', model: 'gpt-4o', variant: 'high' },
+        },
+      },
     ])
 
     await expect(getOpenCodeConfiguredModel()).resolves.toBe('openai/gpt-4o#high')
@@ -200,7 +275,10 @@ describe('getOpenCodeConfiguredModel', () => {
   it('uses the last document that sets a model', async () => {
     mockConfigGet.mockResolvedValue([
       { type: 'document', info: { model: 'anthropic/claude-sonnet-4' } },
-      { type: 'document', info: { model: { providerID: 'openai', model: 'gpt-4o' } } },
+      {
+        type: 'document',
+        info: { model: { providerID: 'openai', model: 'gpt-4o' } },
+      },
       { type: 'document', info: {} },
     ])
 
@@ -227,7 +305,11 @@ describe('getOpenCodeServerDefaultModel', () => {
     vi.clearAllMocks()
     mockModelDefault.mockResolvedValue({
       location: { directory: '/repo' },
-      data: makeAnthropicModel({ providerID: 'openai', id: 'gpt-5', modelID: 'gpt-5' }),
+      data: makeAnthropicModel({
+        providerID: 'openai',
+        id: 'gpt-5',
+        modelID: 'gpt-5',
+      }),
     })
   })
 
@@ -239,7 +321,10 @@ describe('getOpenCodeServerDefaultModel', () => {
   })
 
   it('returns null when the server reports no default model', async () => {
-    mockModelDefault.mockResolvedValue({ location: { directory: '/repo' }, data: null })
+    mockModelDefault.mockResolvedValue({
+      location: { directory: '/repo' },
+      data: null,
+    })
 
     await expect(getOpenCodeServerDefaultModel('/repo')).resolves.toBeNull()
   })
@@ -263,26 +348,44 @@ describe('saveOpenCodeModelVariant', () => {
   })
 
   it('posts the model and value and returns the state', async () => {
-    const state = { recent: [], favorite: [], variant: { 'openai/gpt-5': 'high' } }
+    const state = {
+      recent: [],
+      favorite: [],
+      variant: { 'openai/gpt-5': 'high' },
+    }
     mockFetchWrapper.mockResolvedValue(state)
 
     await expect(saveOpenCodeModelVariant({ providerID: 'openai', modelID: 'gpt-5' }, 'high')).resolves.toEqual(state)
     expect(mockFetchWrapper).toHaveBeenCalledWith(`${API_BASE_URL}/api/providers/model-state`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ variant: { model: { providerID: 'openai', modelID: 'gpt-5' }, value: 'high' } }),
+      body: JSON.stringify({
+        variant: {
+          model: { providerID: 'openai', modelID: 'gpt-5' },
+          value: 'high',
+        },
+      }),
     })
   })
 
   it('sends null when the value is omitted', async () => {
-    mockFetchWrapper.mockResolvedValue({ recent: [], favorite: [], variant: {} })
+    mockFetchWrapper.mockResolvedValue({
+      recent: [],
+      favorite: [],
+      variant: {},
+    })
 
     await saveOpenCodeModelVariant({ providerID: 'openai', modelID: 'gpt-5' })
 
     expect(mockFetchWrapper).toHaveBeenCalledWith(`${API_BASE_URL}/api/providers/model-state`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ variant: { model: { providerID: 'openai', modelID: 'gpt-5' }, value: null } }),
+      body: JSON.stringify({
+        variant: {
+          model: { providerID: 'openai', modelID: 'gpt-5' },
+          value: null,
+        },
+      }),
     })
   })
 })
@@ -290,7 +393,7 @@ describe('saveOpenCodeModelVariant', () => {
 describe('providerModelRef', () => {
   it('prefers the catalog key over the backing model id', () => {
     expect(providerModelRef({ id: 'anthropic' }, { id: 'claude-sonnet-4-20250514', key: 'claude-sonnet-4' })).toBe(
-      'anthropic/claude-sonnet-4'
+      'anthropic/claude-sonnet-4',
     )
   })
 
@@ -321,9 +424,7 @@ describe('providerCredentialsApi', () => {
     mockFetchWrapper.mockResolvedValue({ hasCredentials: true })
 
     await expect(providerCredentialsApi.getStatus('anthropic')).resolves.toBe(true)
-    expect(mockFetchWrapper).toHaveBeenCalledWith(
-      `${API_BASE_URL}/api/providers/anthropic/credentials/status`
-    )
+    expect(mockFetchWrapper).toHaveBeenCalledWith(`${API_BASE_URL}/api/providers/anthropic/credentials/status`)
   })
 
   it('posts the api key to the provider credential route', async () => {
@@ -331,29 +432,28 @@ describe('providerCredentialsApi', () => {
 
     await providerCredentialsApi.set('anthropic', 'sk-ant-test')
 
-    expect(mockFetchWrapper).toHaveBeenCalledWith(
-      `${API_BASE_URL}/api/providers/anthropic/credentials`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: 'sk-ant-test' }),
-      }
-    )
+    expect(mockFetchWrapper).toHaveBeenCalledWith(`${API_BASE_URL}/api/providers/anthropic/credentials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: 'sk-ant-test' }),
+    })
   })
 
   it('posts the key method form answer alongside the api key', async () => {
     mockFetchWrapper.mockResolvedValue({ success: true })
 
-    await providerCredentialsApi.set('azure', 'az-test', { resourceName: 'my-models' })
+    await providerCredentialsApi.set('azure', 'az-test', {
+      resourceName: 'my-models',
+    })
 
-    expect(mockFetchWrapper).toHaveBeenCalledWith(
-      `${API_BASE_URL}/api/providers/azure/credentials`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: 'az-test', answer: { resourceName: 'my-models' } }),
-      }
-    )
+    expect(mockFetchWrapper).toHaveBeenCalledWith(`${API_BASE_URL}/api/providers/azure/credentials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey: 'az-test',
+        answer: { resourceName: 'my-models' },
+      }),
+    })
   })
 
   it('deletes credentials through the provider credential route', async () => {
@@ -361,9 +461,8 @@ describe('providerCredentialsApi', () => {
 
     await providerCredentialsApi.delete('anthropic')
 
-    expect(mockFetchWrapper).toHaveBeenCalledWith(
-      `${API_BASE_URL}/api/providers/anthropic/credentials`,
-      { method: 'DELETE' }
-    )
+    expect(mockFetchWrapper).toHaveBeenCalledWith(`${API_BASE_URL}/api/providers/anthropic/credentials`, {
+      method: 'DELETE',
+    })
   })
 })

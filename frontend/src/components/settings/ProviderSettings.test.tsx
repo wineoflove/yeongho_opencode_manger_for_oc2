@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+vi.mock('@/api/provider-accounts', () => ({
+  providerAccountsApi: { list: vi.fn(async () => ({ accounts: [] })) },
+}))
 import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ProviderSettings } from './ProviderSettings'
 import { getProviders, providerCredentialsApi } from '@/api/providers'
 import { oauthApi } from '@/api/oauth'
+import { providerAccountsApi } from '@/api/provider-accounts'
 import type { Provider } from '@/api/providers'
 import type { OAuthAuthorizeResponse } from '@/api/oauth'
 import type { ReactNode } from 'react'
@@ -63,10 +67,19 @@ vi.mock('@/components/model/ApiKeyDialog', () => ({
   }: {
     open: boolean
     onOpenChange: (open: boolean) => void
-    provider: { id: string; name: string; models: { id: string; name: string }[] }
+    provider: {
+      id: string
+      name: string
+      models: { id: string; name: string }[]
+    }
     onSuccess: () => void
     mode: 'add' | 'edit'
-  }) => (open ? <div data-testid="api-key-dialog" data-mode={mode}>{provider.name}</div> : null),
+  }) =>
+    open ? (
+      <div data-testid="api-key-dialog" data-mode={mode}>
+        {provider.name}
+      </div>
+    ) : null,
 }))
 
 vi.mock('@/components/ui/delete-dialog', () => ({
@@ -104,12 +117,7 @@ const apiKeyProviderWithoutKey = providerFixture('together', 'Together AI', 4)
 
 function mockProviderData() {
   vi.mocked(getProviders).mockResolvedValue({
-    providers: [
-      oauthProviderWithKey,
-      oauthProviderWithoutKey,
-      apiKeyProviderWithKey,
-      apiKeyProviderWithoutKey,
-    ],
+    providers: [oauthProviderWithKey, oauthProviderWithoutKey, apiKeyProviderWithKey, apiKeyProviderWithoutKey],
     models: [],
   })
   vi.mocked(providerCredentialsApi.list).mockResolvedValue(['anthropic', 'openai'])
@@ -131,6 +139,30 @@ function renderSettings() {
 }
 
 describe('ProviderSettings', () => {
+  it('uses the authentication integration for account lookup and disconnect while keeping the provider label', async () => {
+    vi.mocked(getProviders).mockResolvedValue({
+      providers: [
+        {
+          ...providerFixture('model-provider', 'Model provider', 1),
+          integrationID: 'auth-provider',
+        },
+      ],
+      models: [],
+    })
+    vi.mocked(providerCredentialsApi.list).mockResolvedValue(['auth-provider'])
+    vi.mocked(oauthApi.getAuthMethods).mockResolvedValue({
+      'auth-provider': [{ id: 'oauth', type: 'oauth', label: 'OAuth' }],
+    })
+    renderSettings()
+    const user = userEvent.setup()
+    await screen.findByText('Model provider')
+    await waitFor(() => expect(providerAccountsApi.list).toHaveBeenCalledWith('auth-provider'))
+    await user.click(screen.getByRole('button', { name: 'Reconnect', exact: true }))
+    expect(await screen.findByTestId('oauth-authorize-dialog')).toHaveTextContent('auth-provider')
+    await user.click(screen.getByRole('button', { name: 'Disconnect', exact: true }))
+    await user.click(screen.getByRole('button', { name: 'Confirm delete' }))
+    await waitFor(() => expect(providerCredentialsApi.delete).toHaveBeenCalledWith('auth-provider'))
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     mockProviderData()
@@ -197,8 +229,16 @@ describe('ProviderSettings', () => {
     await user.click(screen.getByRole('button', { name: /Connected/ }))
 
     const connectedCard = screen.getByText('OpenAI').closest('.bg-card') as HTMLElement
-    expect(within(connectedCard).getByRole('button', { name: 'Edit API key for OpenAI' })).toBeInTheDocument()
-    expect(within(connectedCard).getByRole('button', { name: 'Remove credentials for OpenAI' })).toBeInTheDocument()
+    expect(
+      within(connectedCard).getByRole('button', {
+        name: 'Edit API key for OpenAI',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      within(connectedCard).getByRole('button', {
+        name: 'Remove credentials for OpenAI',
+      }),
+    ).toBeInTheDocument()
   })
 
   it('filters the available provider search list and gives it the taller scroll area', async () => {

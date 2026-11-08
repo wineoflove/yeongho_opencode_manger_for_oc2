@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -6,92 +6,101 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2, Key } from "lucide-react";
-import { providerCredentialsApi } from "@/api/providers";
-import type { Provider } from "@/api/providers";
-import { type FormAnswer, type FormValue, type IntegrationKeyMethod } from "@/api/oauth";
-import { buildAnswer, hasMissingAnswers, methodIdentifier, resolveAnswers, setAnswerValue, visibleFields } from "@/lib/formFields";
-import { mapOAuthError } from "@/lib/oauthErrors";
-import { ProviderAuthField } from "@/components/settings/ProviderAuthField";
-import { useProviderAuthMethods } from "@/hooks/useProviderAuthMethods";
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Loader2, Key } from 'lucide-react'
+import { providerCredentialsApi } from '@/api/providers'
+import type { Provider } from '@/api/providers'
+import { type FormAnswer, type FormValue, type IntegrationKeyMethod } from '@/api/oauth'
+import {
+  buildAnswer,
+  hasMissingAnswers,
+  methodIdentifier,
+  resolveAnswers,
+  setAnswerValue,
+  visibleFields,
+} from '@/lib/formFields'
+import { mapOAuthError } from '@/lib/oauthErrors'
+import { ProviderAuthField } from '@/components/settings/ProviderAuthField'
+import { useProviderAuthMethods } from '@/hooks/useProviderAuthMethods'
+import { t } from '@/i18n/translate'
 
 interface ApiKeyDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  provider: Provider | null;
-  onSuccess: () => void;
-  mode?: 'add' | 'edit';
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  provider: Provider | null
+  onSuccess: () => void
+  mode?: 'add' | 'edit'
 }
 
-export function ApiKeyDialog({
-  open,
-  onOpenChange,
-  provider,
-  onSuccess,
-  mode = 'add',
-}: ApiKeyDialogProps) {
-  const [apiKey, setApiKey] = useState("");
-  const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function ApiKeyDialog({ open, onOpenChange, provider, onSuccess, mode = 'add' }: ApiKeyDialogProps) {
+  const [apiKey, setApiKey] = useState('')
+  const [answers, setAnswers] = useState<Record<string, FormAnswer>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const { data: authMethods } = useProviderAuthMethods({ enabled: open && !!provider });
+  const { data: authMethods } = useProviderAuthMethods({
+    enabled: open && !!provider,
+  })
 
   const keyMethod = useMemo(
-    () => (provider ? authMethods?.[provider.id]?.find((method): method is IntegrationKeyMethod => method.type === 'key') : undefined),
+    () =>
+      provider
+        ? authMethods?.[provider.integrationID ?? provider.id]?.find(
+            (method): method is IntegrationKeyMethod => method.type === 'key',
+          )
+        : undefined,
     [authMethods, provider],
-  );
+  )
 
   const answer = useMemo(
     () => resolveAnswers(keyMethod?.form, keyMethod ? answers[methodIdentifier(keyMethod)] : undefined),
     [keyMethod, answers],
-  );
+  )
 
-  const fields = useMemo(
-    () => (keyMethod ? visibleFields(keyMethod.form ?? [], answer) : []),
-    [keyMethod, answer],
-  );
+  const fields = useMemo(() => (keyMethod ? visibleFields(keyMethod.form ?? [], answer) : []), [keyMethod, answer])
 
-  const canSubmit = apiKey.trim().length > 0 && (!keyMethod || !hasMissingAnswers(keyMethod.form ?? [], answer));
+  const canSubmit = apiKey.trim().length > 0 && (!keyMethod || !hasMissingAnswers(keyMethod.form ?? [], answer))
 
   const handleAnswerChange = useCallback((methodID: string, key: string, value: FormValue | undefined) => {
-    setAnswers((prev) => setAnswerValue(prev, methodID, key, value));
-  }, []);
+    setAnswers((prev) => setAnswerValue(prev, methodID, key, value))
+  }, [])
 
   const handleSubmit = useCallback(async () => {
-    if (!provider || !canSubmit) return;
+    if (!provider || !canSubmit) return
 
-    setIsSubmitting(true);
-    setError(null);
+    setIsSubmitting(true)
+    setError(null)
 
     try {
-      const requestAnswer = keyMethod && fields.length > 0 ? buildAnswer(keyMethod.form ?? [], answer) : undefined;
-      await providerCredentialsApi.set(provider.id, apiKey.trim(), requestAnswer);
-      setApiKey("");
-      setAnswers({});
-      onSuccess();
+      const requestAnswer = keyMethod && fields.length > 0 ? buildAnswer(keyMethod.form ?? [], answer) : undefined
+      await providerCredentialsApi.set(provider.integrationID ?? provider.id, apiKey.trim(), requestAnswer)
+      setApiKey('')
+      setAnswers({})
+      onSuccess()
     } catch (err) {
-      setError(mapOAuthError(err, 'credential'));
+      setError(mapOAuthError(err, 'credential'))
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  }, [provider, canSubmit, keyMethod, fields, answer, apiKey, onSuccess]);
+  }, [provider, canSubmit, keyMethod, fields, answer, apiKey, onSuccess])
 
   const handleClose = useCallback(() => {
-    setApiKey("");
-    setAnswers({});
-    setError(null);
-    onOpenChange(false);
-  }, [onOpenChange]);
+    setApiKey('')
+    setAnswers({})
+    setError(null)
+    onOpenChange(false)
+  }, [onOpenChange])
 
-  if (!provider) return null;
+  if (!provider) return null
 
-  const envVarName = `${provider.id.toUpperCase()}_API_KEY`;
-  const isEditMode = mode === 'edit';
+  const environmentNames =
+    authMethods?.[provider.integrationID ?? provider.id]?.flatMap((method) =>
+      method.type === 'env' ? method.names : [],
+    ) ?? []
+  const isEditMode = mode === 'edit'
 
   return (
     <Dialog open={open} onOpenChange={handleClose} modal={false}>
@@ -99,35 +108,41 @@ export function ApiKeyDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
-            {isEditMode ? `Update ${provider.name} API Key` : `Connect ${provider.name}`}
+            {isEditMode ? t('Update {provider} API Key', { provider: provider.name }) : t('Connect {name}', { name: provider.name })}
           </DialogTitle>
           <DialogDescription>
-            {isEditMode 
-              ? `Enter a new API key for ${provider.name}.`
-              : `Enter your API key to use models from ${provider.name}.`
-            }
+            {isEditMode
+              ? t('Enter a new API key for {provider}.', {
+                  provider: provider.name,
+                })
+              : t('Enter your API key to use models from {provider}.', {
+                  provider: provider.name,
+                })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="api-key">API Key</Label>
+            <Label htmlFor="api-key">{t('API Key')}</Label>
             <Input
               id="api-key"
               type="password"
-              placeholder={`Enter your ${envVarName}`}
+              placeholder={t('Enter API key')}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && canSubmit) {
-                  handleSubmit();
+                if (e.key === 'Enter' && canSubmit) {
+                  handleSubmit()
                 }
               }}
               autoFocus
             />
-            <p className="text-xs text-muted-foreground">
-              Environment variable: <code className="bg-muted px-1 py-0.5 rounded">{envVarName}</code>
-            </p>
+            {environmentNames.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t('Environment variable:')}{' '}
+                <code className="bg-muted px-1 py-0.5 rounded">{environmentNames.join(', ')}</code>
+              </p>
+            )}
           </div>
 
           {keyMethod && fields.length > 0 && (
@@ -144,27 +159,27 @@ export function ApiKeyDialog({
             </div>
           )}
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {isEditMode ? 'Updating...' : 'Connecting...'}
+                {isEditMode ? t('Updating...') : t('Connecting...')}
               </>
+            ) : isEditMode ? (
+              t('Update')
             ) : (
-              isEditMode ? 'Update' : 'Connect'
+              t('Connect')
             )}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
