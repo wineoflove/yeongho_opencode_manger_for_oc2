@@ -27,6 +27,7 @@ export const settingsEnforced: readonly string[] = [
   'src/components/settings/OpenCodeServerAuthSettings.tsx',
   'src/components/settings/PairingQrCode.tsx',
   'src/components/settings/ProviderSettings.tsx',
+  'src/components/settings/ClaudeAgentConnection.tsx',
   'src/components/settings/ProviderAccounts.tsx',
   'src/components/settings/ProviderAccountRenameDialog.tsx',
   'src/components/settings/ProviderRateLimits.tsx',

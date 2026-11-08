@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { ProviderAccount } from '@opencode-manager/shared/schemas'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ export function ProviderAccounts({ integrationId }: { readonly integrationId: st
   const { query, mutation } = useProviderAccounts(integrationId)
   const [deleteTarget, setDeleteTarget] = useState<ProviderAccount | null>(null)
   const [renameTarget, setRenameTarget] = useState<ProviderAccount | null>(null)
+  const selectionScopeId = useId()
   if (query.isPending)
     return (
       <p role="status" className="py-2 text-sm text-muted-foreground">
@@ -70,6 +71,7 @@ export function ProviderAccounts({ integrationId }: { readonly integrationId: st
                   aria-label={t('Use account {name}', {
                     name: account.label || account.id,
                   })}
+                  aria-describedby={selectionScopeId}
                   onClick={() =>
                     mutation.mutate({
                       kind: 'activate',
@@ -115,6 +117,13 @@ export function ProviderAccounts({ integrationId }: { readonly integrationId: st
           </li>
         ))}
       </ul>
+      {query.data?.accounts.some((account) => !account.active) && (
+        <p id={selectionScopeId} className="py-2 text-xs text-muted-foreground">
+          {t(
+            'The selected account applies to every session on this OpenCode server, starting with its next request. It is not kept per session.',
+          )}
+        </p>
+      )}
       {renameTarget && (
         <ProviderAccountRenameDialog
           key={renameTarget.id}

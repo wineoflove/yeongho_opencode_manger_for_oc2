@@ -72,6 +72,8 @@ export const settingsIntegrations: Record<string, string> = {
   'Saved provider accounts': '저장된 제공자 계정',
   'External authentication': '외부 인증',
   'Selected account': '선택된 계정',
+  'The selected account applies to every session on this OpenCode server, starting with its next request. It is not kept per session.':
+    '선택한 계정은 이 OpenCode 서버의 모든 세션에 다음 요청부터 적용되며, 세션별로 따로 유지되지 않습니다.',
   'Auth Required': '인증 필요',
   'Registration Required': '클라이언트 등록 필요',
   'Local command: {command}': '로컬 명령: {command}',
@@ -352,6 +354,9 @@ export const settingsIntegrations: Record<string, string> = {
   'Connect to {provider}': '{provider} 연결',
   'Select an authentication method to connect your {provider} account.':
     '{provider} 계정을 연결할 인증 방법을 선택하세요.',
+  'Add {provider} account': '{provider} 계정 추가',
+  'Select an authentication method for the new account. Existing accounts are kept, and the new account becomes the selected account.':
+    '새 계정에 사용할 인증 방법을 선택하세요. 기존 계정은 유지되며 새 계정이 선택된 계정이 됩니다.',
   'Authorizing...': '인증 중…',
   'Localhost only': '로컬호스트 전용',
   'Select an option': '옵션 선택',
@@ -525,21 +530,54 @@ export const settingsIntegrations: Record<string, string> = {
   'Connect to AI providers using OAuth authentication.': 'OAuth 인증으로 AI 제공자에 연결합니다.',
   'No OAuth-capable providers available.': 'OAuth를 지원하는 제공자가 없습니다.',
   'Not Connected': '연결되지 않음',
-  Reconnect: '다시 연결',
-  Disconnect: '연결 해제',
+  'Add account': '계정 추가',
+  'Add API key': 'API 키 추가',
+  'Remove all accounts': '모든 계정 제거',
   'API Keys': 'API 키',
   'Manage API keys for AI providers.': 'AI 제공자의 API 키를 관리합니다.',
   'No providers configured. Add an API key below to get started.':
     '설정된 제공자가 없습니다. 아래에서 API 키를 추가하여 시작하세요.',
-  'Edit API key for {provider}': '{provider} API 키 편집',
-  'Remove credentials for {provider}': '{provider} 자격 증명 제거',
+  'Add another API key for {provider}': '{provider}에 다른 API 키 추가',
+  'Remove all accounts for {provider}': '{provider}의 모든 계정 제거',
   'Available Providers': '사용 가능한 제공자',
   'No providers match your search.': '검색과 일치하는 제공자가 없습니다.',
   'No available providers.': '사용 가능한 제공자가 없습니다.',
   'Add Key': '키 추가',
-  'Remove Credentials': '자격 증명 제거',
-  'Are you sure you want to remove credentials for {provider}?': '{provider}의 자격 증명을 제거하시겠습니까?',
+  'This removes every saved account for {provider}, including the selected account. To remove only one account, use Delete next to that account.':
+    '{provider}에 저장된 모든 계정을 선택된 계정까지 포함해 제거합니다. 계정 하나만 제거하려면 해당 계정 옆의 삭제를 사용하세요.',
   'this provider': '이 제공자',
+  'Could not confirm that every account was removed. Some accounts may remain. Review the account list before trying again.':
+    '모든 계정이 제거되었는지 확인하지 못했습니다. 일부 계정이 남아 있을 수 있습니다. 다시 시도하기 전에 계정 목록을 확인하세요.',
+  'Add {provider} API key': '{provider} API 키 추가',
+  'This key is saved as a new account and becomes the selected account. Existing accounts are kept.':
+    '이 키는 새 계정으로 저장되고 선택된 계정이 됩니다. 기존 계정은 유지됩니다.',
+  'Adding...': '추가 중…',
+  'Claude Agent': 'Claude Agent',
+  'Uses the official Claude Code login on the OpenCode server host, not on this device. One login per server; separate Claude accounts are not supported.':
+    '이 기기가 아닌 OpenCode 서버 호스트의 공식 Claude Code 로그인을 사용합니다. 서버당 로그인 하나만 쓰며, Claude 계정을 여러 개 나눠 연결할 수는 없습니다.',
+  'Checking status…': '상태 확인 중…',
+  'Not connected.': '연결되지 않았습니다.',
+  'OpenCode reports that Claude Code needs a sign-in on the server host.':
+    'OpenCode에 따르면 서버 호스트의 Claude Code에 로그인이 필요합니다.',
+  'OpenCode registered the native connection. Inference has not been verified.':
+    'OpenCode에 네이티브 연결이 등록되었습니다. 실제 모델 요청이 성공하는지는 확인하지 않았습니다.',
+  'This OpenCode server does not offer the Claude Agent connection.':
+    '이 OpenCode 서버는 Claude Agent 연결을 제공하지 않습니다.',
+  'On the OpenCode server host, run this command as the same system user and with the same environment as the OpenCode server, then refresh the status.':
+    'OpenCode 서버 호스트에서 OpenCode 서버와 같은 시스템 사용자, 같은 환경으로 이 명령을 실행한 뒤 상태를 새로고침하세요.',
+  'Signing in there replaces the Claude Code login already stored for that user and environment, which other tools outside OpenCode may also use.':
+    '그곳에서 로그인하면 해당 사용자와 환경에 이미 저장된 Claude Code 로그인이 교체되며, OpenCode 밖의 다른 도구도 그 로그인을 쓰고 있을 수 있습니다.',
+  'Could not load the Claude Agent status.': 'Claude Agent 상태를 불러오지 못했습니다.',
+  'Could not register the Claude Agent connection. Refresh the status and try again.':
+    'Claude Agent 연결을 등록하지 못했습니다. 상태를 새로고침한 뒤 다시 시도하세요.',
+  'Use Claude Code login': 'Claude Code 로그인 사용',
+  'Refresh status': '상태 새로고침',
+  'Remove connection': '연결 제거',
+  'Remove Claude Agent connection': 'Claude Agent 연결 제거',
+  'This removes only the connection registered in OpenCode. It does not sign Claude Code out on the server host, and the stored Claude Code login stays as it is.':
+    'OpenCode에 등록된 연결만 제거합니다. 서버 호스트의 Claude Code에서 로그아웃하지 않으며, 저장된 Claude Code 로그인은 그대로 유지됩니다.',
+  'Could not confirm that the Claude Agent connection was removed. Check the status before trying again.':
+    'Claude Agent 연결이 제거되었는지 확인하지 못했습니다. 다시 시도하기 전에 상태를 확인하세요.',
   'Updated: {time}': '수정: {time}',
   'Multiple configuration files are merged': '여러 설정 파일이 병합됩니다',
   'OpenCode loads these files in order, with each later file overriding matching settings from the files before it: {files}':

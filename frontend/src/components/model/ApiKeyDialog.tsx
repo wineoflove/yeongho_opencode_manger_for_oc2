@@ -32,10 +32,10 @@ interface ApiKeyDialogProps {
   onOpenChange: (open: boolean) => void
   provider: Provider | null
   onSuccess: () => void
-  mode?: 'add' | 'edit'
+  hasAccounts: boolean
 }
 
-export function ApiKeyDialog({ open, onOpenChange, provider, onSuccess, mode = 'add' }: ApiKeyDialogProps) {
+export function ApiKeyDialog({ open, onOpenChange, provider, onSuccess, hasAccounts }: ApiKeyDialogProps) {
   const [apiKey, setApiKey] = useState('')
   const [answers, setAnswers] = useState<Record<string, FormAnswer>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -100,7 +100,6 @@ export function ApiKeyDialog({ open, onOpenChange, provider, onSuccess, mode = '
     authMethods?.[provider.integrationID ?? provider.id]?.flatMap((method) =>
       method.type === 'env' ? method.names : [],
     ) ?? []
-  const isEditMode = mode === 'edit'
 
   return (
     <Dialog open={open} onOpenChange={handleClose} modal={false}>
@@ -108,13 +107,15 @@ export function ApiKeyDialog({ open, onOpenChange, provider, onSuccess, mode = '
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
-            {isEditMode ? t('Update {provider} API Key', { provider: provider.name }) : t('Connect {name}', { name: provider.name })}
+            {hasAccounts
+              ? t('Add {provider} API key', { provider: provider.name })
+              : t('Connect {name}', { name: provider.name })}
           </DialogTitle>
           <DialogDescription>
-            {isEditMode
-              ? t('Enter a new API key for {provider}.', {
-                  provider: provider.name,
-                })
+            {hasAccounts
+              ? t(
+                  'This key is saved as a new account and becomes the selected account. Existing accounts are kept.',
+                )
               : t('Enter your API key to use models from {provider}.', {
                   provider: provider.name,
                 })}
@@ -170,10 +171,10 @@ export function ApiKeyDialog({ open, onOpenChange, provider, onSuccess, mode = '
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {isEditMode ? t('Updating...') : t('Connecting...')}
+                {hasAccounts ? t('Adding...') : t('Connecting...')}
               </>
-            ) : isEditMode ? (
-              t('Update')
+            ) : hasAccounts ? (
+              t('Add Key')
             ) : (
               t('Connect')
             )}

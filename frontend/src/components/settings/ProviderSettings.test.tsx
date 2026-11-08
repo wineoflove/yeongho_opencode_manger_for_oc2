@@ -10,8 +10,8 @@ import { getProviders, providerCredentialsApi } from '@/api/providers'
 import { oauthApi } from '@/api/oauth'
 import { providerAccountsApi } from '@/api/provider-accounts'
 import type { Provider } from '@/api/providers'
-import type { OAuthAuthorizeResponse } from '@/api/oauth'
-import type { ReactNode } from 'react'
+import type { IntegrationMethod, OAuthAuthorizeResponse } from '@/api/oauth'
+import type { ProviderAccount } from '@opencode-manager/shared/schemas'
 
 vi.mock('@/api/providers', () => ({
   getProviders: vi.fn(),
@@ -35,14 +35,21 @@ vi.mock('./OAuthAuthorizeDialog', () => ({
   OAuthAuthorizeDialog: ({
     open,
     providerId,
+    hasAccounts,
   }: {
     open: boolean
     providerId: string
     providerName: string
     methods: unknown[]
+    hasAccounts: boolean
     onOpenChange: (open: boolean) => void
     onSuccess: (response: OAuthAuthorizeResponse, methodID: string) => void
-  }) => (open ? <div data-testid="oauth-authorize-dialog">{providerId}</div> : null),
+  }) =>
+    open ? (
+      <div data-testid="oauth-authorize-dialog" data-has-accounts={String(hasAccounts)}>
+        {providerId}
+      </div>
+    ) : null,
 }))
 
 vi.mock('./OAuthCallbackDialog', () => ({
@@ -59,10 +66,20 @@ vi.mock('./OAuthCallbackDialog', () => ({
   }) => (open ? <div data-testid="oauth-callback-dialog">{providerId}</div> : null),
 }))
 
+vi.mock('./ProviderRateLimits', () => ({
+  ProviderRateLimits: ({ providerId }: { readonly providerId: string }) => (
+    <div data-testid="provider-rate-limits" data-provider-id={providerId} />
+  ),
+}))
+
+vi.mock('./ClaudeAgentConnection', () => ({
+  ClaudeAgentConnection: () => <section data-testid="claude-agent-connection" />,
+}))
+
 vi.mock('@/components/model/ApiKeyDialog', () => ({
   ApiKeyDialog: ({
     open,
-    mode,
+    hasAccounts,
     provider,
   }: {
     open: boolean
@@ -73,28 +90,13 @@ vi.mock('@/components/model/ApiKeyDialog', () => ({
       models: { id: string; name: string }[]
     }
     onSuccess: () => void
-    mode: 'add' | 'edit'
+    hasAccounts: boolean
   }) =>
     open ? (
-      <div data-testid="api-key-dialog" data-mode={mode}>
+      <div data-testid="api-key-dialog" data-has-accounts={String(hasAccounts)}>
         {provider.name}
       </div>
     ) : null,
-}))
-
-vi.mock('@/components/ui/delete-dialog', () => ({
-  DeleteDialog: ({
-    open,
-    onConfirm,
-  }: {
-    open: boolean
-    onOpenChange: (open: boolean) => void
-    onConfirm: () => void
-    onCancel: () => void
-    title: string
-    description: ReactNode
-    isDeleting: boolean
-  }) => (open ? <button onClick={onConfirm}>Confirm delete</button> : null),
 }))
 
 function providerFixture(id: string, name: string, modelCount: number): Provider {
@@ -110,21 +112,28 @@ function providerFixture(id: string, name: string, modelCount: number): Provider
   }
 }
 
-const oauthProviderWithKey = providerFixture('anthropic', 'Anthropic', 2)
-const oauthProviderWithoutKey = providerFixture('google', 'Google', 3)
-const apiKeyProviderWithKey = providerFixture('openai', 'OpenAI', 1)
-const apiKeyProviderWithoutKey = providerFixture('together', 'Together AI', 4)
+const mixedProviderWithAccounts = providerFixture('openai', 'OpenAI', 2)
+const oauthProviderWithoutAccounts = providerFixture('google', 'Google', 3)
+const keyProviderWithAccounts = providerFixture('anthropic', 'Anthropic', 1)
+const keyProviderWithoutAccounts = providerFixture('together', 'Together AI', 4)
+
+const openAIMethods: IntegrationMethod[] = [
+  { id: 'fixture-chatgpt-login', type: 'oauth', label: 'ChatGPT Pro/Plus' },
+  { type: 'key', label: 'Manually enter API Key' },
+]
 
 function mockProviderData() {
   vi.mocked(getProviders).mockResolvedValue({
-    providers: [oauthProviderWithKey, oauthProviderWithoutKey, apiKeyProviderWithKey, apiKeyProviderWithoutKey],
+    providers: [mixedProviderWithAccounts, oauthProviderWithoutAccounts, keyProviderWithAccounts, keyProviderWithoutAccounts],
     models: [],
   })
-  vi.mocked(providerCredentialsApi.list).mockResolvedValue(['anthropic', 'openai'])
+  vi.mocked(providerCredentialsApi.list).mockResolvedValue(['openai', 'anthropic'])
   vi.mocked(oauthApi.getAuthMethods).mockResolvedValue({
-    anthropic: [{ id: 'oauth', type: 'oauth', label: 'OAuth' }],
+    openai: openAIMethods,
     google: [{ id: 'oauth', type: 'oauth', label: 'OAuth' }],
+    anthropic: [{ type: 'key', label: 'API key' }],
   })
+  vi.mocked(providerAccountsApi.list).mockResolvedValue({ accounts: [] })
 }
 
 function renderSettings() {
@@ -139,7 +148,7 @@ function renderSettings() {
 }
 
 describe('ProviderSettings', () => {
-  it('uses the authentication integration for account lookup and disconnect while keeping the provider label', async () => {
+  it('uses the authentication integration for accounts, adding and removing all while quota keeps the provider ID', async () => {
     vi.mocked(getProviders).mockResolvedValue({
       providers: [
         {
@@ -157,10 +166,12 @@ describe('ProviderSettings', () => {
     const user = userEvent.setup()
     await screen.findByText('Model provider')
     await waitFor(() => expect(providerAccountsApi.list).toHaveBeenCalledWith('auth-provider'))
-    await user.click(screen.getByRole('button', { name: 'Reconnect', exact: true }))
+    expect(screen.getByTestId('provider-rate-limits')).toHaveAttribute('data-provider-id', 'model-provider')
+    await user.click(screen.getByRole('button', { name: 'Add account' }))
     expect(await screen.findByTestId('oauth-authorize-dialog')).toHaveTextContent('auth-provider')
-    await user.click(screen.getByRole('button', { name: 'Disconnect', exact: true }))
-    await user.click(screen.getByRole('button', { name: 'Confirm delete' }))
+    await user.click(screen.getByRole('button', { name: 'Remove all accounts' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Remove all accounts for Model provider' })
+    await user.click(within(dialog).getByRole('button', { name: 'Remove all accounts' }))
     await waitFor(() => expect(providerCredentialsApi.delete).toHaveBeenCalledWith('auth-provider'))
   })
   beforeEach(() => {
@@ -171,7 +182,7 @@ describe('ProviderSettings', () => {
   it('lays out OAuth and API key columns in a container-query grid that splits at 1000px of content width', async () => {
     const { container } = renderSettings()
 
-    await screen.findByText('Anthropic')
+    await screen.findByText('OpenAI')
 
     const root = container.firstElementChild as HTMLElement
     expect(root).toHaveClass('@container', 'w-full', 'max-w-7xl')
@@ -189,23 +200,25 @@ describe('ProviderSettings', () => {
   it('renders OAuth providers as compact divider rows with the name, model count, status, and actions', async () => {
     const { container } = renderSettings()
 
-    await screen.findByText('Anthropic')
+    await screen.findByText('OpenAI')
 
     const rows = container.querySelector('.divide-y') as HTMLElement
     expect(rows).toHaveClass('divide-border')
 
-    const connectedRow = screen.getByText('Anthropic').closest('.py-3') as HTMLElement
+    const connectedRow = screen.getByText('OpenAI').closest('.py-3') as HTMLElement
     expect(connectedRow).toHaveClass('flex-wrap')
     expect(within(connectedRow).getByText('2 models')).toBeInTheDocument()
     expect(within(connectedRow).getByText('Connected')).toBeInTheDocument()
-    expect(within(connectedRow).getByRole('button', { name: 'Reconnect' })).toBeInTheDocument()
-    expect(within(connectedRow).getByRole('button', { name: 'Disconnect' })).toBeInTheDocument()
+    expect(within(connectedRow).getByRole('button', { name: 'Add account' })).toBeInTheDocument()
+    expect(within(connectedRow).getByRole('button', { name: 'Add API key' })).toBeInTheDocument()
+    expect(within(connectedRow).getByRole('button', { name: 'Remove all accounts' })).toBeInTheDocument()
 
     const disconnectedRow = screen.getByText('Google').closest('.py-3') as HTMLElement
     expect(within(disconnectedRow).getByText('3 models')).toBeInTheDocument()
     expect(within(disconnectedRow).getByText('Not Connected')).toBeInTheDocument()
     expect(within(disconnectedRow).getByRole('button', { name: 'Connect' })).toBeInTheDocument()
-    expect(within(disconnectedRow).queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument()
+    expect(within(disconnectedRow).queryByRole('button', { name: 'Add API key' })).not.toBeInTheDocument()
+    expect(within(disconnectedRow).queryByRole('button', { name: 'Remove all accounts' })).not.toBeInTheDocument()
   })
 
   it('expands Available Providers by default so the search is visible immediately', async () => {
@@ -222,26 +235,30 @@ describe('ProviderSettings', () => {
     const user = userEvent.setup()
     renderSettings()
 
-    await screen.findByText('Anthropic')
+    await screen.findByText('OpenAI')
 
-    expect(screen.queryByText('OpenAI')).not.toBeInTheDocument()
+    expect(screen.queryByText('Anthropic')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Connected/ }))
 
-    const connectedCard = screen.getByText('OpenAI').closest('.bg-card') as HTMLElement
+    const connectedCard = screen.getByText('Anthropic').closest('.bg-card') as HTMLElement
     expect(
       within(connectedCard).getByRole('button', {
-        name: 'Edit API key for OpenAI',
+        name: 'Add another API key for Anthropic',
       }),
     ).toBeInTheDocument()
     expect(
       within(connectedCard).getByRole('button', {
-        name: 'Remove credentials for OpenAI',
+        name: 'Remove all accounts for Anthropic',
       }),
     ).toBeInTheDocument()
   })
 
   it('filters the available provider search list and gives it the taller scroll area', async () => {
+    vi.mocked(getProviders).mockResolvedValue({
+      providers: [keyProviderWithoutAccounts, providerFixture('mistral', 'Mistral', 2)],
+      models: [],
+    })
     const user = userEvent.setup()
     const { container } = renderSettings()
 
@@ -249,14 +266,15 @@ describe('ProviderSettings', () => {
 
     const list = container.querySelector('.max-h-96') as HTMLElement
     expect(list).toBeInTheDocument()
+    expect(within(list).getByText('Mistral')).toBeInTheDocument()
 
     await user.type(screen.getByPlaceholderText('Search providers...'), 'together')
 
-    expect(screen.getByText('Together AI')).toBeInTheDocument()
-    expect(screen.queryByText('OpenAI')).not.toBeInTheDocument()
+    expect(within(list).getByText('Together AI')).toBeInTheDocument()
+    expect(within(list).queryByText('Mistral')).not.toBeInTheDocument()
   })
 
-  it('opens the OAuth authorize dialog when Connect is chosen', async () => {
+  it('opens the OAuth authorize dialog for a first account when Connect is chosen', async () => {
     const user = userEvent.setup()
     renderSettings()
 
@@ -264,10 +282,46 @@ describe('ProviderSettings', () => {
 
     await user.click(screen.getByRole('button', { name: 'Connect' }))
 
-    expect(screen.getByTestId('oauth-authorize-dialog')).toHaveTextContent('google')
+    const dialog = screen.getByTestId('oauth-authorize-dialog')
+    expect(dialog).toHaveTextContent('google')
+    expect(dialog).toHaveAttribute('data-has-accounts', 'false')
   })
 
-  it('opens the API key dialog in add mode from the available list', async () => {
+  it('offers OAuth and API key additions for a connected mixed integration while its accounts stay listed', async () => {
+    vi.mocked(providerAccountsApi.list).mockImplementation(async (integrationId) => ({
+      accounts:
+        integrationId === 'openai'
+          ? [
+              {
+                id: 'fixture-openai-account',
+                integrationID: 'openai',
+                label: 'Work ChatGPT',
+                active: true,
+                type: 'oauth',
+                methodID: 'fixture-chatgpt-login',
+              },
+            ]
+          : [],
+    }))
+    const user = userEvent.setup()
+    renderSettings()
+
+    const row = (await screen.findByText('Work ChatGPT')).closest('.py-3') as HTMLElement
+    expect(within(row).getByRole('button', { name: 'Delete account Work ChatGPT' })).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: 'Add account' }))
+    const oauthDialog = screen.getByTestId('oauth-authorize-dialog')
+    expect(oauthDialog).toHaveTextContent('openai')
+    expect(oauthDialog).toHaveAttribute('data-has-accounts', 'true')
+
+    await user.click(within(row).getByRole('button', { name: 'Add API key' }))
+    const apiKeyDialog = screen.getByTestId('api-key-dialog')
+    expect(apiKeyDialog).toHaveTextContent('OpenAI')
+    expect(apiKeyDialog).toHaveAttribute('data-has-accounts', 'true')
+    expect(within(row).getByText('Work ChatGPT')).toBeInTheDocument()
+  })
+
+  it('opens the API key dialog for a first key from the available list', async () => {
     const user = userEvent.setup()
     renderSettings()
 
@@ -276,37 +330,84 @@ describe('ProviderSettings', () => {
     await user.click(screen.getByRole('button', { name: 'Add Key' }))
 
     const dialog = screen.getByTestId('api-key-dialog')
-    expect(dialog).toHaveAttribute('data-mode', 'add')
+    expect(dialog).toHaveAttribute('data-has-accounts', 'false')
     expect(dialog).toHaveTextContent('Together AI')
   })
 
-  it('opens the API key dialog in edit mode from the connected list', async () => {
+  it('adds another API key to a connected key-only provider instead of editing its existing key', async () => {
     const user = userEvent.setup()
     renderSettings()
 
-    await screen.findByText('Anthropic')
+    await screen.findByText('OpenAI')
 
     await user.click(screen.getByRole('button', { name: /Connected/ }))
-    await user.click(screen.getByRole('button', { name: 'Edit API key for OpenAI' }))
+    await user.click(screen.getByRole('button', { name: 'Add another API key for Anthropic' }))
 
     const dialog = screen.getByTestId('api-key-dialog')
-    expect(dialog).toHaveAttribute('data-mode', 'edit')
-    expect(dialog).toHaveTextContent('OpenAI')
+    expect(dialog).toHaveAttribute('data-has-accounts', 'true')
+    expect(dialog).toHaveTextContent('Anthropic')
   })
 
-  it('removes credentials through the confirm dialog', async () => {
+  it('removes all accounts only after a confirmation that says every account is removed, then closes it', async () => {
     const user = userEvent.setup()
     vi.mocked(providerCredentialsApi.delete).mockResolvedValue(undefined)
     renderSettings()
 
-    await screen.findByText('Anthropic')
+    await screen.findByText('OpenAI')
 
-    await user.click(screen.getByRole('button', { name: 'Disconnect' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm delete' }))
+    await user.click(screen.getByRole('button', { name: 'Remove all accounts' }))
+    let dialog = await screen.findByRole('dialog', { name: 'Remove all accounts for OpenAI' })
+    expect(
+      within(dialog).getByText(
+        'This removes every saved account for OpenAI, including the selected account. To remove only one account, use Delete next to that account.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(providerCredentialsApi.delete).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Remove all accounts' }))
+    dialog = await screen.findByRole('dialog', { name: 'Remove all accounts for OpenAI' })
+    await user.click(within(dialog).getByRole('button', { name: 'Remove all accounts' }))
 
     await waitFor(() => {
-      expect(providerCredentialsApi.delete).toHaveBeenCalledWith('anthropic')
+      expect(providerCredentialsApi.delete).toHaveBeenCalledExactlyOnceWith('openai')
     })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('keeps the remove-all confirmation open with an error that hides upstream detail and reloads the remaining accounts when removal fails', async () => {
+    const account = (id: string, label: string, active: boolean): ProviderAccount => ({
+      id,
+      integrationID: 'openai',
+      label,
+      active,
+      type: 'oauth',
+      methodID: 'fixture-chatgpt-login',
+    })
+    let openAIAccounts = [
+      account('fixture-work', 'Work ChatGPT', true),
+      account('fixture-personal', 'Personal ChatGPT', false),
+    ]
+    vi.mocked(providerAccountsApi.list).mockImplementation(async (integrationId) => ({
+      accounts: integrationId === 'openai' ? openAIAccounts : [],
+    }))
+    vi.mocked(providerCredentialsApi.delete).mockImplementationOnce(async () => {
+      openAIAccounts = openAIAccounts.filter((entry) => entry.id !== 'fixture-work')
+      throw new Error('secret-upstream-detail')
+    })
+    const user = userEvent.setup()
+    renderSettings()
+    await screen.findByText('Work ChatGPT')
+
+    await user.click(screen.getByRole('button', { name: 'Remove all accounts' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Remove all accounts for OpenAI' })
+    await user.click(within(dialog).getByRole('button', { name: 'Remove all accounts' }))
+
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Remove all accounts for OpenAI' })).toBe(dialog)
+    expect(screen.queryByText(/secret-upstream-detail/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Work ChatGPT')).not.toBeInTheDocument()
+    expect(screen.getByText('Personal ChatGPT')).toBeInTheDocument()
   })
 
   it('shows the empty state when no OAuth-capable providers exist', async () => {
@@ -315,6 +416,39 @@ describe('ProviderSettings', () => {
 
     await screen.findByText('No OAuth-capable providers available.')
 
-    expect(screen.queryByText('Anthropic')).not.toBeInTheDocument()
+    expect(screen.queryByText('OpenAI')).not.toBeInTheDocument()
   })
+
+  it('keeps the Claude Agent panel when the model catalog is empty', async () => {
+    vi.mocked(getProviders).mockResolvedValue({ providers: [], models: [] })
+    vi.mocked(providerCredentialsApi.list).mockResolvedValue([])
+    vi.mocked(oauthApi.getAuthMethods).mockResolvedValue({})
+    renderSettings()
+
+    expect(await screen.findByTestId('claude-agent-connection')).toBeInTheDocument()
+  })
+
+  it.each<{ readonly credentials: string[] }>([{ credentials: [] }, { credentials: ['claude-agent'] }])(
+    'keeps the claude-agent integration out of the API key lists when its credentials are $credentials',
+    async ({ credentials }) => {
+      vi.mocked(getProviders).mockResolvedValue({
+        providers: [
+          { ...providerFixture('claude-agent-models', 'Claude Agent', 2), integrationID: 'claude-agent' },
+          keyProviderWithoutAccounts,
+        ],
+        models: [],
+      })
+      vi.mocked(providerCredentialsApi.list).mockResolvedValue(credentials)
+      vi.mocked(oauthApi.getAuthMethods).mockResolvedValue({
+        'claude-agent': [{ id: 'claude-login', type: 'external', label: 'Claude Code' }],
+      })
+      const user = userEvent.setup()
+      renderSettings()
+
+      await screen.findByText('Together AI')
+      await user.click(screen.getByRole('button', { name: /Connected/ }))
+
+      expect(screen.queryByText('Claude Agent')).not.toBeInTheDocument()
+    },
+  )
 })

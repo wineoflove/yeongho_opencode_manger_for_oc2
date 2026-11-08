@@ -18,6 +18,9 @@ vi.mock('@/i18n/translate', () => ({
   template: (key: string) => key,
 }))
 
+const selectionScope =
+  'The selected account applies to every session on this OpenCode server, starting with its next request. It is not kept per session.'
+
 describe('provider account list', () => {
   beforeEach(() => vi.resetAllMocks())
   it.each([true, false])(
@@ -143,6 +146,30 @@ describe('provider account list', () => {
       }
     },
   )
+  it('describes the server-wide selection scope on the control that switches accounts', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    vi.mocked(providerAccountsApi.list).mockResolvedValue({
+      accounts: [
+        { id: 'primary', integrationID: 'provider', label: 'Primary', active: true, type: 'oauth', methodID: 'oauth' },
+        { id: 'backup', integrationID: 'provider', label: 'Backup', active: false, type: 'oauth', methodID: 'oauth' },
+      ],
+    })
+    const { unmount } = render(
+      <QueryClientProvider client={client}>
+        <ProviderAccounts integrationId="provider" />
+      </QueryClientProvider>,
+    )
+    try {
+      expect(await screen.findByRole('button', { name: 'Use account {name}' })).toHaveAccessibleDescription(
+        selectionScope,
+      )
+    } finally {
+      unmount()
+      client.clear()
+    }
+  })
   it.each(['empty', 'error', 'accounts'] as const)('renders %s without changing credentials', async (state) => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -178,6 +205,7 @@ describe('provider account list', () => {
       if (state === 'accounts') {
         expect(await screen.findByText('Primary')).toBeInTheDocument()
         expect(screen.getByText('Selected account')).toBeInTheDocument()
+        expect(screen.queryByText(selectionScope)).not.toBeInTheDocument()
       }
       expect(providerAccountsApi.activate).not.toHaveBeenCalled()
       expect(providerAccountsApi.remove).not.toHaveBeenCalled()

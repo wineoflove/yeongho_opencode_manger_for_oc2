@@ -241,16 +241,13 @@ export const sessions: Record<string, string> = {
   "Sub-agent task": "하위 에이전트 작업",
   "Failed to save API key. Please try again.":
     "API 키를 저장하지 못했습니다. 다시 시도해 주시기 바랍니다.",
-  "Update {provider} API Key": "{provider} API 키 업데이트",
   "Connect {provider}": "{provider} 연결",
-  "Enter a new API key for {provider}.": "{provider}의 새 API 키 입력",
   "Enter your API key to use models from {provider}.":
     "{provider} 모델 사용을 위한 API 키 입력",
   "API Key": "API 키",
   "Enter your {variable}": "{variable} 입력",
   "Environment variable: {variable}": "환경 변수: {variable}",
   "Get an API key": "API 키 발급",
-  "Updating...": "업데이트 중…",
   "Connecting...": "연결 중…",
   Update: "업데이트",
   Connect: "연결",

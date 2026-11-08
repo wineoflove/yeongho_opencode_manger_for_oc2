@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiKeyDialog } from './ApiKeyDialog'
@@ -26,14 +26,16 @@ function providerFixture(id: string, name: string): Provider {
 
 const azureProvider = providerFixture('azure', 'Azure')
 const anthropicProvider = providerFixture('anthropic', 'Anthropic')
+const openAIProvider = providerFixture('openai', 'OpenAI')
 
-function renderDialog(provider: Provider, onSuccess = vi.fn()) {
+function renderDialog(provider: Provider, hasAccounts = false) {
+  const onSuccess = vi.fn()
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   render(
     <QueryClientProvider client={queryClient}>
-      <ApiKeyDialog open onOpenChange={vi.fn()} provider={provider} onSuccess={onSuccess} />
+      <ApiKeyDialog open onOpenChange={vi.fn()} provider={provider} onSuccess={onSuccess} hasAccounts={hasAccounts} />
     </QueryClientProvider>,
   )
   return { onSuccess }
@@ -60,6 +62,16 @@ describe('ApiKeyDialog', () => {
         },
       ],
       anthropic: [{ type: 'key', label: 'API key' }],
+      openai: [
+        {
+          id: 'fixture-chatgpt-login',
+          type: 'oauth',
+          label: 'ChatGPT Pro/Plus',
+          form: [{ key: 'workspace', type: 'string', title: 'ChatGPT workspace', required: true }],
+        },
+        { type: 'key', label: 'Manually enter API Key' },
+        { type: 'env', names: ['OPENAI_API_KEY'] },
+      ],
     })
   })
 
@@ -74,6 +86,40 @@ describe('ApiKeyDialog', () => {
       expect(providerCredentialsApi.set).toHaveBeenCalledWith('anthropic', 'sk-ant-test', undefined)
     })
     expect(onSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('adds another Anthropic key as the selected account while keeping existing accounts', async () => {
+    const user = userEvent.setup()
+    const { onSuccess } = renderDialog(anthropicProvider, true)
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add Anthropic API key' })
+    expect(
+      within(dialog).getByText(
+        'This key is saved as a new account and becomes the selected account. Existing accounts are kept.',
+      ),
+    ).toBeInTheDocument()
+    await user.type(screen.getByLabelText('API Key'), 'sk-ant-second')
+    await user.click(screen.getByRole('button', { name: 'Add Key' }))
+
+    await waitFor(() => {
+      expect(providerCredentialsApi.set).toHaveBeenCalledExactlyOnceWith('anthropic', 'sk-ant-second', undefined)
+    })
+    expect(onSuccess).toHaveBeenCalledOnce()
+  })
+
+  it('stores a key through the key method of a mixed OpenAI integration without its OAuth fields', async () => {
+    const user = userEvent.setup()
+    const { onSuccess } = renderDialog(openAIProvider, true)
+
+    expect(await screen.findByText('OPENAI_API_KEY')).toBeInTheDocument()
+    expect(screen.queryByLabelText('ChatGPT workspace')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('API Key'), 'sk-openai-second')
+    await user.click(screen.getByRole('button', { name: 'Add Key' }))
+
+    await waitFor(() => {
+      expect(providerCredentialsApi.set).toHaveBeenCalledExactlyOnceWith('openai', 'sk-openai-second', undefined)
+    })
+    expect(onSuccess).toHaveBeenCalledOnce()
   })
 
   it('renders required key method fields and submits their answers with the api key', async () => {

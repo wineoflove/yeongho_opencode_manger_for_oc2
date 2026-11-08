@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
-import { Loader2, Check, X, Shield, ChevronDown, ChevronRight, Key, Search, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, Check, X, Shield, ChevronDown, ChevronRight, Key, Search, Plus, Trash2 } from 'lucide-react'
 import { providerCredentialsApi } from '@/api/providers'
 import type { Provider } from '@/api/providers'
-import { type OAuthAuthorizeResponse } from '@/api/oauth'
+import type { ProviderExternalLoginResponse } from '@opencode-manager/shared/schemas'
+import { type IntegrationMethod, type OAuthAuthorizeResponse } from '@/api/oauth'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { OAuthAuthorizeDialog } from './OAuthAuthorizeDialog'
 import { OAuthCallbackDialog } from './OAuthCallbackDialog'
@@ -18,6 +19,9 @@ import { useProviderAuthMethods } from '@/hooks/useProviderAuthMethods'
 import { t, tn } from '@/i18n/translate'
 import { ProviderAccounts } from './ProviderAccounts'
 import { ProviderRateLimits } from './ProviderRateLimits'
+import { ClaudeAgentConnection } from './ClaudeAgentConnection'
+
+const CLAUDE_AGENT_INTEGRATION_ID: ProviderExternalLoginResponse['integrationID'] = 'claude-agent'
 
 export function ProviderSettings() {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
@@ -29,8 +33,7 @@ export function ProviderSettings() {
   const [availableSearch, setAvailableSearch] = useState('')
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
   const [apiKeyProvider, setApiKeyProvider] = useState<Provider | null>(null)
-  const [apiKeyMode, setApiKeyMode] = useState<'add' | 'edit'>('add')
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Provider | null>(null)
   const queryClient = useQueryClient()
 
   const { data: providersData, isLoading: providersLoading } = useProviders()
@@ -50,24 +53,22 @@ export function ProviderSettings() {
 
   const deleteCredentialMutation = useMutation({
     mutationFn: (providerId: string) => providerCredentialsApi.delete(providerId),
-    onSuccess: () => {
-      invalidateProviderCaches(queryClient)
-    },
+    onSettled: () => invalidateProviderCaches(queryClient),
   })
 
-  const handleDeleteCredential = (providerId: string) => {
-    setDeleteTarget(authenticationId(providerId))
+  const handleDeleteCredential = (provider: Provider) => {
+    deleteCredentialMutation.reset()
+    setDeleteTarget(provider)
   }
 
   const handleDeleteConfirm = () => {
     if (deleteTarget) {
-      deleteCredentialMutation.mutate(deleteTarget)
-      setDeleteTarget(null)
+      deleteCredentialMutation.mutate(authenticationId(deleteTarget.id), { onSuccess: () => setDeleteTarget(null) })
     }
   }
 
   const handleDeleteCancel = () => {
-    setDeleteTarget(null)
+    if (!deleteCredentialMutation.isPending) setDeleteTarget(null)
   }
 
   const handleOAuthAuthorize = (response: OAuthAuthorizeResponse) => {
@@ -88,10 +89,10 @@ export function ProviderSettings() {
     setSelectedProvider(null)
   }
 
-  const supportsOAuth = useCallback(
-    (providerId: string) => {
+  const supportsMethod = useCallback(
+    (providerId: string, type: IntegrationMethod['type']) => {
       const methods = authMethods?.[authenticationId(providerId)] || []
-      return methods.some((method) => method.type === 'oauth')
+      return methods.some((method) => method.type === type)
     },
     [authMethods, authenticationId],
   )
@@ -105,21 +106,24 @@ export function ProviderSettings() {
 
   const oauthProviders = useMemo(() => {
     if (!providers || !authMethods) return []
-    const oauth = providers.filter((provider) => supportsOAuth(provider.id))
+    const oauth = providers.filter((provider) => supportsMethod(provider.id, 'oauth'))
     return oauth.slice().sort((a, b) => {
       const aConnected = hasCredentials(a.id) ? 1 : 0
       const bConnected = hasCredentials(b.id) ? 1 : 0
       return bConnected - aConnected
     })
-  }, [providers, authMethods, supportsOAuth, hasCredentials])
+  }, [providers, authMethods, supportsMethod, hasCredentials])
 
   const apiKeyProviders = useMemo(() => {
     if (!providers || !authMethods) return { connected: [], available: [] }
-    const nonOAuthProviders = providers.filter((provider) => !supportsOAuth(provider.id))
-    const connected = nonOAuthProviders.filter((provider) => hasCredentials(provider.id))
-    const available = nonOAuthProviders.filter((provider) => !hasCredentials(provider.id))
+    const keyProviders = providers.filter(
+      (provider) =>
+        !supportsMethod(provider.id, 'oauth') && authenticationId(provider.id) !== CLAUDE_AGENT_INTEGRATION_ID,
+    )
+    const connected = keyProviders.filter((provider) => hasCredentials(provider.id))
+    const available = keyProviders.filter((provider) => !hasCredentials(provider.id))
     return { connected, available }
-  }, [providers, authMethods, supportsOAuth, hasCredentials])
+  }, [providers, authMethods, supportsMethod, authenticationId, hasCredentials])
 
   const filteredAvailableProviders = useMemo(() => {
     if (!availableSearch.trim()) return apiKeyProviders.available
@@ -136,13 +140,6 @@ export function ProviderSettings() {
 
   const handleAddApiKey = useCallback((provider: Provider) => {
     setApiKeyProvider(provider)
-    setApiKeyMode('add')
-    setApiKeyDialogOpen(true)
-  }, [])
-
-  const handleEditApiKey = useCallback((provider: Provider) => {
-    setApiKeyProvider(provider)
-    setApiKeyMode('edit')
     setApiKeyDialogOpen(true)
   }, [])
 
@@ -166,6 +163,8 @@ export function ProviderSettings() {
       </div>
     )
   }
+
+  const deleteTargetName = deleteTarget ? deleteTarget.name || deleteTarget.id : t('this provider')
 
   return (
     <div className="@container w-full max-w-7xl space-y-8">
@@ -224,16 +223,22 @@ export function ProviderSettings() {
                         }}
                       >
                         <Shield className="h-4 w-4 mr-1" />
-                        {hasKey ? t('Reconnect') : t('Connect')}
+                        {hasKey ? t('Add account') : t('Connect')}
                       </Button>
+                      {supportsMethod(provider.id, 'key') && (
+                        <Button size="sm" variant="outline" onClick={() => handleAddApiKey(provider)}>
+                          <Key className="h-4 w-4 mr-1" />
+                          {t('Add API key')}
+                        </Button>
+                      )}
                       {hasKey && (
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => handleDeleteCredential(provider.id)}
+                          onClick={() => handleDeleteCredential(provider)}
                           disabled={deleteCredentialMutation.isPending}
                         >
-                          {t('Disconnect')}
+                          {t('Remove all accounts')}
                         </Button>
                       )}
                     </div>
@@ -251,11 +256,16 @@ export function ProviderSettings() {
             </div>
           )}
 
+          <div className="pt-4">
+            <ClaudeAgentConnection />
+          </div>
+
           {selectedProvider && (
             <OAuthAuthorizeDialog
               providerId={authenticationId(selectedProvider)}
               providerName={selectedProviderName}
               methods={authMethods?.[authenticationId(selectedProvider)] || []}
+              hasAccounts={hasCredentials(selectedProvider)}
               open={oauthDialogOpen}
               onOpenChange={handleOAuthDialogClose}
               onSuccess={handleOAuthAuthorize}
@@ -329,20 +339,20 @@ export function ProviderSettings() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleEditApiKey(provider)}
-                                aria-label={t('Edit API key for {provider}', {
+                                onClick={() => handleAddApiKey(provider)}
+                                aria-label={t('Add another API key for {provider}', {
                                   provider: provider.name || provider.id,
                                 })}
                                 className="h-8 w-8 p-0"
                               >
-                                <Pencil className="h-3.5 w-3.5" />
+                                <Plus className="h-3.5 w-3.5" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleDeleteCredential(provider.id)}
+                                onClick={() => handleDeleteCredential(provider)}
                                 disabled={deleteCredentialMutation.isPending}
-                                aria-label={t('Remove credentials for {provider}', {
+                                aria-label={t('Remove all accounts for {provider}', {
                                   provider: provider.name || provider.id,
                                 })}
                                 className="h-8 w-8 p-0 text-destructive hover:text-destructive"
@@ -441,21 +451,31 @@ export function ProviderSettings() {
           onOpenChange={handleApiKeyDialogClose}
           provider={apiKeyProvider}
           onSuccess={handleApiKeySuccess}
-          mode={apiKeyMode}
+          hasAccounts={hasCredentials(apiKeyProvider.id)}
         />
       )}
 
       <DeleteDialog
         open={deleteTarget !== null}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onOpenChange={(open) => !open && handleDeleteCancel()}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
-        title={t('Remove Credentials')}
-        description={t('Are you sure you want to remove credentials for {provider}?', {
-          provider: deleteTarget || t('this provider'),
-        })}
+        title={t('Remove all accounts for {provider}', { provider: deleteTargetName })}
+        description={t(
+          'This removes every saved account for {provider}, including the selected account. To remove only one account, use Delete next to that account.',
+          { provider: deleteTargetName },
+        )}
+        confirmLabel={t('Remove all accounts')}
         isDeleting={deleteCredentialMutation.isPending}
-      />
+      >
+        {deleteCredentialMutation.isError && (
+          <p role="alert" className="text-sm text-destructive">
+            {t(
+              'Could not confirm that every account was removed. Some accounts may remain. Review the account list before trying again.',
+            )}
+          </p>
+        )}
+      </DeleteDialog>
     </div>
   )
 }

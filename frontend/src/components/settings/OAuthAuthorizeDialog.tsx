@@ -20,6 +20,7 @@ interface OAuthAuthorizeDialogProps {
   providerId: string
   providerName: string
   methods: IntegrationMethod[]
+  hasAccounts: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: (response: OAuthAuthorizeResponse, methodID: string) => void
@@ -33,6 +34,7 @@ export function OAuthAuthorizeDialog({
   providerId,
   providerName,
   methods,
+  hasAccounts,
   open,
   onOpenChange,
   onSuccess,
@@ -91,11 +93,11 @@ export function OAuthAuthorizeDialog({
       const method = oauthMethods[0]
       setAutoStarted(true)
       setSelectedMethodID(method.id)
-      if (!hasFields(method.form)) {
+      if (!hasAccounts && !hasFields(method.form)) {
         void handleAuthorize(method)
       }
     }
-  }, [open, oauthMethods, autoStarted, isLoading, handleAuthorize])
+  }, [open, oauthMethods, autoStarted, isLoading, hasAccounts, handleAuthorize])
 
   const handleMethodSelection = (method: IntegrationOAuthMethod) => {
     setError(null)
@@ -117,9 +119,17 @@ export function OAuthAuthorizeDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="bg-card border-border w-full sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{t('Connect to {provider}', { provider: providerName })}</DialogTitle>
+          <DialogTitle>
+            {hasAccounts
+              ? t('Add {provider} account', { provider: providerName })
+              : t('Connect to {provider}', { provider: providerName })}
+          </DialogTitle>
           <DialogDescription>
-            {t('Select an authentication method to connect your {provider} account.', { provider: providerName })}
+            {hasAccounts
+              ? t(
+                  'Select an authentication method for the new account. Existing accounts are kept, and the new account becomes the selected account.',
+                )
+              : t('Select an authentication method to connect your {provider} account.', { provider: providerName })}
           </DialogDescription>
         </DialogHeader>
 
