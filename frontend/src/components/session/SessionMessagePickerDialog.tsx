@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { SessionMessageInfo } from '@opencode-manager/shared/opencode'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { t } from '@/i18n/translate'
 
 const MESSAGE_PREVIEW_MAX_LENGTH = 200
 
@@ -56,7 +57,7 @@ export function SessionMessagePickerDialog({
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search messages"
+          placeholder={t('Search messages')}
           autoFocus
           className="mt-4"
         />
@@ -71,7 +72,7 @@ export function SessionMessagePickerDialog({
             </button>
           )}
           {loading ? (
-            <span className="px-3 py-2 text-sm text-muted-foreground">Loading messages…</span>
+            <span className="px-3 py-2 text-sm text-muted-foreground">{t('Loading messages…')}</span>
           ) : (
             <>
               {items.map((message) => (
@@ -88,7 +89,7 @@ export function SessionMessagePickerDialog({
                 </button>
               ))}
               {items.length === 0 && (
-                <span className="px-3 py-2 text-sm text-muted-foreground">No messages</span>
+                <span className="px-3 py-2 text-sm text-muted-foreground">{t('No messages')}</span>
               )}
             </>
           )}

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useMobile } from '@/hooks/useMobile'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 export interface SessionDetailsSheetProps {
   open: boolean
@@ -16,6 +17,7 @@ export interface SessionDetailsSheetProps {
   branch?: string | null
   directory?: string
   onRename: (title: string) => Promise<void>
+  summary?: ReactNode
 }
 
 interface InfoRowProps {
@@ -49,6 +51,7 @@ export function SessionDetailsSheet({
   branch,
   directory,
   onRename,
+  summary,
 }: SessionDetailsSheetProps) {
   const isMobile = useMobile()
   const [editing, setEditing] = useState(false)
@@ -65,7 +68,7 @@ export function SessionDetailsSheet({
     }
   }
 
-  const displayTitle = title?.trim() ? title : 'Untitled Session'
+  const displayTitle = title?.trim() ? title : t('Untitled Session')
   const trimmedDraft = draft.trim()
   const canSave = trimmedDraft.length > 0 && !saving
 
@@ -109,7 +112,7 @@ export function SessionDetailsSheet({
   const body = (
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-xs text-muted-foreground">Title</span>
+        <span className="text-xs text-muted-foreground">{t('Title')}</span>
         {editing ? (
           <>
             <input
@@ -123,13 +126,13 @@ export function SessionDetailsSheet({
                 save()
               }}
               disabled={saving}
-              aria-label="Session title"
-              placeholder="Session title"
+              aria-label={t('Session title')}
+              placeholder={t('Session title')}
               autoFocus
               className="w-full min-w-0 rounded border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
             />
             {renameFailed && (
-              <span className="text-xs text-destructive">Rename failed</span>
+              <span className="text-xs text-destructive">{t('Rename failed')}</span>
             )}
             <div className="flex items-center gap-2 pt-1">
               <Button
@@ -139,7 +142,7 @@ export function SessionDetailsSheet({
                 onClick={cancelEditing}
                 className="flex-1"
               >
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button
                 type="button"
@@ -148,7 +151,7 @@ export function SessionDetailsSheet({
                 disabled={!canSave}
                 className="flex-1"
               >
-                Save
+                {t('Save')}
               </Button>
             </div>
           </>
@@ -162,19 +165,20 @@ export function SessionDetailsSheet({
               onClick={startEditing}
               className="mt-1 self-start"
             >
-              Rename
+              {t('Rename')}
             </Button>
           </>
         )}
       </div>
       <InfoRow
-        label="Server"
-        value={remote ? serverName || 'Remote server' : 'Local'}
+        label={t('Server')}
+        value={remote ? serverName || t('Remote server') : t('Local')}
         leading={remote ? <Server className="mt-0.5 h-3.5 w-3.5 shrink-0 text-highlight" /> : undefined}
       />
-      <InfoRow label="Project" value={project} />
-      {branch ? <InfoRow label="Branch" value={branch} mono /> : null}
-      {directory ? <InfoRow label="Directory" value={directory} mono /> : null}
+      <InfoRow label={t('Project')} value={project} />
+      {branch ? <InfoRow label={t('Branch')} value={branch} mono /> : null}
+      {directory ? <InfoRow label={t('Directory')} value={directory} mono /> : null}
+      {summary}
     </div>
   )
 
@@ -183,10 +187,10 @@ export function SessionDetailsSheet({
       <BottomSheet
         isOpen={open}
         onClose={handleClose}
-        ariaLabel="Session details"
+        ariaLabel={t('Session details')}
         dismissible={!saving}
       >
-        <BottomSheetHeader title="Session details" />
+        <BottomSheetHeader title={t('Session details')} />
         <BottomSheetContent>{body}</BottomSheetContent>
       </BottomSheet>
     )
@@ -196,7 +200,7 @@ export function SessionDetailsSheet({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Session details</DialogTitle>
+          <DialogTitle>{t('Session details')}</DialogTitle>
         </DialogHeader>
         {body}
       </DialogContent>

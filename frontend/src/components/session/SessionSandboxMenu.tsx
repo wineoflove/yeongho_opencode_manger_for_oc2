@@ -6,6 +6,7 @@ import { useSandboxToggle } from '@/hooks/useSandboxToggle'
 import { shouldShowSandboxResources } from '@/lib/sandboxResources'
 import { SandboxMenuItems } from '@/components/message/SandboxMenuItems'
 import { SessionSandboxResourcesDialog } from '@/components/message/SessionSandboxResourcesDialog'
+import { t } from '@/i18n/translate'
 
 interface SessionSandboxMenuProps {
   sessionID: string
@@ -17,7 +18,7 @@ export function SessionSandboxMenu({ sessionID }: SessionSandboxMenuProps) {
 
   if (!sandbox.available) return null
 
-  const label = `Sandbox: ${sandbox.isSandboxed ? 'on' : 'off'}${
+  const label = `${sandbox.isSandboxed ? t('Sandbox: on') : t('Sandbox: off')}${
     sandbox.lockedReason === 'child' ? ` (${sandbox.label})` : ''
   }`
 

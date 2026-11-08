@@ -19,6 +19,7 @@ import {
 } from '@opencode-manager/shared/notifications'
 import { cn } from '@/lib/utils'
 import { showToast } from '@/lib/toast'
+import { t } from '@/i18n/translate'
 
 interface PermissionRequestDialogProps {
   permission: PermissionRequest | null
@@ -68,7 +69,7 @@ export function PermissionRequestDialog({
     try {
       await onRespond(permission.id, permission.sessionID, response, message === '' ? undefined : message)
     } catch {
-      showToast.error('Failed to respond to permission. Please try again.')
+      showToast.error(t('Failed to respond to permission. Please try again.'))
     } finally {
       setIsLoading(false)
       setLoadingAction(null)
@@ -79,7 +80,7 @@ export function PermissionRequestDialog({
   const details = getPermissionDetail(permission)
   const alwaysScope = getPermissionAlwaysScope(permission)
   const hasMultiple = pendingCount > 1
-  const displaySessionName = sessionTitle || `Session ${permission.sessionID.slice(0, 8)}...`
+  const displaySessionName = sessionTitle || t('Session {id}...', { id: permission.sessionID.slice(0, 8) })
 
   return (
     <Dialog open={parentOpen ?? true} onOpenChange={onOpenChange ?? (() => {})}>
@@ -92,15 +93,15 @@ export function PermissionRequestDialog({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
-            <span>Permission Request</span>
+            <span>{t('Permission Request')}</span>
             {hasMultiple && (
               <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">
-                +{pendingCount - 1} more
+                {t('+{count} more', { count: pendingCount - 1 })}
               </span>
             )}
           </DialogTitle>
           <DialogDescription className="break-all">
-            {`Allow ${getPermissionPhrase(permission.action)}?`}
+            {t('Allow {permission}?', { permission: getPermissionPhrase(permission.action) })}
           </DialogDescription>
         </DialogHeader>
 
@@ -139,17 +140,17 @@ export function PermissionRequestDialog({
           <div className="text-xs text-muted-foreground space-y-1">
             {repoDirectory && (
               <div className="truncate" title={repoDirectory}>
-                Repo: <span className="font-medium">{repoDirectory.split('/').pop() ?? repoDirectory}</span>
+                {t('Repo:')} <span className="font-medium">{repoDirectory.split('/').pop() ?? repoDirectory}</span>
               </div>
             )}
             <div className="flex items-center gap-2">
               {isFromDifferentSession ? (
                 <div className="bg-warning/10 text-warning border border-warning/20 rounded-md px-2 py-1.5 truncate min-w-0 flex-1">
-                  From another session: <span className="font-medium">{displaySessionName}</span>
+                  {t('From another session:')} <span className="font-medium">{displaySessionName}</span>
                 </div>
               ) : (
                 <div className="truncate min-w-0 flex-1">
-                  Session: <span className="font-medium">{displaySessionName}</span>
+                  {t('Session:')} <span className="font-medium">{displaySessionName}</span>
                 </div>
               )}
               {onOpenSession && (
@@ -160,7 +161,7 @@ export function PermissionRequestDialog({
                   onClick={onOpenSession}
                   className="h-auto shrink-0 p-0 text-xs"
                 >
-                  Open session
+                  {t('Open session')}
                 </Button>
               )}
             </div>
@@ -169,13 +170,13 @@ export function PermissionRequestDialog({
 
         <div className="space-y-1.5">
           <label htmlFor={reasonInputId} className="text-xs font-medium text-muted-foreground">
-            Reason (optional)
+            {t('Reason (optional)')}
           </label>
           <Textarea
             id={reasonInputId}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Explain why this request is denied..."
+            placeholder={t('Explain why this request is denied...')}
             disabled={isLoading}
             className="min-h-[60px] text-[16px] sm:text-xs md:text-sm resize-none"
           />
@@ -204,7 +205,7 @@ export function PermissionRequestDialog({
               loadingAction === 'reject' && "opacity-70"
             )}
           >
-            {loadingAction === 'reject' ? 'Denying...' : 'Deny'}
+            {loadingAction === 'reject' ? t('Denying...') : t('Deny')}
           </Button>
           {alwaysScope && (
             <Button
@@ -216,7 +217,7 @@ export function PermissionRequestDialog({
                 loadingAction === 'always' && "opacity-70"
               )}
             >
-              {loadingAction === 'always' ? 'Allowing...' : 'Allow Always'}
+              {loadingAction === 'always' ? t('Allowing...') : t('Allow Always')}
             </Button>
           )}
           <Button
@@ -229,7 +230,7 @@ export function PermissionRequestDialog({
               loadingAction === 'once' && "opacity-70"
             )}
           >
-            {loadingAction === 'once' ? 'Allowing...' : 'Allow Once'}
+            {loadingAction === 'once' ? t('Allowing...') : t('Allow Once')}
           </Button>
         </DialogFooter>
       </DialogContent>

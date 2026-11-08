@@ -10,6 +10,7 @@ import {
   usePickerCursor,
   usePickerKeyNav,
 } from '@/components/session/usePickerKeyboardNav'
+import { t } from '@/i18n/translate'
 
 interface ProjectPickerContentProps {
   open: boolean
@@ -93,7 +94,7 @@ export function ProjectPickerContent({
         value={query}
         onChange={setQuery}
         onKeyDown={handleSearchKeyDown}
-        placeholder="Search projects..."
+        placeholder={t('Search projects...')}
         name="project-picker-search"
         trailing={searchTrailing}
       />
@@ -101,12 +102,12 @@ export function ProjectPickerContent({
       <div
         role="listbox"
         id={listId}
-        aria-label="Projects"
+        aria-label={t('Projects')}
         className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-md"
       >
         {rows.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground">
-            {isLoading ? 'Loading projects...' : 'No projects found'}
+            {isLoading ? t('Loading projects...') : t('No projects found')}
           </div>
         ) : (
           rows.map((row, index) => {
@@ -159,7 +160,7 @@ export function ProjectPickerContent({
                 {isRepoReady(repo) ? (
                   <LocalRepoNewSessionButton repo={repo} onOpenSession={onNavigate} />
                 ) : (
-                  <span className="shrink-0 pr-2 text-xs text-muted-foreground">Not ready</span>
+                  <span className="shrink-0 pr-2 text-xs text-muted-foreground">{t('Not ready')}</span>
                 )}
               </div>
             )
@@ -168,8 +169,8 @@ export function ProjectPickerContent({
       </div>
 
       <div className="mt-2 shrink-0 px-4 text-xs text-muted-foreground pointer-coarse:hidden sm:px-0">
-        ↑↓ move · Enter open
-        {switchHint ? ` · ${switchHint} active` : ''}
+        {t('↑↓ move · Enter open')}
+        {switchHint ? ` · ${t('{keys} active', { keys: switchHint })}` : ''}
       </div>
     </div>
   )

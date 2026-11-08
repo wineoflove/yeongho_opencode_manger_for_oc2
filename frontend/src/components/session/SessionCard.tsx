@@ -1,23 +1,24 @@
-import { useRef, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { SessionStatusIndicator } from "@/components/ui/session-status-indicator";
-import { Trash2, Clock, MoreVertical, Pin, PinOff } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import type { Session } from "@/api/types";
-import { useSwipe } from "@/hooks/useSwipe";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+import { useRef, useEffect } from 'react'
+import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { SessionStatusIndicator } from '@/components/ui/session-status-indicator'
+import { Trash2, Clock, MoreVertical, Pin, PinOff } from 'lucide-react'
+import { formatRelativeTime } from '@/i18n/format'
+import type { Session } from '@/api/types'
+import { useSwipe } from '@/hooks/useSwipe'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
+import { t } from '@/i18n/translate'
 
 interface SessionCardProps {
-  session: Session;
-  isSelected: boolean;
-  manageMode: boolean;
-  isPinned?: boolean;
-  onTogglePin?: () => void;
-  onSelect: (sessionID: string) => void;
-  onToggleSelection: (selected: boolean) => void;
-  onDelete: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  session: Session
+  isSelected: boolean
+  manageMode: boolean
+  isPinned?: boolean
+  onTogglePin?: () => void
+  onSelect: (sessionID: string) => void
+  onToggleSelection: (selected: boolean) => void
+  onDelete: (e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 export const SessionCard = ({
@@ -30,30 +31,30 @@ export const SessionCard = ({
   onToggleSelection,
   onDelete,
 }: SessionCardProps) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const { bind, swipeOffset, isOpen, isSwipingBack, close, swipeStyles } = useSwipe();
+  const cardRef = useRef<HTMLDivElement>(null)
+  const { bind, swipeOffset, isOpen, isSwipingBack, close, swipeStyles } = useSwipe()
 
   useEffect(() => {
     if (cardRef.current) {
-      return bind(cardRef.current);
+      return bind(cardRef.current)
     }
-  }, [bind]);
+  }, [bind])
 
   const handleDeleteClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    onDelete(e);
-    close();
-  };
+    e.stopPropagation()
+    onDelete(e)
+    close()
+  }
 
   return (
     <div className="relative" onClick={close}>
       <div
         className={`absolute top-0.5 right-0 bottom-0.5 w-20 bg-destructive flex items-center justify-center rounded-r-lg transition-opacity ${
-          !isSwipingBack && (isOpen || swipeOffset > 40) ? "opacity-100" : "opacity-0 pointer-events-none"
+          !isSwipingBack && (isOpen || swipeOffset > 40) ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
         <button
-          aria-label="Delete session"
+          aria-label={t('Delete session')}
           className="h-full w-full flex items-center justify-center text-destructive-foreground hover:bg-destructive/90"
           onClick={handleDeleteClick}
         >
@@ -62,21 +63,17 @@ export const SessionCard = ({
       </div>
       <div ref={cardRef} style={swipeStyles}>
         <Card
-          className={`p-2 cursor-pointer transition-all overflow-hidden ${
-            isOpen
-              ? "rounded-none"
-              : "rounded-r-lg"
-          } ${
+          className={`p-2 cursor-pointer transition-all overflow-hidden ${isOpen ? 'rounded-none' : 'rounded-r-lg'} ${
             isSelected
-              ? "border-primary shadow-lg shadow-primary/30 bg-accent"
-              : "bg-card border-border hover:bg-accent hover:border-border"
+              ? 'border-primary shadow-lg shadow-primary/30 bg-accent'
+              : 'bg-card border-border hover:bg-accent hover:border-border'
           } hover:shadow-lg`}
           onClick={() => {
             if (!isOpen) {
               if (manageMode) {
-                onToggleSelection(!isSelected);
+                onToggleSelection(!isSelected)
               } else {
-                onSelect(session.id);
+                onSelect(session.id)
               }
             }
           }}
@@ -85,31 +82,29 @@ export const SessionCard = ({
             {manageMode ? (
               <div className="flex items-start gap-2 flex-1 min-w-0">
                 <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={(checked) => {
-                        onToggleSelection(checked === true);
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      className="w-5 h-5 flex-shrink-0"
-                    />
-                    <SessionStatusIndicator sessionID={session.id} />
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={(checked) => {
+                      onToggleSelection(checked === true)
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                    }}
+                    className="w-5 h-5 flex-shrink-0"
+                  />
+                  <SessionStatusIndicator sessionID={session.id} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1">
                     {isPinned && <Pin className="w-3 h-3 text-highlight shrink-0" />}
                     <h3 className="text-base font-semibold text-highlight truncate">
-                      {session.title || "Untitled Session"}
+                      {session.title || t('Untitled Session')}
                     </h3>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      {formatDistanceToNow(new Date(session.time.updated), {
-                        addSuffix: true,
-                      })}
+                      {formatRelativeTime(session.time.updated)}
                     </span>
                   </div>
                 </div>
@@ -120,15 +115,13 @@ export const SessionCard = ({
                   <div className="flex items-center gap-1">
                     {isPinned && <Pin className="w-3 h-3 text-highlight shrink-0" />}
                     <h3 className="text-sm font-semibold text-highlight truncate">
-                      {session.title || "Untitled Session"}
+                      {session.title || t('Untitled Session')}
                     </h3>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                     <span className="flex items-center">
                       <Clock className="w-3 h-3 mr-1" />
-                      {formatDistanceToNow(new Date(session.time.updated), {
-                        addSuffix: true,
-                      })}
+                      {formatRelativeTime(session.time.updated)}
                     </span>
                     <SessionStatusIndicator sessionID={session.id} />
                   </div>
@@ -137,7 +130,7 @@ export const SessionCard = ({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
-                        aria-label="Session actions"
+                        aria-label={t('Session actions')}
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 shrink-0"
@@ -154,7 +147,7 @@ export const SessionCard = ({
                     >
                       <DropdownMenuItem onClick={() => onTogglePin()}>
                         {isPinned ? <PinOff className="w-4 h-4 mr-2" /> : <Pin className="w-4 h-4 mr-2" />}
-                        {isPinned ? "Unpin" : "Pin to top"}
+                        {isPinned ? t('Unpin') : t('Pin to top')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -163,11 +156,11 @@ export const SessionCard = ({
             )}
             {manageMode && (
               <button
-                aria-label="Delete session"
+                aria-label={t('Delete session')}
                 className="h-6 w-6 p-0 text-foreground hover:text-destructive bg-transparent border-none cursor-pointer"
                 onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(e);
+                  e.stopPropagation()
+                  onDelete(e)
                 }}
               >
                 <Trash2 className="w-4 h-4" />
@@ -177,5 +170,5 @@ export const SessionCard = ({
         </Card>
       </div>
     </div>
-  );
-};
+  )
+}

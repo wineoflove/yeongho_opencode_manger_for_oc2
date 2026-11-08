@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '@/i18n/translate'
 
 const NOT_CONNECTED_GRACE_PERIOD_MS = 5000
 
@@ -36,7 +37,7 @@ export function ReconnectingBanner({ connected }: ReconnectingBannerProps) {
   }, [connected])
 
   if (connected) return null
-  if (hasConnected) return <StatusBanner message="Reconnecting… live updates paused" />
-  if (graceElapsed) return <StatusBanner message="Not connected — live updates unavailable" />
+  if (hasConnected) return <StatusBanner message={t('Reconnecting… live updates paused')} />
+  if (graceElapsed) return <StatusBanner message={t('Not connected — live updates unavailable')} />
   return null
 }

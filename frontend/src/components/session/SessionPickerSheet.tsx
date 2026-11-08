@@ -4,6 +4,7 @@ import { AddRepoDialog } from '@/components/repo/AddRepoDialog'
 import { RouteSessionPicker } from '@/components/session/RouteSessionPicker'
 import { useSessionPickerLocationPrefetch } from '@/hooks/useSessionPickerLocationPrefetch'
 import { useSessionPickerNavigation } from '@/hooks/useSessionPickerNavigation'
+import { t } from '@/i18n/translate'
 
 interface SessionPickerSheetProps {
   isOpen: boolean
@@ -27,7 +28,7 @@ export function SessionPickerSheet({ isOpen, onClose }: SessionPickerSheetProps)
 
   return (
     <>
-      <BottomSheet isOpen={isOpen} onClose={onClose} heightClass="h-[90dvh]" ariaLabel="Sessions">
+      <BottomSheet isOpen={isOpen} onClose={onClose} heightClass="h-[90dvh]" ariaLabel={t('Sessions')}>
         {panel}
       </BottomSheet>
       <AddRepoDialog open={addRepoOpen} onOpenChange={setAddRepoOpen} />

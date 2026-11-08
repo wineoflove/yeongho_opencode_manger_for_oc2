@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import type { FormInfo } from '@opencode-manager/shared/opencode'
 import { getFormText } from '@opencode-manager/shared/notifications'
+import { t } from '@/i18n/translate'
 
 interface MinimizedFormIndicatorProps {
   form: FormInfo
@@ -16,11 +17,11 @@ export function MinimizedFormIndicator({ form, onRestore, onDismiss }: Minimized
           onClick={onRestore}
           className="flex-1 text-left text-xs font-semibold text-highlight"
         >
-          {getFormText(form) || 'Form pending'}
+          {getFormText(form) || t('Form pending')}
         </button>
         <button
           onClick={onDismiss}
-          aria-label="Dismiss form"
+          aria-label={t('Dismiss form')}
           className="p-1.5 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors hidden sm:block"
         >
           <X className="w-3.5 h-3.5" />

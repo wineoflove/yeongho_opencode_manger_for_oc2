@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { showToast } from '@/lib/toast'
 import { useShortcutActions } from '@/contexts/KeyboardShortcutsContext'
 import { useMobile, useSwipeDismiss } from '@/hooks/useMobile'
+import { t } from '@/i18n/translate'
 
 type AnswerableFormField = Exclude<FormField, { type: 'external' }>
 
@@ -162,7 +163,7 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
       draftClearedRef.current = true
       clearFormDraft(form.id)
     } catch {
-      showToast.error('Failed to submit form')
+      showToast.error(t('Failed to submit form'))
     } finally {
       setIsSubmitting(false)
     }
@@ -175,7 +176,7 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
       draftClearedRef.current = true
       clearFormDraft(form.id)
     } catch {
-      showToast.error('Failed to dismiss form')
+      showToast.error(t('Failed to dismiss form'))
     } finally {
       setIsSubmitting(false)
     }
@@ -206,8 +207,8 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
       return (
         <FieldGroup key={field.key} label={label} description={field.description} required={required}>
           <div className="flex gap-3 md:gap-2">
-            <OptionButton selected={selected === true} label="Yes" onClick={() => setFieldAnswer(field.key, true)} />
-            <OptionButton selected={selected === false} label="No" onClick={() => setFieldAnswer(field.key, false)} />
+            <OptionButton selected={selected === true} label={t('Yes')} onClick={() => setFieldAnswer(field.key, true)} />
+            <OptionButton selected={selected === false} label={t('No')} onClick={() => setFieldAnswer(field.key, false)} />
           </div>
         </FieldGroup>
       )
@@ -319,7 +320,7 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
           aria-describedby={descriptionId}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => setFieldAnswer(field.key, e.target.value)}
-          placeholder={field.placeholder ?? 'Type your answer...'}
+          placeholder={field.placeholder ?? t('Type your answer...')}
           className="min-h-[60px] md:min-h-[80px] text-[16px] md:text-sm resize-none border-primary/30 focus:border-primary"
         />
       </div>
@@ -335,7 +336,7 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
         <button
           type="button"
           onClick={handleMinimize}
-          aria-label="Drag to minimize"
+          aria-label={t('Drag to minimize')}
           className="flex h-[22px] w-full items-center justify-center"
         >
           <span aria-hidden="true" className="h-[5px] w-10 rounded-full bg-muted-foreground/40" />
@@ -347,15 +348,15 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
             disabled={isSubmitting}
             className="min-h-11 min-w-11 px-2 text-left text-base text-primary disabled:opacity-50"
           >
-            Dismiss
+            {t('Dismiss')}
           </button>
           <span className="min-w-0 flex-1 truncate text-center text-[13px] font-semibold uppercase tracking-wide text-primary">
-            {form.title || 'Form'}
+            {form.title || t('Form')}
           </span>
           <button
             type="button"
             onClick={() => (isMinimized ? setIsMinimized(false) : handleMinimize())}
-            aria-label="Minimize form"
+            aria-label={t('Minimize form')}
             className="flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground"
           >
             <ChevronDown className="h-5 w-5" />
@@ -374,12 +375,12 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
           ) : (
             <ChevronDown className="w-3 h-3 opacity-60 flex-shrink-0" />
           )}
-          {form.title || 'Form'}
+          {form.title || t('Form')}
         </button>
         <button
           onClick={handleCancel}
           disabled={isSubmitting}
-          aria-label="Dismiss form"
+          aria-label={t('Dismiss form')}
           className="p-1.5 md:p-2 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
         >
           <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
@@ -405,18 +406,18 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
           disabled={isSubmitting}
           className="hidden md:inline-flex flex-1 h-10 text-sm bg-muted hover:bg-muted/80 text-foreground"
         >
-          Dismiss
+          {t('Dismiss')}
         </Button>
         {onAskSideQuestion && (
           <button
             type="button"
             onClick={onAskSideQuestion}
             disabled={isSubmitting}
-            aria-label="Ask a side question"
+            aria-label={t('Ask a side question')}
             className="h-11 shrink-0 px-4 rounded-[14px] flex items-center gap-2 text-sm font-semibold bg-muted/60 hover:bg-muted text-foreground border border-border/60 md:hidden"
           >
             <MessageCircleQuestion className="w-4 h-4" />
-            BTW
+            {t('BTW')}
           </button>
         )}
         <Button
@@ -425,7 +426,7 @@ export function FormPrompt({ form, onReply, onCancel, onMinimize, onAskSideQuest
           disabled={isSubmitting || !canSubmit}
           className="flex-1 h-11 rounded-[14px] text-base font-bold bg-success hover:bg-success/90 text-success-foreground md:h-10 md:rounded-md md:text-sm md:font-medium"
         >
-          {isSubmitting ? <Loader2 className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" /> : 'Submit'}
+          {isSubmitting ? <Loader2 className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" /> : t('Submit')}
         </Button>
       </div>
     </div>
@@ -591,7 +592,7 @@ function CustomOption({
               expanded || selected ? 'text-primary' : 'text-foreground',
             )}
           >
-            Other...
+            {t('Other...')}
           </span>
         </div>
       </button>
@@ -600,10 +601,10 @@ function CustomOption({
         <div className="ml-0 md:ml-7 space-y-3 md:space-y-2 animate-in slide-in-from-top-2 duration-200">
           <Textarea
             ref={textareaRef}
-            aria-label={`Other answer for ${fieldLabel}`}
+            aria-label={t('Other answer for {field}', { field: fieldLabel })}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Type your own answer..."
+            placeholder={t('Type your own answer...')}
             className="min-h-[60px] md:min-h-[80px] text-[16px] md:text-sm resize-none border-primary/30 focus:border-primary"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {

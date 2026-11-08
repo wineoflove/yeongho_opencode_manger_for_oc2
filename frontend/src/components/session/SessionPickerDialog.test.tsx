@@ -6,6 +6,10 @@ import userEvent from '@testing-library/user-event'
 import { LOCAL_OPENCODE_SERVER_ID } from '@opencode-manager/shared/schemas'
 import type { Repo, Session } from '@/api/types'
 import type { ActiveWorkGroups, ActiveWorkItem, ActiveWorkState } from '@/lib/activeWork'
+import type { SessionMessageInfo } from '@opencode-manager/shared/opencode'
+import recordedTodoMessages from '@/test/opencode2TodoMessages.json'
+
+const todoMessages = recordedTodoMessages as unknown as SessionMessageInfo[]
 import { stubMatchMedia } from '@/test/test-utils'
 import { makeRepo, makeSession } from '@/test/fixtures/session-picker'
 import { DEFAULT_ACTIVITY_WINDOW_MINUTES } from '@/api/types/settings'
@@ -14,6 +18,7 @@ import { OpenCodeServerProvider } from '@/contexts/OpenCodeServerContext'
 import { SessionPickerDialog } from './SessionPickerDialog'
 
 const mocks = vi.hoisted(() => ({
+  renameSessionMock: vi.fn(),
   sessionsData: [] as Session[],
   lastDirectories: [] as string[],
   lastAllDirectories: false,
@@ -32,6 +37,7 @@ const mocks = vi.hoisted(() => ({
   sessionPins: [] as Array<{ sessionId: string; directory: string; pinnedAt: number }>,
   repos: [] as Repo[],
   activeWorkGroups: { needsInput: [], running: [], recent: [] } as ActiveWorkGroups,
+  listSessionMessages: vi.fn(),
   activeWorkWindowMs: 0,
   preferences: undefined as
     | {
@@ -55,7 +61,7 @@ vi.mock('@/api/repos', () => ({
 
 vi.mock('@/api/opencode', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/opencode')>()
-  return { ...actual, getOpenCodeLocation: mocks.getOpenCodeLocation }
+  return { ...actual, getOpenCodeLocation: mocks.getOpenCodeLocation, listSessionMessages: mocks.listSessionMessages }
 })
 
 vi.mock('@/hooks/useOpenCode', async (importOriginal) => {
@@ -87,6 +93,10 @@ vi.mock('@/hooks/useOpenCode', async (importOriginal) => {
         isFetchNextPageError: false,
       }
     },
+    useUpdateSession: () => ({
+      mutateAsync: (input: unknown) => mocks.renameSessionMock(input),
+      isPending: false,
+    }),
     useDeleteSession: () => {
       const serverId = useOpenCodeServerId()
       return {
@@ -225,6 +235,7 @@ describe('SessionPickerDialog', () => {
     mocks.sessionsData = []
     mocks.activeWorkGroups = { needsInput: [], running: [], recent: [] }
     mocks.activeWorkWindowMs = 0
+    mocks.listSessionMessages.mockResolvedValue({ messages: [] })
     mocks.preferences = undefined
   })
 
@@ -620,6 +631,42 @@ describe('SessionPickerDialog', () => {
     expect(await screen.findByRole('dialog', { name: 'Delete Session' })).toBeInTheDocument()
   })
 
+  it('renames a session from the row menu without opening it', async () => {
+    mocks.renameSessionMock.mockReset().mockResolvedValue(undefined)
+    mocks.sessionsData = [makeSession('ses_1', 'First', '/w/a', 3000)]
+    renderPicker()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Session actions' }))
+    await user.click(await screen.findByText('Rename'))
+    const dialog = await screen.findByRole('dialog', { name: 'Rename session' })
+    const input = within(dialog).getByRole('textbox', { name: 'Session title' })
+    expect(input).toHaveValue('First')
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+
+    await user.clear(input)
+    await user.type(input, 'Renamed{Enter}')
+
+    expect(mocks.renameSessionMock).toHaveBeenCalledWith({ sessionID: 'ses_1', title: 'Renamed', directory: '/w/a' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Rename session' })).not.toBeInTheDocument())
+  })
+
+  it('keeps the rename dialog open with an error when saving fails', async () => {
+    mocks.renameSessionMock.mockReset().mockRejectedValue(new Error('rename failed'))
+    mocks.sessionsData = [makeSession('ses_1', 'First', '/w/a', 3000)]
+    renderPicker()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Session actions' }))
+    await user.click(await screen.findByText('Rename'))
+    const dialog = await screen.findByRole('dialog', { name: 'Rename session' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Session title' }), ' two')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    expect(await within(dialog).findByText('Rename failed')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeInTheDocument()
+  })
+
   it('groups older sessions under per-day headings', () => {
     mocks.sessionsData = [
       makeSession('ses_jan2', 'Jan two', '/w/a', new Date(2020, 0, 2, 12).getTime()),
@@ -922,6 +969,26 @@ describe('SessionPickerDialog', () => {
     expect(screen.getByRole('option', { name: /Running task/ }).textContent).toContain('beta')
     expect(screen.getByRole('option', { name: /Recent task/ }).textContent).toContain('alpha')
     expect(mocks.activeWorkWindowMs).toBe(30 * 60 * 1000)
+  })
+
+  it('shows todo progress on running and needs-input rows but not on recent rows', async () => {
+    mocks.repos = [makeRepo(1, 'alpha', '/w/a')]
+    mocks.activeWorkGroups = {
+      needsInput: [],
+      running: [activeWorkItem('ses_run', 'Running task', '/w/a', 'running')],
+      recent: [activeWorkItem('ses_recent', 'Recent task', '/w/a', 'recent')],
+    }
+    mocks.listSessionMessages.mockResolvedValue({ messages: todoMessages })
+
+    renderPicker()
+    openActiveTab()
+
+    const progress = await screen.findByRole('progressbar', { name: 'Tasks for Running task' })
+    expect(progress).toHaveAttribute('aria-valuenow', '67')
+    expect(screen.getByRole('option', { name: /Running task/ }).textContent).toContain('2/3')
+    expect(screen.queryByRole('progressbar', { name: 'Tasks for Recent task' })).not.toBeInTheDocument()
+    expect(mocks.listSessionMessages).toHaveBeenCalledTimes(1)
+    expect(mocks.listSessionMessages).toHaveBeenCalledWith('ses_run', { limit: 100 }, 'local')
   })
 
   it('skips empty active work sections and shows the empty state for the configured window', async () => {

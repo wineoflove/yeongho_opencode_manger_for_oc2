@@ -7,6 +7,7 @@ import { CopyButton } from '@/components/ui/copy-button'
 import { TextPart } from '@/components/message/TextPart'
 import { askSideQuestion } from '@/api/opencode'
 import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
+import { t } from '@/i18n/translate'
 
 interface SideQuestionDialogProps {
   open: boolean
@@ -78,31 +79,31 @@ export function SideQuestionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <div className="flex items-center gap-2 pr-6">
-          <DialogTitle className="flex-1">Side question</DialogTitle>
-          {answer && !pending && <CopyButton content={answer} title="Copy answer" />}
+          <DialogTitle className="flex-1">{t('Side question')}</DialogTitle>
+          {answer && !pending && <CopyButton content={answer} title={t('Copy answer')} />}
         </div>
         <form onSubmit={handleSubmit} className="flex items-center gap-2 mt-4">
           <Input
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ask a side question"
+            placeholder={t('Ask a side question')}
             autoFocus
           />
           <Button type="submit" disabled={!question.trim()}>
-            Ask
+            {t('Ask')}
           </Button>
         </form>
         {pending && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Thinking...</span>
+            <span>{t('Thinking...')}</span>
           </div>
         )}
         {error && !pending && (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-destructive">Failed to get an answer</span>
+            <span className="text-sm text-destructive">{t('Failed to get an answer')}</span>
             <Button type="button" variant="outline" size="sm" onClick={handleRetry}>
-              Retry
+              {t('Retry')}
             </Button>
           </div>
         )}

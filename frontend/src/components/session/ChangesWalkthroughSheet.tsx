@@ -23,6 +23,7 @@ import {
 } from '@opencode-manager/shared/schemas'
 import type { ChangeWalkthrough, WalkthroughSource } from '@opencode-manager/shared/schemas'
 import { formatOpenCodeModelRef, type ModelRef } from '@opencode-manager/shared/opencode'
+import { msg, t } from '@/i18n/translate'
 
 interface WalkthroughErrorLike {
   message?: string
@@ -41,9 +42,9 @@ function isNoChangesError(error: unknown): boolean {
 function walkthroughErrorMessage(error: unknown): string {
   const message = (error as WalkthroughErrorLike | null)?.message
   if (isNoChangesError(error)) {
-    return message || 'This session has no text changes to walk through'
+    return message || t('This session has no text changes to walk through')
   }
-  return message || 'Failed to load the walkthrough'
+  return message || t('Failed to load the walkthrough')
 }
 
 interface ChangesWalkthroughContextValue {
@@ -81,12 +82,12 @@ function useChangesWalkthrough(): ChangesWalkthroughContextValue {
 }
 
 const WALKTHROUGH_SOURCE_OPTIONS: { value: WalkthroughSource['kind']; label: string }[] = [
-  { value: 'session', label: 'This session' },
-  { value: 'uncommitted', label: 'Uncommitted' },
-  { value: 'staged', label: 'Staged' },
-  { value: 'unstaged', label: 'Unstaged' },
-  { value: 'branch', label: 'Branch vs base' },
-  { value: 'pullRequest', label: 'Pull request' },
+  { value: 'session', label: msg('This session') },
+  { value: 'uncommitted', label: msg('Uncommitted') },
+  { value: 'staged', label: msg('Staged') },
+  { value: 'unstaged', label: msg('Unstaged') },
+  { value: 'branch', label: msg('Branch vs base') },
+  { value: 'pullRequest', label: msg('Pull request') },
 ]
 
 /** Chooses which set of changes the walkthrough covers from the surrounding chrome; git sources commit as soon as they are valid. */
@@ -106,7 +107,7 @@ export const ChangesWalkthroughSourcePicker = memo(function ChangesWalkthroughSo
   return (
     <Select value={sourceKind} onValueChange={(value) => handleKindChange(value as WalkthroughSource['kind'])}>
       <SelectTrigger
-        aria-label="Changes to walk through"
+        aria-label={t('Changes to walk through')}
         className="h-7 w-auto gap-1 px-2 text-xs md:text-xs"
       >
         <SelectValue />
@@ -114,7 +115,7 @@ export const ChangesWalkthroughSourcePicker = memo(function ChangesWalkthroughSo
       <SelectContent>
         {WALKTHROUGH_SOURCE_OPTIONS.map((option) => (
           <SelectItem key={option.value} value={option.value}>
-            {option.label}
+            {t(option.label)}
           </SelectItem>
         ))}
       </SelectContent>
@@ -137,8 +138,8 @@ const WalkthroughSourceInputs = memo(function WalkthroughSourceInputs() {
   return (
     <div className="space-y-2">
       <Input
-        aria-label="Base branch"
-        placeholder="Default branch"
+        aria-label={t('Base branch')}
+        placeholder={t('Default branch')}
         value={baseInput}
         onChange={(event) => setBaseInput(event.target.value)}
         onBlur={commitInputs}
@@ -150,7 +151,7 @@ const WalkthroughSourceInputs = memo(function WalkthroughSourceInputs() {
       {sourceKind === 'pullRequest' ? (
         <Input
           type="number"
-          aria-label="Pull request number"
+          aria-label={t('Pull request number')}
           value={numberInput}
           onChange={(event) => setNumberInput(event.target.value)}
           onBlur={commitInputs}
@@ -276,13 +277,13 @@ export const ChangesWalkthroughCancel = memo(function ChangesWalkthroughCancel()
     <Button
       variant="outline"
       size="sm"
-      aria-label="Stop generating walkthrough"
+      aria-label={t('Stop generating walkthrough')}
       onClick={stop}
       disabled={stopping}
       className="h-7 gap-1 px-2 text-xs"
     >
       <Square className="h-3.5 w-3.5" />
-      {stopping ? 'Stopping…' : 'Stop'}
+      {stopping ? t('Stopping…') : t('Stop')}
     </Button>
   )
 })
@@ -297,7 +298,7 @@ export const ChangesWalkthroughRegenerate = memo(function ChangesWalkthroughRege
     <Button
       variant="outline"
       size="icon-sm"
-      aria-label="Regenerate walkthrough"
+      aria-label={t('Regenerate walkthrough')}
       onClick={regenerate}
       disabled={generating || sourcePending}
     >
@@ -341,7 +342,7 @@ export const ChangesWalkthroughView = memo(function ChangesWalkthroughView() {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
         <WalkthroughSourceInputs />
-        <p className="text-sm text-muted-foreground">Enter a pull request number</p>
+        <p className="text-sm text-muted-foreground">{t('Enter a pull request number')}</p>
       </div>
     )
   }
@@ -355,18 +356,18 @@ export const ChangesWalkthroughView = memo(function ChangesWalkthroughView() {
       {stale && !generating ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2">
           <p className="text-sm text-warning">
-            Changes have been updated since this walkthrough was generated
+            {t('Changes have been updated since this walkthrough was generated')}
           </p>
           <Button variant="outline" size="sm" onClick={generate}>
             <RefreshCw className="mr-2 h-3.5 w-3.5" />
-            Update walkthrough
+            {t('Update walkthrough')}
           </Button>
         </div>
       ) : null}
 
       {isLoading && !walkthrough && !generating ? (
         <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
-          Loading the walkthrough…
+          {t('Loading the walkthrough…')}
         </p>
       ) : null}
 
@@ -374,18 +375,18 @@ export const ChangesWalkthroughView = memo(function ChangesWalkthroughView() {
         noChanges ? (
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">
-              {source.kind === 'session' ? 'No changes in this session' : 'No changes to walk through'}
+              {source.kind === 'session' ? t('No changes in this session') : t('No changes to walk through')}
             </p>
             <p className="text-sm text-muted-foreground">
-              A walkthrough covers changed files. Change something, then generate one.
+              {t('A walkthrough covers changed files. Change something, then generate one.')}
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Build an interactive walkthrough of {describeWalkthroughSource(source)}.
+              {t('Build an interactive walkthrough of {source}.', { source: describeWalkthroughSource(source) })}
             </p>
-            <Button onClick={generate}>Generate walkthrough</Button>
+            <Button onClick={generate}>{t('Generate walkthrough')}</Button>
           </div>
         )
       ) : null}
@@ -394,11 +395,11 @@ export const ChangesWalkthroughView = memo(function ChangesWalkthroughView() {
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" />
           <span role="status" aria-live="polite">
-            Building the walkthrough in a separate session…
+            {t('Building the walkthrough in a separate session…')}
           </span>
           {openSession ? (
             <Button variant="outline" size="sm" className="ml-auto" onClick={openSession}>
-              Open walkthrough session
+              {t('Open walkthrough session')}
             </Button>
           ) : null}
         </div>
@@ -410,31 +411,31 @@ export const ChangesWalkthroughView = memo(function ChangesWalkthroughView() {
             <Button
               variant="outline"
               size="sm"
-              aria-label="Reload walkthrough"
+              aria-label={t('Reload walkthrough')}
               onClick={() => setReload((value) => value + 1)}
             >
               <RefreshCw className="h-3.5 w-3.5" />
-              Reload
+              {t('Reload')}
             </Button>
             <Button asChild variant="outline" size="sm">
               <a href={artifactUrl} target="_blank" rel="noreferrer">
-                Open in new tab
+                {t('Open in new tab')}
               </a>
             </Button>
             {openSession ? (
               <Button variant="outline" size="sm" onClick={openSession}>
-                Open walkthrough session
+                {t('Open walkthrough session')}
               </Button>
             ) : null}
             {generating || running ? (
               <span role="status" aria-live="polite" className="text-sm text-muted-foreground">
-                Refining…
+                {t('Refining…')}
               </span>
             ) : null}
           </div>
           <SandboxedHtmlFrame
             src={artifactUrl}
-            title="Change walkthrough"
+            title={t('Change walkthrough')}
             reloadKey={`${walkthrough?.publishedAt}:${reload}`}
             className="min-h-0 flex-1"
           />
@@ -453,15 +454,15 @@ export const ChangesWalkthroughView = memo(function ChangesWalkthroughView() {
           }}
         >
           <Textarea
-            aria-label="Refine walkthrough"
-            placeholder="Ask for a change to the walkthrough"
+            aria-label={t('Refine walkthrough')}
+            placeholder={t('Ask for a change to the walkthrough')}
             maxLength={WALKTHROUGH_REFINE_MAX_CHARS}
             value={refineText}
             onChange={(event) => setRefineText(event.target.value)}
           />
           <div className="flex justify-end">
             <Button type="submit" size="sm" disabled={refineText.trim().length === 0 || refining}>
-              {refining ? 'Sending…' : 'Send'}
+              {refining ? t('Sending…') : t('Send')}
             </Button>
           </div>
         </form>
@@ -491,7 +492,7 @@ export function ChangesWalkthroughSheet({
   const close = useCallback(() => onOpenChange(false), [onOpenChange])
 
   return (
-    <SideDrawer isOpen={open} onClose={close} side="right" widthClass="w-full sm:w-[min(640px,92vw)]" ariaLabel="Change walkthrough">
+    <SideDrawer isOpen={open} onClose={close} side="right" widthClass="w-full sm:w-[min(640px,92vw)]" ariaLabel={t('Change walkthrough')}>
       <ChangesWalkthroughProvider
         key={sessionId}
         sessionId={sessionId}
@@ -501,7 +502,7 @@ export function ChangesWalkthroughSheet({
         onOpenSession={onOpenSession}
       >
         <SideDrawerHeader
-          title="Change walkthrough"
+          title={t('Change walkthrough')}
           onClose={close}
           actions={
             <>
