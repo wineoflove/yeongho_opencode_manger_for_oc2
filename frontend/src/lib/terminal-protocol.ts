@@ -42,6 +42,20 @@ export class TerminalFrameDecoder {
   }
 }
 
+export type ArrowDirection = 'up' | 'down' | 'right' | 'left'
+
+const ARROW_CODES: Record<ArrowDirection, string> = { up: 'A', down: 'B', right: 'C', left: 'D' }
+
+/** Cursor key sequence for the terminal's current mode: SS3 (`ESC O`) in application cursor mode, CSI otherwise. */
+export function arrowKeySequence(direction: ArrowDirection, applicationCursorMode: boolean): string {
+  return `\x1b${applicationCursorMode ? 'O' : '['}${ARROW_CODES[direction]}`
+}
+
+/** Meta-prefixes input the way terminals encode Alt: an ESC before the key. */
+export function applyAltModifier(data: string): string {
+  return `\x1b${data}`
+}
+
 export function applyCtrlModifier(data: string): string {
   if (data.length !== 1) return data
 

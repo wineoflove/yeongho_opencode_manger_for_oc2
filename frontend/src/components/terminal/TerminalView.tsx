@@ -1,15 +1,16 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { resizeTerminal } from '@/api/terminals'
-import { applyCtrlModifier } from '@/lib/terminal-protocol'
+import { applyAltModifier, applyCtrlModifier, arrowKeySequence, type ArrowDirection } from '@/lib/terminal-protocol'
 import { resolveTerminalTheme } from '@/lib/terminal-theme'
 import { terminalTargetKey, type TerminalTarget } from '@/lib/terminal-target'
 import { useTerminalSocket } from '@/hooks/useTerminalSocket'
 import { useMobile } from '@/hooks/useMobile'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 const RESIZE_DEBOUNCE_MS = 150
 
@@ -17,6 +18,7 @@ const MONOSPACE_FONT = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas
 
 export interface TerminalViewHandle {
   send: (data: string) => void
+  sendArrow: (direction: ArrowDirection) => void
 }
 
 interface TerminalViewProps {
@@ -26,6 +28,8 @@ interface TerminalViewProps {
   active: boolean
   ctrlArmed: boolean
   onCtrlConsumed: () => void
+  altArmed?: boolean
+  onAltConsumed?: () => void
   onOpenLink: (uri: string) => void
   onExited: () => void
 }
@@ -37,6 +41,8 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(fu
   active,
   ctrlArmed,
   onCtrlConsumed,
+  altArmed = false,
+  onAltConsumed,
   onOpenLink,
   onExited,
 }, ref) {
@@ -46,6 +52,8 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(fu
   const sendRef = useRef<(data: string) => void>(() => {})
   const ctrlArmedRef = useRef(ctrlArmed)
   const onCtrlConsumedRef = useRef(onCtrlConsumed)
+  const altArmedRef = useRef(altArmed)
+  const onAltConsumedRef = useRef(onAltConsumed)
   const onOpenLinkRef = useRef(onOpenLink)
   const onExitedRef = useRef(onExited)
   const isMobile = useMobile()
@@ -57,8 +65,16 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(fu
 
   targetRef.current = target
 
-  ctrlArmedRef.current = ctrlArmed
   onCtrlConsumedRef.current = onCtrlConsumed
+  onAltConsumedRef.current = onAltConsumed
+
+  useLayoutEffect(() => {
+    ctrlArmedRef.current = ctrlArmed
+  }, [ctrlArmed])
+
+  useLayoutEffect(() => {
+    altArmedRef.current = altArmed
+  }, [altArmed])
   onOpenLinkRef.current = onOpenLink
   onExitedRef.current = onExited
   isMobileRef.current = isMobile
@@ -69,16 +85,29 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(fu
   }, [])
 
   const handleInput = useCallback((data: string) => {
+    let output = data
     if (ctrlArmedRef.current) {
-      sendRef.current(applyCtrlModifier(data))
+      ctrlArmedRef.current = false
+      output = applyCtrlModifier(output)
       onCtrlConsumedRef.current()
-      return
     }
-    sendRef.current(data)
+    if (altArmedRef.current) {
+      altArmedRef.current = false
+      output = applyAltModifier(output)
+      onAltConsumedRef.current?.()
+    }
+    sendRef.current(output)
   }, [])
 
+  const handleArrow = useCallback(
+    (direction: ArrowDirection) => {
+      handleInput(arrowKeySequence(direction, terminalRef.current?.modes.applicationCursorKeysMode ?? false))
+    },
+    [handleInput],
+  )
+
   const handleExit = useCallback(() => {
-    terminalRef.current?.write('\r\n[process exited]\r\n')
+    terminalRef.current?.write(`\r\n[${t('Process exited')}]\r\n`)
     onExitedRef.current()
   }, [])
 
@@ -92,7 +121,7 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(fu
   })
   sendRef.current = send
 
-  useImperativeHandle(ref, () => ({ send: handleInput }), [handleInput])
+  useImperativeHandle(ref, () => ({ send: handleInput, sendArrow: handleArrow }), [handleInput, handleArrow])
 
   useEffect(() => {
     const container = containerRef.current

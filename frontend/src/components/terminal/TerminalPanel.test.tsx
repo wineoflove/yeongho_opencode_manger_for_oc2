@@ -18,20 +18,23 @@ vi.mock('@/hooks/useMobile', async () => {
   return { ...actual, useMobile: vi.fn(() => false) }
 })
 
+const viewHandle = vi.hoisted(() => ({ send: vi.fn(), sendArrow: vi.fn() }))
+
 vi.mock('./TerminalView', async () => {
   const React = await import('react')
   return {
     TerminalView: React.forwardRef(function MockTerminalView(
-      props: { ptyID: string; active: boolean; onExited: () => void },
+      props: { ptyID: string; active: boolean; altArmed?: boolean; onExited: () => void },
       ref: React.Ref<unknown>,
     ) {
-      React.useImperativeHandle(ref, () => ({ send: vi.fn() }))
+      React.useImperativeHandle(ref, () => viewHandle)
       return React.createElement(
         'div',
         {
           'data-testid': 'terminal-view',
           'data-pty-id': props.ptyID,
           'data-active': String(props.active),
+          'data-alt-armed': String(props.altArmed ?? false),
         },
         React.createElement(
           'button',
@@ -451,5 +454,21 @@ describe('TerminalPanel', () => {
     renderPanel()
     await screen.findAllByTestId('terminal-view')
     expect(screen.getByTestId('terminal-key-bar')).toBeInTheDocument()
+  })
+
+  it('routes key-bar arrows through the active view and arms alt for the next input', async () => {
+    mockTerminalHooks([runningTerminal])
+    vi.mocked(useMobile).mockReturnValue(true)
+    renderPanel()
+    const view = (await screen.findAllByTestId('terminal-view'))[0]
+
+    fireEvent.click(screen.getByRole('button', { name: 'Arrow up' }))
+    expect(viewHandle.sendArrow).toHaveBeenCalledWith('up')
+
+    const alt = screen.getByRole('button', { name: 'Alt modifier' })
+    expect(alt).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(alt)
+    expect(alt).toHaveAttribute('aria-pressed', 'true')
+    expect(view).toHaveAttribute('data-alt-armed', 'true')
   })
 })

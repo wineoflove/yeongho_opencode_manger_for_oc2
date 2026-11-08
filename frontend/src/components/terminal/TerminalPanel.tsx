@@ -11,8 +11,10 @@ import { useUrlParams } from '@/hooks/useUrlParams'
 import { openUrlFromManager } from '@/lib/open-url'
 import { cn } from '@/lib/utils'
 import type { TerminalTarget } from '@/lib/terminal-target'
+import type { ArrowDirection } from '@/lib/terminal-protocol'
 import { TerminalKeyBar } from './TerminalKeyBar'
 import type { TerminalViewHandle } from './TerminalView'
+import { t } from '@/i18n/translate'
 
 const TerminalView = lazy(() =>
   import('./TerminalView').then((module) => ({ default: module.TerminalView })),
@@ -44,6 +46,7 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
   const { mutate: removeTerminal, isPending: isRemoving } = useRemoveTerminal(target)
 
   const [ctrlArmed, setCtrlArmed] = useState(false)
+  const [altArmed, setAltArmed] = useState(false)
   const [pendingClose, setPendingClose] = useState<TerminalInfo | null>(null)
   const [dismissedTerminalIds, setDismissedTerminalIds] = useState<ReadonlySet<string>>(() => new Set())
   const removingTerminalIdsRef = useRef(new Set<string>())
@@ -56,7 +59,7 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
   )
 
   const nextShellTitle = useCallback(
-    () => `Terminal ${terminals.filter((terminal) => terminal.kind === 'shell').length + 1}`,
+    () => t('Terminal {number}', { number: terminals.filter((terminal) => terminal.kind === 'shell').length + 1 }),
     [terminals],
   )
 
@@ -171,8 +174,15 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
     viewHandlesRef.current.get(activeTerminalId)?.send(input)
   }, [activeTerminalId])
 
+  const handleArrow = useCallback((direction: ArrowDirection) => {
+    if (!activeTerminalId) return
+    viewHandlesRef.current.get(activeTerminalId)?.sendArrow(direction)
+  }, [activeTerminalId])
+
   const handleToggleCtrl = useCallback(() => setCtrlArmed((armed) => !armed), [])
   const handleCtrlConsumed = useCallback(() => setCtrlArmed(false), [])
+  const handleToggleAlt = useCallback(() => setAltArmed((armed) => !armed), [])
+  const handleAltConsumed = useCallback(() => setAltArmed(false), [])
 
   const handleOpenLink = useCallback((uri: string) => {
     openUrlFromManager(uri, { openPreview })
@@ -199,14 +209,14 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
               <span className="truncate">{terminal.title}</span>
               {terminal.status === 'exited' && (
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  {terminal.exitCode !== undefined ? `exited (${terminal.exitCode})` : 'exited'}
+                  {terminal.exitCode !== undefined ? t('exited ({code})', { code: terminal.exitCode }) : t('exited')}
                 </span>
               )}
             </button>
             <button
               type="button"
               onClick={() => handleCloseTab(terminal)}
-              aria-label={`Close ${terminal.title}`}
+              aria-label={t('Close {name}', { name: terminal.title })}
               className={cn(
                 'flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground',
                 isMobile ? 'h-8 w-8' : 'h-6 w-6',
@@ -221,7 +231,7 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
           size="sm"
           onClick={handleCreate}
           disabled={!directory || isCreating}
-          aria-label="New terminal"
+          aria-label={t('New terminal')}
           className="h-7 w-7 p-0 flex-shrink-0"
         >
           <Plus className="h-4 w-4" />
@@ -231,13 +241,13 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
       <div className="relative flex-1 min-h-0 bg-background">
         {terminals.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {error && !isCreating ? `Could not load terminals: ${error.message}` : isLoading || isCreating ? 'Starting terminal...' : 'No terminals'}
+            {error && !isCreating ? t('Could not load terminals: {reason}', { reason: error.message }) : isLoading || isCreating ? t('Starting terminal...') : t('No terminals')}
           </div>
         ) : (
           <Suspense
             fallback={
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Loading terminal...
+                {t('Loading terminal...')}
               </div>
             }
           >
@@ -254,6 +264,8 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
                 active={terminal.id === activeTerminalId}
                 ctrlArmed={ctrlArmed}
                 onCtrlConsumed={handleCtrlConsumed}
+                altArmed={altArmed}
+                onAltConsumed={handleAltConsumed}
                 onOpenLink={handleOpenLink}
                 onExited={() => handleTerminalExited(terminal.id)}
               />
@@ -263,7 +275,14 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
       </div>
 
       {isMobile && terminals.length > 0 && (
-        <TerminalKeyBar onSend={handleKeySend} ctrlArmed={ctrlArmed} onToggleCtrl={handleToggleCtrl} />
+        <TerminalKeyBar
+          onSend={handleKeySend}
+          onArrow={handleArrow}
+          ctrlArmed={ctrlArmed}
+          onToggleCtrl={handleToggleCtrl}
+          altArmed={altArmed}
+          onToggleAlt={handleToggleAlt}
+        />
       )}
 
       <ConfirmDestructiveDialog
@@ -274,10 +293,10 @@ export function TerminalWorkspace({ target, directory, isOpen, onLastTerminalExi
           setPendingClose(null)
         }}
         onCancel={() => setPendingClose(null)}
-        title="Close Terminal"
-        description="Close this terminal?"
-        confirmLabel="Close terminal"
-        pendingLabel="Closing..."
+        title={t('Close Terminal')}
+        description={t('Close this terminal?')}
+        confirmLabel={t('Close terminal')}
+        pendingLabel={t('Closing...')}
         isPending={isRemoving}
       />
     </div>
@@ -301,14 +320,14 @@ export function TerminalPanel({ target, directory, isOpen, onClose }: TerminalPa
         <DialogHeader className={cn('px-4 py-2 border-b border-border flex-shrink-0', isMobile && 'relative')}>
           <DialogTitle className="flex items-center gap-2">
             <SquareTerminal className="w-5 h-5" />
-            Terminal
+            {t('Terminal')}
           </DialogTitle>
           {isMobile && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
-              aria-label="Close terminal panel"
+              aria-label={t('Close terminal panel')}
               className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
             >
               <X className="h-6 w-6" />
