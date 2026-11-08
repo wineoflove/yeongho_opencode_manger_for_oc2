@@ -6,6 +6,7 @@ import {
   SANDBOX_MEMORY_GIB_MAX,
   SANDBOX_MEMORY_GIB_MIN,
 } from '@/lib/sandboxResources'
+import { t } from '@/i18n/translate'
 
 type SandboxResourceInputsProps = {
   idPrefix: string
@@ -37,7 +38,7 @@ export function SandboxResourceInputs({
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={cpusId}>CPUs</Label>
+          <Label htmlFor={cpusId}>{t('CPUs')}</Label>
           <Input
             id={cpusId}
             type="number"
@@ -52,7 +53,7 @@ export function SandboxResourceInputs({
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor={memoryId}>Memory (GiB)</Label>
+          <Label htmlFor={memoryId}>{t('Memory (GiB)')}</Label>
           <Input
             id={memoryId}
             type="number"
