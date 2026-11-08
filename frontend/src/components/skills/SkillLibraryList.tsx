@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { SettingsList, SettingsListRow } from '@/components/ui/settings-list'
 import type { SkillFileInfo, SkillScope } from '@opencode-manager/shared'
+import { msg, t } from '@/i18n/translate'
 
 type SkillFilter = 'all' | SkillScope
 
@@ -28,14 +29,16 @@ interface SkillLibraryListProps {
   maxHeightClassName?: string
 }
 
+const SKILL_FILTER_LABELS: Record<SkillFilter, string> = { all: msg('All'), project: msg('Project'), global: msg('Global') }
+
 const getSkillKey = (skill: SkillFileInfo) => `${skill.scope}-${skill.repoId ?? 'global'}-${skill.name}`
 
 const getScopeLabel = (skill: SkillFileInfo) => {
-  if (skill.scope === 'global') return 'Global'
-  return skill.repoName ? `Project: ${skill.repoName}` : 'Project'
+  if (skill.scope === 'global') return t('Global')
+  return skill.repoName ? t('Project: {name}', { name: skill.repoName }) : t('Project')
 }
 
-const getCompactScopeLabel = (skill: SkillFileInfo) => skill.scope === 'global' ? 'Global' : 'Project'
+const getCompactScopeLabel = (skill: SkillFileInfo) => skill.scope === 'global' ? t('Global') : t('Project')
 
 const matchesSkillSearch = (skill: SkillFileInfo, search: string) => {
   const query = search.trim().toLowerCase()
@@ -81,14 +84,14 @@ export function SkillLibraryList({
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search skills..."
+            placeholder={t('Search skills...')}
             className="pl-9"
           />
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-1">
           {(['all', 'project', 'global'] as const).map((key) => (
             <Button key={key} type="button" variant={filter === key ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter(key)}>
-              <span>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+              <span>{t(SKILL_FILTER_LABELS[key])}</span>
               <span>{counts[key]}</span>
             </Button>
           ))}
@@ -99,9 +102,9 @@ export function SkillLibraryList({
         isLoading={isLoading}
         error={error}
         isEmpty={filteredSkills.length === 0}
-        emptyTitle={emptyTitle ?? 'No skills available'}
-        emptyHint={emptyHint ?? 'Create or install a skill to get started.'}
-        errorTitle="Failed to load skills"
+        emptyTitle={emptyTitle ?? t('No skills available')}
+        emptyHint={emptyHint ?? t('Create or install a skill to get started.')}
+        errorTitle={t('Failed to load skills')}
         maxHeightClassName={maxHeightClassName}
       >
         {filteredSkills.map((skill) => (
@@ -113,7 +116,7 @@ export function SkillLibraryList({
             onClick={primaryAction ? () => primaryAction.onClick(skill) : undefined}
             primaryAction={primaryAction ? { label: primaryAction.label, onClick: () => primaryAction.onClick(skill) } : undefined}
             actions={rowActions.map((a) => ({ label: a.label, destructive: a.destructive, onClick: () => a.onClick(skill) }))}
-            actionsLabel={`Actions for ${skill.name}`}
+            actionsLabel={t('Actions for {name}', { name: skill.name })}
             badges={
               <>
                 <Badge variant={skill.scope === 'global' ? 'secondary' : 'outline'} className="shrink-0 sm:hidden">
