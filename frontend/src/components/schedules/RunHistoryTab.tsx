@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { History, Loader2, Trash2 } from 'lucide-react'
 import { ScheduleListToolbar, ScheduleRunDrawer, ScheduleRunsTable } from '@/components/schedules'
 import { formatRunBranch, getRunStatusLabel, getRunTitle } from './schedule-run-display'
+import { t } from '@/i18n/translate'
 
 interface RunHistoryTabProps {
   selectedJob: ScheduleJob | undefined
@@ -41,8 +42,8 @@ export function RunHistoryTab({
         <Card className="max-w-3xl border-dashed border-border/70 w-full">
           <CardContent className="flex flex-col items-center p-8 sm:p-10 text-center">
             <History className="h-10 w-10 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">No job selected</p>
-            <p className="mt-2 text-sm text-muted-foreground">Select a job from the Jobs tab to view its run history</p>
+            <p className="text-lg font-medium">{t('No job selected')}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{t('Select a job from the Jobs tab to view its run history')}</p>
           </CardContent>
         </Card>
       </div>
@@ -62,17 +63,17 @@ export function RunHistoryTab({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <ScheduleListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search runs">
+      <ScheduleListToolbar search={search} onSearchChange={setSearch} searchPlaceholder={t('Search runs')}>
         <Button
           variant="outline"
           size="sm"
           className="h-9 shrink-0"
           onClick={onClearHistory}
           disabled={clearHistoryPending || !runs?.length}
-          aria-label="Clear history"
+          aria-label={t('Clear history')}
         >
           {clearHistoryPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-          <span className="hidden sm:inline">Clear history</span>
+          <span className="hidden sm:inline">{t('Clear history')}</span>
         </Button>
       </ScheduleListToolbar>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 pb-mobile-tabbar sm:pb-2">

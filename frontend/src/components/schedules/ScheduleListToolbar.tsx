@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { t } from '@/i18n/translate'
 
 interface ScheduleListToolbarProps {
   search: string
@@ -32,7 +33,7 @@ export function ScheduleListToolbar({ search, onSearchChange, searchPlaceholder,
           <button
             type="button"
             onClick={() => onSearchChange('')}
-            aria-label="Clear search"
+            aria-label={t('Clear search')}
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />

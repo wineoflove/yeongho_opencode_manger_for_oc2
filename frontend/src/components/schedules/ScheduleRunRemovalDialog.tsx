@@ -5,6 +5,7 @@ import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertTriangle, Loader2 } from 'lucide-react'
+import { t, tn } from '@/i18n/translate'
 
 interface ScheduleRunRemovalDialogProps {
   open: boolean
@@ -54,16 +55,16 @@ export function ScheduleRunRemovalDialog({
         <Alert className="overflow-hidden">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
           <AlertDescription className="break-words">
-            {worktreeLabel} will be removed. Choose how to handle {affectedWorktreeCount === 1 ? 'it' : 'them'}.
+            {tn('{label} will be removed. Choose how to handle it.', '{label} will be removed. Choose how to handle them.', affectedWorktreeCount, { label: worktreeLabel })}
           </AlertDescription>
         </Alert>
 
         <div className="space-y-2 text-sm">
           <p>
-            <span className="font-medium">Commit and remove</span> — pending changes are committed to each run branch, then the worktree folders are removed. The branches are kept.
+            <span className="font-medium">{t('Commit and remove')}</span> — {t('pending changes are committed to each run branch, then the worktree folders are removed. The branches are kept.')}
           </p>
           <p>
-            <span className="font-medium">Force delete</span> — the worktree folders are force-removed and their run branches deleted. Any uncommitted changes are lost.
+            <span className="font-medium">{t('Force delete')}</span> — {t('the worktree folders are force-removed and their run branches deleted. Any uncommitted changes are lost.')}
           </p>
         </div>
 
@@ -74,7 +75,7 @@ export function ScheduleRunRemovalDialog({
             disabled={isPending}
             className="flex-1 sm:flex-none"
           >
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             variant="destructive"
@@ -83,7 +84,7 @@ export function ScheduleRunRemovalDialog({
             className="flex-1 sm:flex-none"
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Force delete
+            {t('Force delete')}
           </Button>
           <Button
             onClick={() => onConfirm('commit')}
@@ -91,7 +92,7 @@ export function ScheduleRunRemovalDialog({
             className="flex-1 sm:flex-none"
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Commit and remove
+            {t('Commit and remove')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -17,6 +17,7 @@ import { Bot, CalendarClock, Clock3, GitBranch, History, Loader2, Pencil, Play, 
 import { useScheduleModels } from '@/hooks/useScheduleModels'
 import { useScheduleTarget } from '@/hooks/useScheduleTarget'
 import { resolveScheduleModel } from '@/lib/schedules/schedule-model'
+import { t } from '@/i18n/translate'
 
 interface JobDetailTabProps {
   selectedJob: ScheduleJob | undefined
@@ -56,8 +57,8 @@ export function JobDetailTab({
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <CalendarClock className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-          <p className="text-lg font-medium">No job selected</p>
-          <p className="mt-2 text-sm text-muted-foreground">Select a job from the Jobs tab to view details</p>
+          <p className="text-lg font-medium">{t('No job selected')}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('Select a job from the Jobs tab to view details')}</p>
         </div>
       </div>
     )
@@ -71,32 +72,32 @@ export function JobDetailTab({
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-xl font-semibold tracking-tight">{selectedJob.name}</h3>
-                <Badge className={getJobStatusTone(selectedJob)}>{selectedJob.enabled ? 'Enabled' : 'Paused'}</Badge>
+                <Badge className={getJobStatusTone(selectedJob)}>{selectedJob.enabled ? t('Enabled') : t('Paused')}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{selectedJob.description || 'No description provided.'}</p>
+              <p className="text-sm text-muted-foreground">{selectedJob.description || t('No description provided.')}</p>
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> {formatTimestamp(selectedJob.nextRunAt)}</span>
-                <span className="inline-flex items-center gap-1"><History className="h-3.5 w-3.5" /> Last run {formatTimestamp(selectedJob.lastRunAt)}</span>
+                <span className="inline-flex items-center gap-1"><History className="h-3.5 w-3.5" /> {t('Last run {time}', { time: formatTimestamp(selectedJob.lastRunAt) })}</span>
                 <span className="inline-flex items-center gap-1"><CalendarClock className="h-3.5 w-3.5" /> {formatScheduleSummary(selectedJob)}</span>
-                <span className="inline-flex items-center gap-1"><Bot className="h-3.5 w-3.5" /> {selectedJob.agentSlug ?? 'default agent'}</span>
+                <span className="inline-flex items-center gap-1"><Bot className="h-3.5 w-3.5" /> {selectedJob.agentSlug ?? t('default agent')}</span>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={onToggleEnabled} disabled={updatePending}>
-                {selectedJob.enabled ? 'Pause' : 'Enable'}
+                {selectedJob.enabled ? t('Pause') : t('Enable')}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => onEdit(selectedJob)} title="Edit">
+              <Button variant="outline" size="sm" onClick={() => onEdit(selectedJob)} title={t('Edit')}>
                 <Pencil className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Edit</span>
+                <span className="hidden sm:inline">{t('Edit')}</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={onRunNow} disabled={runPending || runningRun || isJobFetching} title={runningRun ? 'Run in progress' : isJobFetching ? 'Refreshing...' : 'Run now'}>
+              <Button variant="outline" size="sm" onClick={onRunNow} disabled={runPending || runningRun || isJobFetching} title={runningRun ? t('Run in progress') : isJobFetching ? t('Refreshing...') : t('Run now')}>
                 {runPending || isJobFetching ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <Play className="h-4 w-4 sm:mr-2" />}
-                <span className="hidden sm:inline">{runningRun ? 'Run in progress' : isJobFetching ? 'Refreshing...' : 'Run now'}</span>
+                <span className="hidden sm:inline">{runningRun ? t('Run in progress') : isJobFetching ? t('Refreshing...') : t('Run now')}</span>
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => onDelete(selectedJob.id)} title="Delete">
+              <Button variant="destructive" size="sm" onClick={() => onDelete(selectedJob.id)} title={t('Delete')}>
                 <Trash2 className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Delete</span>
+                <span className="hidden sm:inline">{t('Delete')}</span>
               </Button>
             </div>
           </div>
@@ -107,8 +108,8 @@ export function JobDetailTab({
             <div className="space-y-4">
               <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
                 <div className="mb-3">
-                  <h3 className="text-base font-medium">Execution Prompt</h3>
-                  <p className="text-sm text-muted-foreground">Sent to OpenCode as the first message in the generated session.</p>
+                  <h3 className="text-base font-medium">{t('Execution Prompt')}</h3>
+                  <p className="text-sm text-muted-foreground">{t('Sent to OpenCode as the first message in the generated session.')}</p>
                 </div>
                 <pre className="whitespace-pre-wrap break-words text-sm font-mono leading-6 text-foreground/90">{selectedJob.prompt}</pre>
               </section>
@@ -116,8 +117,8 @@ export function JobDetailTab({
                 {hasSkillMetadata(selectedJob) && (
                   <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
                   <div className="mb-3">
-                    <h3 className="text-base font-medium flex items-center gap-2"><Sparkles className="h-4 w-4" /> Advanced metadata</h3>
-                    <p className="text-sm text-muted-foreground">Stored for future scheduler integrations. The current MVP does not execute against these fields yet.</p>
+                    <h3 className="text-base font-medium flex items-center gap-2"><Sparkles className="h-4 w-4" /> {t('Advanced metadata')}</h3>
+                    <p className="text-sm text-muted-foreground">{t('Stored for future scheduler integrations. The current MVP does not execute against these fields yet.')}</p>
                   </div>
                   <pre className="whitespace-pre-wrap break-words text-sm font-mono leading-6 text-foreground/90">{JSON.stringify(selectedJob.skillMetadata, null, 2)}</pre>
                 </section>
@@ -127,18 +128,18 @@ export function JobDetailTab({
                 <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-base font-medium flex items-center gap-2"><GitBranch className="h-4 w-4" /> Worktrees ({worktrees.length})</h3>
-                      <p className="text-sm text-muted-foreground">Worktrees this schedule has on disk. Removing one commits any pending changes to its branch first and keeps the branch.</p>
+                      <h3 className="text-base font-medium flex items-center gap-2"><GitBranch className="h-4 w-4" /> {t('Worktrees ({count})', { count: worktrees.length })}</h3>
+                      <p className="text-sm text-muted-foreground">{t('Worktrees this schedule has on disk. Removing one commits any pending changes to its branch first and keeps the branch.')}</p>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      aria-label="Remove all worktrees"
+                      aria-label={t('Remove all worktrees')}
                       onClick={() => { if (repoId !== undefined) removeWorktrees.mutate({ repoId, jobId: selectedJob.id }) }}
                       disabled={removeWorktrees.isPending || idleWorktreeCount === 0}
                     >
                       {removeWorktrees.isPending ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 sm:mr-2" />}
-                      <span className="hidden sm:inline">Remove all</span>
+                      <span className="hidden sm:inline">{t('Remove all')}</span>
                     </Button>
                   </div>
                   <ul className="divide-y divide-border/60">
@@ -148,14 +149,14 @@ export function JobDetailTab({
                           <p className="truncate font-mono text-sm">{worktree.branch}</p>
                           <p className="truncate text-xs text-muted-foreground" title={worktree.worktreePath}>
                             {formatScheduleWorktreeLabel(worktree.runId)}
-                            {worktree.inUse ? ' · in use' : ''} · {worktree.worktreePath}
+                            {worktree.inUse ? ` · ${t('in use')}` : ''} · {worktree.worktreePath}
                           </p>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          aria-label={`Remove worktree ${worktree.branch}`}
-                          title={worktree.inUse ? 'In use by a running run' : 'Remove worktree'}
+                          aria-label={t('Remove worktree {branch}', { branch: worktree.branch })}
+                          title={worktree.inUse ? t('In use by a running run') : t('Remove worktree')}
                           onClick={() => { if (repoId !== undefined) removeWorktrees.mutate({ repoId, jobId: selectedJob.id, worktreePath: worktree.worktreePath }) }}
                           disabled={worktree.inUse || removeWorktrees.isPending}
                         >
@@ -170,45 +171,45 @@ export function JobDetailTab({
 
             <Card className="border-border/60 bg-background/60 shadow-none">
               <CardHeader>
-                <CardTitle className="text-base">Execution Settings</CardTitle>
+                <CardTitle className="text-base">{t('Execution Settings')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Schedule</p>
+                  <p className="text-muted-foreground">{t('Schedule')}</p>
                   <p className="font-medium break-words">{formatScheduleSummary(selectedJob)}</p>
                   {selectedJob.scheduleMode === 'cron' && selectedJob.cronExpression && (
                     <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{selectedJob.cronExpression}</p>
                   )}
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Agent</p>
-                  <p className="font-medium">{selectedJob.agentSlug ?? 'Default agent'}</p>
+                  <p className="text-muted-foreground">{t('Agent')}</p>
+                  <p className="font-medium">{selectedJob.agentSlug ?? t('Default agent')}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Model</p>
-                  <p className="font-medium break-all">{resolvedModel ?? 'Workspace default'}</p>
+                  <p className="text-muted-foreground">{t('Model')}</p>
+                  <p className="font-medium break-all">{resolvedModel ?? t('Workspace default')}</p>
                 </div>
                 {(isRemote || selectedJob.repoId !== ASSISTANT_REPO_ID) && (
                   <div>
-                    <p className="text-muted-foreground">Workspace</p>
+                    <p className="text-muted-foreground">{t('Workspace')}</p>
                     <p className="font-medium">{formatWorkspaceMode(selectedJob.workspaceMode)}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-muted-foreground">Sandbox</p>
+                  <p className="text-muted-foreground">{t('Sandbox')}</p>
                   <p className="font-medium">{formatScheduleSandbox(selectedJob.sandbox)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Created</p>
+                  <p className="text-muted-foreground">{t('Created')}</p>
                   <p className="font-medium">{formatTimestamp(selectedJob.createdAt)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Updated</p>
+                  <p className="text-muted-foreground">{t('Updated')}</p>
                   <p className="font-medium">{formatTimestamp(selectedJob.updatedAt)}</p>
                 </div>
                 {selectedJob.branch && (
                   <div>
-                    <p className="text-muted-foreground">Base branch</p>
+                    <p className="text-muted-foreground">{t('Base branch')}</p>
                     <p className="font-medium font-mono">{selectedJob.branch}</p>
                   </div>
                 )}

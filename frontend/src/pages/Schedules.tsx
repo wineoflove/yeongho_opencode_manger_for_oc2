@@ -8,6 +8,7 @@ import { Header } from '@/components/ui/header'
 import { Button } from '@/components/ui/button'
 import { getReturnToPath } from '@/lib/navigation'
 import { Loader2, Plus } from 'lucide-react'
+import { t } from '@/i18n/translate'
 
 export function Schedules() {
   const { id } = useParams<{ id: string }>()
@@ -31,7 +32,7 @@ export function Schedules() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <p className="text-muted-foreground">
-          {repoId === 0 ? 'Assistant not found' : 'Repository not found'}
+          {repoId === 0 ? t('Assistant not found') : t('Repository not found')}
         </p>
       </div>
     )
@@ -51,9 +52,9 @@ export function Schedules() {
           <Header.Actions>
             <Button onClick={openNewJob} size="sm" className="hidden sm:flex">
               <Plus className="w-4 h-4 mr-2" />
-              New Schedule
+              {t('New Schedule')}
             </Button>
-            <Button onClick={openNewJob} aria-label="New schedule" size="sm" className="sm:hidden h-10 w-10 p-0">
+            <Button onClick={openNewJob} aria-label={t('New schedule')} size="sm" className="sm:hidden h-10 w-10 p-0">
               <Plus className="w-5 h-5" />
             </Button>
           </Header.Actions>

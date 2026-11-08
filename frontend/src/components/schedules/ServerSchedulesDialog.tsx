@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { ScheduleServerTarget } from '@/api/schedules'
 import { ServerSchedulesContent } from './ServerSchedulesContent'
+import { t } from '@/i18n/translate'
 
 interface ServerSchedulesDialogProps {
   open: boolean
@@ -13,7 +14,7 @@ export function ServerSchedulesDialog({ open, onOpenChange, target }: ServerSche
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-dvh max-h-dvh w-full max-w-5xl flex-col gap-0 overflow-hidden border-border bg-background p-0 shadow-lg sm:h-[min(88vh,860px)] sm:max-h-[88vh] sm:max-w-[92vw]">
         <DialogHeader className="shrink-0 space-y-1 border-b border-border px-3 py-4 sm:px-6">
-          <DialogTitle>Schedules</DialogTitle>
+          <DialogTitle>{t('Schedules')}</DialogTitle>
           <DialogDescription className="mt-0 truncate font-mono text-xs">
             {target?.directory ?? ''}
           </DialogDescription>

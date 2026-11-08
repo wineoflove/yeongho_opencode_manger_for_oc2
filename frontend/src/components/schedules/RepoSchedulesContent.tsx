@@ -30,6 +30,7 @@ import {
   ScheduleTabMenu,
 } from '@/components/schedules'
 import { DELETE_SCHEDULE_DESCRIPTION, matchesScheduleJobSearch, toUpdateScheduleRequest } from './schedule-utils'
+import { t, tn } from '@/i18n/translate'
 
 interface RepoSchedulesContentProps {
   repoId: number
@@ -60,10 +61,7 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
   const repoScheduleTab = scheduleTab === 'prompts' ? 'jobs' : scheduleTab
 
   const { data: allSchedules, isLoading: jobsLoading } = useAllSchedules()
-  const jobs = useMemo(
-    () => allSchedules?.filter((job) => job.repoId === repoId),
-    [allSchedules, repoId],
-  )
+  const jobs = useMemo(() => allSchedules?.filter((job) => job.repoId === repoId), [allSchedules, repoId])
   const { data: selectedJob, isFetching: isJobFetching } = useRepoSchedule(repoId, jobId)
   const { data: runs, isLoading: runsLoading } = useRepoScheduleRuns(repoId, jobId, 30)
   const { data: scheduleWorktrees = [] } = useScheduleWorktrees(repoId, jobId)
@@ -155,11 +153,14 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
   const hasJobs = (jobs?.length ?? 0) > 0
 
   const handleCreate = (data: CreateScheduleJobRequest) => {
-    createMutation.mutate({ repoId, data }, {
-      onSuccess: (job) => {
-        selectJobAndCloseDialog(job.id)
+    createMutation.mutate(
+      { repoId, data },
+      {
+        onSuccess: (job) => {
+          selectJobAndCloseDialog(job.id)
+        },
       },
-    })
+    )
   }
 
   const handleUpdate = (data: CreateScheduleJobRequest) => {
@@ -167,15 +168,18 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
       return
     }
 
-    updateMutation.mutate({
-      repoId,
-      jobId,
-      data: toUpdateScheduleRequest(data),
-    }, {
-      onSuccess: () => {
-        closeDialog()
+    updateMutation.mutate(
+      {
+        repoId,
+        jobId,
+        data: toUpdateScheduleRequest(data),
       },
-    })
+      {
+        onSuccess: () => {
+          closeDialog()
+        },
+      },
+    )
   }
 
   const handleDelete = () => {
@@ -183,11 +187,14 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
       return
     }
 
-    deleteMutation.mutate({ repoId, jobId }, {
-      onSuccess: () => {
-        closeDialog()
+    deleteMutation.mutate(
+      { repoId, jobId },
+      {
+        onSuccess: () => {
+          closeDialog()
+        },
       },
-    })
+    )
   }
 
   const handleToggleEnabled = (job: ScheduleJob) => {
@@ -199,28 +206,34 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
   }
 
   const handleRunNow = (job: ScheduleJob) => {
-    runMutation.mutate({ repoId, jobId: job.id }, {
-      onSuccess: (run) => {
-        selectRun(run.id)
+    runMutation.mutate(
+      { repoId, jobId: job.id },
+      {
+        onSuccess: (run) => {
+          selectRun(run.id)
+        },
       },
-    })
+    )
   }
 
   const handleCancelRun = () => {
-    const target = runId !== null ? runs?.find((run) => run.id === runId) ?? null : null
+    const target = runId !== null ? (runs?.find((run) => run.id === runId) ?? null) : null
     if (!target || target.status !== 'running') {
       return
     }
 
-    cancelRunMutation.mutate({
-      repoId,
-      jobId: target.jobId,
-      runId: target.id,
-    }, {
-      onSuccess: (run) => {
-        selectRun(run.id)
+    cancelRunMutation.mutate(
+      {
+        repoId,
+        jobId: target.jobId,
+        runId: target.id,
       },
-    })
+      {
+        onSuccess: (run) => {
+          selectRun(run.id)
+        },
+      },
+    )
   }
 
   const handleCancelJobRun = (job: ScheduleJobWithRepo) => {
@@ -240,9 +253,12 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
       return
     }
 
-    clearRunsMutation.mutate({ repoId, jobId, worktrees }, {
-      onSuccess: () => setClearRunsOpen(false),
-    })
+    clearRunsMutation.mutate(
+      { repoId, jobId, worktrees },
+      {
+        onSuccess: () => setClearRunsOpen(false),
+      },
+    )
   }
 
   const handleConfirmDeleteRun = (worktrees?: ScheduleRunWorktreesMode) => {
@@ -250,9 +266,12 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
       return
     }
 
-    deleteRunMutation.mutate({ repoId, jobId, runId: runToDelete, worktrees }, {
-      onSuccess: () => setRunToDelete(null),
-    })
+    deleteRunMutation.mutate(
+      { repoId, jobId, runId: runToDelete, worktrees },
+      {
+        onSuccess: () => setRunToDelete(null),
+      },
+    )
   }
 
   return (
@@ -266,12 +285,16 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
                   <CalendarClock className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div className="space-y-2">
-                  <p className="text-xl font-semibold tracking-tight">No schedules yet</p>
-                  <p className="text-sm text-muted-foreground">Create a schedule for this repo to automate recurring agent work, then inspect runs, logs, and sessions here.</p>
+                  <p className="text-xl font-semibold tracking-tight">{t('No schedules yet')}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t(
+                      'Create a schedule for this repo to automate recurring agent work, then inspect runs, logs, and sessions here.',
+                    )}
+                  </p>
                 </div>
                 <Button onClick={openNewJob}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Create First Schedule
+                  {t('Create First Schedule')}
                 </Button>
               </CardContent>
             </Card>
@@ -280,30 +303,34 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
           <>
             {repoScheduleTab === 'jobs' && (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <ScheduleListToolbar search={jobSearch} onSearchChange={setJobSearch} searchPlaceholder="Search jobs">
+                <ScheduleListToolbar
+                  search={jobSearch}
+                  onSearchChange={setJobSearch}
+                  searchPlaceholder={t('Search jobs')}
+                >
                   {embedded ? (
                     <Button onClick={openNewJob} size="sm" className="h-9 shrink-0">
                       <Plus className="w-4 h-4 mr-1" />
-                      New Schedule
+                      {t('New Schedule')}
                     </Button>
                   ) : null}
                 </ScheduleListToolbar>
                 <div className="flex min-h-0 flex-1 flex-col pt-2 pb-mobile-tabbar sm:pb-2">
-                <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border/70">
-                  <ScheduleJobsTable
-                    jobs={(jobs ?? []).filter((job) => matchesScheduleJobSearch(job, jobSearch))}
-                    showRepo={false}
-                    selectedJobId={jobId}
-                    onOpen={(job) => selectJobAndView(job.id)}
-                    onRunNow={handleRunNow}
-                    onToggleEnabled={handleToggleEnabled}
-                    onEdit={(job) => openEditJob(job.id)}
-                    onDelete={(job) => openDeleteJob(job.id)}
-                    onCancelRun={handleCancelJobRun}
-                    runPending={runMutation.isPending}
-                    cancelPending={cancelRunMutation.isPending}
-                  />
-                </div>
+                  <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border/70">
+                    <ScheduleJobsTable
+                      jobs={(jobs ?? []).filter((job) => matchesScheduleJobSearch(job, jobSearch))}
+                      showRepo={false}
+                      selectedJobId={jobId}
+                      onOpen={(job) => selectJobAndView(job.id)}
+                      onRunNow={handleRunNow}
+                      onToggleEnabled={handleToggleEnabled}
+                      onEdit={(job) => openEditJob(job.id)}
+                      onDelete={(job) => openDeleteJob(job.id)}
+                      onCancelRun={handleCancelJobRun}
+                      runPending={runMutation.isPending}
+                      cancelPending={cancelRunMutation.isPending}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -312,8 +339,12 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
                 selectedJob={selectedJob}
                 onEdit={(job) => openEditJob(job.id)}
                 onDelete={openDeleteJob}
-                onToggleEnabled={() => { if (selectedJob) handleToggleEnabled(selectedJob) }}
-                onRunNow={() => { if (selectedJob) handleRunNow(selectedJob) }}
+                onToggleEnabled={() => {
+                  if (selectedJob) handleToggleEnabled(selectedJob)
+                }}
+                onRunNow={() => {
+                  if (selectedJob) handleRunNow(selectedJob)
+                }}
                 updatePending={updateMutation.isPending}
                 runPending={runMutation.isPending}
                 runningRun={Boolean(runningRun)}
@@ -364,8 +395,8 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
         onOpenChange={(open) => !open && closeDialog()}
         onConfirm={handleDelete}
         onCancel={() => closeDialog()}
-        title="Delete Schedule"
-        description={DELETE_SCHEDULE_DESCRIPTION}
+        title={t('Delete Schedule')}
+        description={t(DELETE_SCHEDULE_DESCRIPTION)}
         itemName={deleteJob?.name}
         isDeleting={deleteMutation.isPending}
       />
@@ -373,9 +404,15 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
       <ScheduleRunRemovalDialog
         open={clearRunsOpen}
         onOpenChange={(open) => !open && setClearRunsOpen(false)}
-        title="Clear run history"
+        title={t('Clear run history')}
         description={
-          <>This permanently deletes all <strong>{clearableRuns.length}</strong> finished run{clearableRuns.length === 1 ? '' : 's'} for this schedule. A run in progress is kept. This cannot be undone.</>
+          <>
+            {tn(
+              'This permanently deletes {count} finished run for this schedule. A run in progress is kept. This cannot be undone.',
+              'This permanently deletes all {count} finished runs for this schedule. A run in progress is kept. This cannot be undone.',
+              clearableRuns.length,
+            )}
+          </>
         }
         affectedWorktreeCount={affectedClearWorktreeCount}
         isPending={clearRunsMutation.isPending}
@@ -386,8 +423,8 @@ export function RepoSchedulesContent({ repoId, embedded }: RepoSchedulesContentP
       <ScheduleRunRemovalDialog
         open={runToDelete !== null}
         onOpenChange={(open) => !open && setRunToDelete(null)}
-        title="Delete run"
-        description="This permanently deletes this run. This cannot be undone."
+        title={t('Delete run')}
+        description={t('This permanently deletes this run. This cannot be undone.')}
         affectedWorktreeCount={runToDeleteWorktreeCount}
         isPending={deleteRunMutation.isPending}
         onCancel={() => setRunToDelete(null)}

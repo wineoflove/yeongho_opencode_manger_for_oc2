@@ -4,13 +4,20 @@ import type { PromptDialog } from '@/hooks/useScheduleUrlState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, FileText, MoreHorizontal, Plus, Upload } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { formatRelativeTime, intlLocale } from '@/i18n/format'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { usePromptTemplates, useDeletePromptTemplate } from '@/hooks/usePromptTemplates'
 import { parseMarkdownTemplate } from '@/lib/schedules/markdownTemplate'
 import { PromptTemplateDialog } from './PromptTemplateDialog'
 import { ScheduleListToolbar } from './ScheduleListToolbar'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
+import { t } from '@/i18n/translate'
 
 interface PromptsTabProps {
   promptDialog: PromptDialog
@@ -22,7 +29,15 @@ interface PromptsTabProps {
   onCloseDialog: () => void
 }
 
-export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, onImport, onCloseDialog }: PromptsTabProps) {
+export function PromptsTab({
+  promptDialog,
+  templateId,
+  onNew,
+  onEdit,
+  onDelete,
+  onImport,
+  onCloseDialog,
+}: PromptsTabProps) {
   const [importValues, setImportValues] = useState<Partial<CreatePromptTemplateRequest> | undefined>()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -31,13 +46,14 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
   const searchTerm = search.trim().toLowerCase()
   const visibleTemplates = searchTerm
     ? templates.filter((template) =>
-      [template.title, template.description, template.category, template.cadenceHint, template.suggestedName]
-        .some((field) => field.toLowerCase().includes(searchTerm)),
-    )
+        [template.title, template.description, template.category, template.cadenceHint, template.suggestedName].some(
+          (field) => field.toLowerCase().includes(searchTerm),
+        ),
+      )
     : templates
   const deleteMutation = useDeletePromptTemplate()
 
-  const editingTemplate = templates.find((t) => t.id === templateId)
+  const editingTemplate = templates.find((template) => template.id === templateId)
   const dialogOpen = promptDialog === 'new' || promptDialog === 'edit' || promptDialog === 'import'
   const deleteDialogOpen = promptDialog === 'delete'
 
@@ -82,21 +98,21 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <ScheduleListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search prompts">
+      <ScheduleListToolbar search={search} onSearchChange={setSearch} searchPlaceholder={t('Search prompts')}>
         <Button type="button" variant="outline" size="sm" className="h-9 shrink-0 gap-1" onClick={onNew}>
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">New</span>
+          <span className="hidden sm:inline">{t('New')}</span>
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="h-9 shrink-0 gap-1"
-          aria-label="Import .md"
+          aria-label={t('Import .md')}
           onClick={() => fileInputRef.current?.click()}
         >
           <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">Import .md</span>
+          <span className="hidden sm:inline">{t('Import .md')}</span>
         </Button>
       </ScheduleListToolbar>
 
@@ -121,9 +137,13 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
                   <FileText className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <div className="space-y-2">
-                  <p className="text-lg font-semibold">{searchTerm ? 'No matching templates' : 'No templates yet'}</p>
+                  <p className="text-lg font-semibold">
+                    {searchTerm ? t('No matching templates') : t('No templates yet')}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    {searchTerm ? 'Try a different search.' : 'Create prompt templates to reuse across your schedules.'}
+                    {searchTerm
+                      ? t('Try a different search.')
+                      : t('Create prompt templates to reuse across your schedules.')}
                   </p>
                 </div>
               </CardContent>
@@ -134,11 +154,21 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 whitespace-nowrap bg-background text-xs uppercase text-muted-foreground">
                 <tr className="border-b border-border/60">
-                  <th scope="col" className="px-3 py-2.5 text-left font-medium">Template</th>
-                  <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Category</th>
-                  <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Cadence</th>
-                  <th scope="col" className="hidden px-3 py-2.5 text-left font-medium md:table-cell">Updated</th>
-                  <th scope="col" className="w-px px-3 py-2.5 text-right font-medium">Actions</th>
+                  <th scope="col" className="px-3 py-2.5 text-left font-medium">
+                    {t('Template')}
+                  </th>
+                  <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+                    {t('Category')}
+                  </th>
+                  <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+                    {t('Cadence')}
+                  </th>
+                  <th scope="col" className="hidden px-3 py-2.5 text-left font-medium md:table-cell">
+                    {t('Updated')}
+                  </th>
+                  <th scope="col" className="w-px px-3 py-2.5 text-right font-medium">
+                    {t('Actions')}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -156,13 +186,17 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
                             event.stopPropagation()
                             onEdit(template.id)
                           }}
-                          aria-label={`Edit ${template.title}`}
+                          aria-label={t('Edit {name}', {
+                            name: template.title,
+                          })}
                           className="truncate font-medium sm:max-w-[32rem] rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                           {template.title}
                         </button>
                         {template.description && (
-                          <span className="truncate text-xs sm:max-w-[32rem] text-muted-foreground">{template.description}</span>
+                          <span className="truncate text-xs sm:max-w-[32rem] text-muted-foreground">
+                            {template.description}
+                          </span>
                         )}
                         <span className="truncate text-xs text-muted-foreground sm:hidden">
                           {template.category} · {template.cadenceHint}
@@ -175,9 +209,9 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
                     <td className="hidden px-3 py-2.5 text-muted-foreground sm:table-cell">{template.cadenceHint}</td>
                     <td
                       className="hidden px-3 py-2.5 text-muted-foreground md:table-cell"
-                      title={new Date(template.updatedAt).toLocaleString()}
+                      title={new Date(template.updatedAt).toLocaleString(intlLocale())}
                     >
-                      {formatDistanceToNow(template.updatedAt, { addSuffix: true })}
+                      {formatRelativeTime(template.updatedAt)}
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <DropdownMenu>
@@ -185,7 +219,7 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
                           <Button
                             variant="ghost"
                             size="icon"
-                            aria-label="More actions"
+                            aria-label={t('More actions')}
                             className="h-7 w-7 text-muted-foreground"
                             onClick={(event) => event.stopPropagation()}
                           >
@@ -193,10 +227,10 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                          <DropdownMenuItem onClick={() => onEdit(template.id)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onEdit(template.id)}>{t('Edit')}</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => onDelete(template.id)}>
-                            Delete
+                            {t('Delete')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -221,8 +255,8 @@ export function PromptsTab({ promptDialog, templateId, onNew, onEdit, onDelete, 
         onOpenChange={handleDeleteDialogOpenChange}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
-        title="Delete template"
-        description="Are you sure you want to delete this template?"
+        title={t('Delete template')}
+        description={t('Are you sure you want to delete this template?')}
         isDeleting={deleteMutation.isPending}
       />
     </div>

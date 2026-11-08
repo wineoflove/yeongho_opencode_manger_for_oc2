@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { t } from '@/i18n/translate'
 
 const ALL_REPOS_PATH = '/schedules'
 
@@ -45,8 +46,8 @@ export function ScheduleRepoSwitcher({ repoId, name }: ScheduleRepoSwitcherProps
   const options = useMemo<RepoOption[]>(() => {
     const allRepos: RepoOption = {
       key: 'all',
-      label: 'All repos',
-      description: 'Every repository',
+      label: t('All repos'),
+      description: t('Every repository'),
       path: ALL_REPOS_PATH,
       active: repoId === undefined,
       isAllRepos: true,
@@ -105,7 +106,7 @@ export function ScheduleRepoSwitcher({ repoId, name }: ScheduleRepoSwitcherProps
       onClick={onClick}
       aria-haspopup="menu"
       aria-expanded={open}
-      aria-label={`Switch repository (${name})`}
+      aria-label={t('Switch repository ({name})', { name })}
       className="group flex min-w-0 items-center gap-1.5 rounded px-1 -mx-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="truncate text-xl font-semibold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">{name}</span>
@@ -117,11 +118,11 @@ export function ScheduleRepoSwitcher({ repoId, name }: ScheduleRepoSwitcherProps
     return (
       <>
         {trigger(() => setOpen(true))}
-        <BottomSheet isOpen={open} onClose={close} heightClass="h-[70dvh]" ariaLabel="Switch repository">
-          <BottomSheetHeader title="Switch repository" className="border-b-0">
+        <BottomSheet isOpen={open} onClose={close} heightClass="h-[70dvh]" ariaLabel={t('Switch repository')}>
+          <BottomSheetHeader title={t('Switch repository')} className="border-b-0">
             <Input
               type="text"
-              placeholder="Search repositories..."
+              placeholder={t('Search repositories...')}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               autoComplete="off"
@@ -133,7 +134,7 @@ export function ScheduleRepoSwitcher({ repoId, name }: ScheduleRepoSwitcherProps
             {filteredOptions.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-4 py-12 text-muted-foreground">
                 <FolderGit2 className="mb-3 h-12 w-12 opacity-50" />
-                <p className="text-sm">No repositories found</p>
+                <p className="text-sm">{t('No repositories found')}</p>
               </div>
             ) : (
               <div className="flex flex-col">
@@ -161,7 +162,7 @@ export function ScheduleRepoSwitcher({ repoId, name }: ScheduleRepoSwitcherProps
     <DropdownMenu open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
       <DropdownMenuTrigger asChild>{trigger()}</DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-[60vh] w-64 overflow-auto">
-        <DropdownMenuLabel>Switch repository</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('Switch repository')}</DropdownMenuLabel>
         {options.map((option, index) => (
           <Fragment key={option.key}>
             {index === 1 && <DropdownMenuSeparator />}

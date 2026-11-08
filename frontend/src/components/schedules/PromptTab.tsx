@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Check, Pencil, Plus, Trash2 } from 'lucide-react'
 import type { PromptTemplate } from '@opencode-manager/shared/types'
+import { t } from '@/i18n/translate'
 
 type PromptTabProps = {
   prompt: string
@@ -103,7 +104,7 @@ export function PromptTab({
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <Label>Prompt templates</Label>
+            <Label>{t('Prompt templates')}</Label>
             <Button
               type="button"
               variant="outline"
@@ -112,7 +113,7 @@ export function PromptTab({
               onClick={onNewTemplate}
             >
               <Plus className="h-3 w-3" />
-              New
+              {t('New')}
             </Button>
           </div>
 
@@ -135,7 +136,7 @@ export function PromptTab({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="schedule-prompt">Prompt</Label>
+          <Label htmlFor="schedule-prompt">{t('Prompt')}</Label>
           <Textarea
             id="schedule-prompt"
             value={prompt}
@@ -143,11 +144,11 @@ export function PromptTab({
               onPromptChange(event.target.value)
             }}
             className="min-h-[320px]"
-            placeholder="Review the repo, note notable risks, and open a session I can inspect later."
+            placeholder={t('Review the repo, note notable risks, and open a session I can inspect later.')}
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          This prompt becomes the first message sent to the agent when the schedule runs.
+          {t('This prompt becomes the first message sent to the agent when the schedule runs.')}
         </p>
       </div>
     </TabsContent>

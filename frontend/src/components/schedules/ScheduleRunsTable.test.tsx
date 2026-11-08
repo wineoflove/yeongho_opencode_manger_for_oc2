@@ -46,6 +46,21 @@ describe('ScheduleRunsTable', () => {
     expect(screen.getByText('Second job')).toBeInTheDocument()
   })
 
+  it('shows the reported outcome next to the run title', () => {
+    render(
+      <ScheduleRunsTable
+        runs={[makeRun({ id: 1, jobName: 'Reported job', outcome: 'blocked' }), makeRun({ id: 2, jobName: 'Plain job' })]}
+        runsLoading={false}
+        selectedRunId={null}
+        onSelectRun={vi.fn()}
+      />,
+    )
+
+    const [reported, plain] = screen.getAllByRole('row').slice(1)
+    expect(reported).toHaveTextContent('Blocked')
+    expect(plain).not.toHaveTextContent('Blocked')
+  })
+
   it('shows the NEW pill for an unread run', () => {
     render(
       <ScheduleRunsTable

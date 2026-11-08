@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useUrlParams } from './useUrlParams'
 
-export type ScheduleTab = 'jobs' | 'detail' | 'runs' | 'prompts'
+export type ScheduleTab = 'overview' | 'jobs' | 'detail' | 'runs' | 'prompts'
 export type ScheduleDialog = 'new' | 'edit' | 'delete' | null
 export type PromptDialog = 'new' | 'edit' | 'delete' | 'import' | null
 
@@ -34,16 +34,24 @@ function parseNullableInt(value: string | null): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export function useScheduleUrlState(): UseScheduleUrlStateReturn {
+/** Reads and writes schedule page state in the URL; `defaultTab` is the tab shown without a `scheduleTab` parameter. */
+export function useScheduleUrlState(options?: { defaultTab?: ScheduleTab }): UseScheduleUrlStateReturn {
   const { searchParams, updateParams, closePushedParams } = useUrlParams()
+  const defaultTab = options?.defaultTab ?? 'jobs'
 
   const scheduleTab = useMemo<ScheduleTab>(() => {
     const tabParam = searchParams.get('scheduleTab')
-    if (tabParam === 'detail' || tabParam === 'runs' || tabParam === 'prompts') {
+    if (
+      tabParam === 'overview' ||
+      tabParam === 'jobs' ||
+      tabParam === 'detail' ||
+      tabParam === 'runs' ||
+      tabParam === 'prompts'
+    ) {
       return tabParam
     }
-    return 'jobs'
-  }, [searchParams])
+    return defaultTab
+  }, [searchParams, defaultTab])
 
   const dialog = useMemo<ScheduleDialog>(() => {
     const d = searchParams.get('scheduleDialog')
@@ -92,13 +100,13 @@ export function useScheduleUrlState(): UseScheduleUrlStateReturn {
 
   const setScheduleTab = useCallback((tab: ScheduleTab) => {
     replaceUrlParams((p) => {
-      if (tab === 'jobs') {
+      if (tab === defaultTab) {
         p.delete('scheduleTab')
       } else {
         p.set('scheduleTab', tab)
       }
     })
-  }, [replaceUrlParams])
+  }, [replaceUrlParams, defaultTab])
 
   const openNewJob = useCallback(() => {
     openEntityDialog('scheduleDialog', 'new', 'jobId', null)

@@ -3,6 +3,7 @@ import { CalendarClock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { ScheduleServerTarget } from '@/api/schedules'
 import { ServerSchedulesDialog } from './ServerSchedulesDialog'
+import { t } from '@/i18n/translate'
 
 interface RemoteSchedulesDialogProps {
   serverId: string
@@ -33,10 +34,10 @@ export function RemoteSchedulesButton({ serverId, directory }: { serverId: strin
         variant="outline"
         onClick={() => setOpen(true)}
         className="h-9 w-9 shrink-0 p-0 @min-[36rem]:w-auto @min-[36rem]:px-3"
-        aria-label={`Schedules for ${directory}`}
+        aria-label={t('Schedules for {directory}', { directory })}
       >
         <CalendarClock className="h-4 w-4 @min-[36rem]:mr-2" />
-        <span className="hidden @min-[36rem]:inline">Schedules</span>
+        <span className="hidden @min-[36rem]:inline">{t('Schedules')}</span>
       </Button>
       <RemoteSchedulesDialog
         serverId={serverId}

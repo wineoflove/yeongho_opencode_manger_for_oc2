@@ -1,6 +1,7 @@
 import { Ban, CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import type { ScheduleRun } from '@opencode-manager/shared/types'
 import type { ScheduleRunWithContext } from '@/api/schedules'
+import { t } from '@/i18n/translate'
 
 export type ScheduleRunRow = ScheduleRun | ScheduleRunWithContext
 
@@ -12,15 +13,15 @@ export function getRunStatusIcon(status: ScheduleRun['status']) {
 }
 
 export function getRunStatusLabel(status: ScheduleRun['status']) {
-  if (status === 'completed') return 'Completed'
-  if (status === 'failed') return 'Failed'
-  if (status === 'running') return 'Running'
-  return 'Cancelled'
+  if (status === 'completed') return t('Completed')
+  if (status === 'failed') return t('Failed')
+  if (status === 'running') return t('Running')
+  return t('Cancelled')
 }
 
 export function getRunTitle(run: ScheduleRunRow): string {
   if ('jobName' in run && typeof run.jobName === 'string') return run.jobName
-  return run.sessionTitle ?? 'No session recorded'
+  return run.sessionTitle ?? t('No session recorded')
 }
 
 export function getRunRepoName(run: ScheduleRunRow): string | null {

@@ -11,25 +11,49 @@ import {
   useUpdateScheduleTarget,
   type ScheduleTargetRef,
 } from '@/hooks/useSchedules'
-import { ScheduleJobDialog, PromptsTab, ScheduleJobsTable, ScheduleListToolbar, ScheduleRunDrawer, ScheduleRunsTable, ScheduleRepoSwitcher } from '@/components/schedules'
+import {
+  ScheduleJobDialog,
+  PromptsTab,
+  ScheduleJobsTable,
+  ScheduleListToolbar,
+  ScheduleRunDrawer,
+  ScheduleRunsTable,
+  ScheduleRepoSwitcher,
+} from '@/components/schedules'
 import type { CreateScheduleJobRequest } from '@opencode-manager/shared/types'
-import { DELETE_SCHEDULE_DESCRIPTION, matchesScheduleJobSearch, toUpdateScheduleRequest } from '@/components/schedules/schedule-utils'
+import {
+  DELETE_SCHEDULE_DESCRIPTION,
+  matchesScheduleJobSearch,
+  toUpdateScheduleRequest,
+} from '@/components/schedules/schedule-utils'
 import { Header } from '@/components/ui/header'
 import { Button } from '@/components/ui/button'
 import { ScheduleReportsBell } from '@/components/notifications/ScheduleReportsBell'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { Card, CardContent } from '@/components/ui/card'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CalendarClock, Loader2, Plus, ArrowLeft, SlidersHorizontal } from 'lucide-react'
 
 import { useScheduleUrlState } from '@/hooks/useScheduleUrlState'
+import { OverviewTab } from '@/components/schedules/OverviewTab'
 import type { ScheduleTab } from '@/hooks/useScheduleUrlState'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 import type { ScheduleJobWithRepo, ScheduleRunWithContext } from '@/api/schedules'
 import { Combobox } from '@/components/ui/combobox'
 import { getRepoPath, getServerProjectPath } from '@/lib/navigation'
+import { t } from '@/i18n/translate'
 
 type StatusFilter = 'all' | 'enabled' | 'disabled'
 type ScheduleModeFilter = 'all' | 'cron' | 'interval'
@@ -71,7 +95,25 @@ export function GlobalSchedules() {
   const [allRuns, setAllRuns] = useState<ScheduleRunWithContext[]>([])
   const runOffsetRef = useRef(runOffset)
 
-  const { scheduleTab, setScheduleTab, dialog, promptDialog, jobId, runId, templateId, openNewJob, openEditJob, openDeleteJob, openNewTemplate, openEditTemplate, openDeleteTemplate, openImportTemplate, closeDialog, closePromptDialog, selectRun } = useScheduleUrlState()
+  const {
+    scheduleTab,
+    setScheduleTab,
+    dialog,
+    promptDialog,
+    jobId,
+    runId,
+    templateId,
+    openNewJob,
+    openEditJob,
+    openDeleteJob,
+    openNewTemplate,
+    openEditTemplate,
+    openDeleteTemplate,
+    openImportTemplate,
+    closeDialog,
+    closePromptDialog,
+    selectRun,
+  } = useScheduleUrlState({ defaultTab: 'overview' })
 
   const cancelRunMutation = useCancelScheduleTargetRun()
   const cancelRunPending = cancelRunMutation.isPending
@@ -82,22 +124,31 @@ export function GlobalSchedules() {
 
   const { data: jobs = [], isLoading, error } = useAllSchedules()
 
-  const editingJob = useMemo(() => dialog === 'edit' ? (jobs.find(j => j.id === jobId) ?? null) : null, [dialog, jobId, jobs])
-  const deletingJob = useMemo(() => dialog === 'delete' ? (jobs.find(j => j.id === jobId) ?? null) : null, [dialog, jobId, jobs])
+  const editingJob = useMemo(
+    () => (dialog === 'edit' ? (jobs.find((j) => j.id === jobId) ?? null) : null),
+    [dialog, jobId, jobs],
+  )
+  const deletingJob = useMemo(
+    () => (dialog === 'delete' ? (jobs.find((j) => j.id === jobId) ?? null) : null),
+    [dialog, jobId, jobs],
+  )
 
-  const runsParams = useMemo(() => ({
-    limit: 50,
-    offset: runOffset,
-    status: runStatusFilter !== 'all' ? runStatusFilter : undefined,
-    repoId: runRepoFilter !== 'all' ? Number(runRepoFilter.split('|')[0]) : undefined,
-    triggerSource: runTriggerFilter !== 'all' ? runTriggerFilter : undefined,
-    search: debouncedRunSearch || undefined,
-  }), [runStatusFilter, runRepoFilter, runTriggerFilter, runOffset, debouncedRunSearch])
+  const runsParams = useMemo(
+    () => ({
+      limit: 50,
+      offset: runOffset,
+      status: runStatusFilter !== 'all' ? runStatusFilter : undefined,
+      repoId: runRepoFilter !== 'all' ? Number(runRepoFilter.split('|')[0]) : undefined,
+      triggerSource: runTriggerFilter !== 'all' ? runTriggerFilter : undefined,
+      search: debouncedRunSearch || undefined,
+    }),
+    [runStatusFilter, runRepoFilter, runTriggerFilter, runOffset, debouncedRunSearch],
+  )
 
   const { data: runsPage = [], isLoading: runsLoading } = useAllScheduleRuns(runsParams, scheduleTab === 'runs')
 
   const selectedRunInHistory = useMemo(
-    () => (runId !== null ? allRuns.find((run) => run.id === runId) ?? null : null),
+    () => (runId !== null ? (allRuns.find((run) => run.id === runId) ?? null) : null),
     [allRuns, runId],
   )
 
@@ -108,14 +159,9 @@ export function GlobalSchedules() {
     isLoading: selectedRunLoading,
     isError: selectedRunError,
     refetch: refetchSelectedRun,
-  } = useAllScheduleRuns(
-    selectedRunParams,
-    runId !== null && selectedRunInHistory === null,
-  )
+  } = useAllScheduleRuns(selectedRunParams, runId !== null && selectedRunInHistory === null)
 
-  const selectedRun = runId === null
-    ? null
-    : selectedRunInHistory ?? selectedRunPage?.[0] ?? null
+  const selectedRun = runId === null ? null : (selectedRunInHistory ?? selectedRunPage?.[0] ?? null)
 
   const { data: unreadRuns } = useUnreadScheduleRuns()
   const unreadTotal = unreadRuns?.total ?? 0
@@ -148,7 +194,7 @@ export function GlobalSchedules() {
         })
       }
     } else if (runOffsetRef.current === 0) {
-      setAllRuns((prev) => prev.length > 0 ? [] : prev)
+      setAllRuns((prev) => (prev.length > 0 ? [] : prev))
     }
   }, [runsPage])
 
@@ -181,7 +227,11 @@ export function GlobalSchedules() {
   const uniqueRepos = useMemo(() => {
     const repoMap = new Map<string, { name: string; url: string; repoId: number | null }>()
     jobs.forEach((job) => {
-      repoMap.set(jobBucket(job), { name: job.repoName, url: job.repoUrl, repoId: job.repoId })
+      repoMap.set(jobBucket(job), {
+        name: job.repoName,
+        url: job.repoUrl,
+        repoId: job.repoId,
+      })
     })
     return Array.from(repoMap.entries()).map(([bucket, info]) => ({
       path: bucket,
@@ -195,14 +245,12 @@ export function GlobalSchedules() {
     let filtered = [...jobs]
 
     if (statusFilter !== 'all') {
-      filtered = filtered.filter((job) =>
-        statusFilter === 'enabled' ? job.enabled : !job.enabled
-      )
+      filtered = filtered.filter((job) => (statusFilter === 'enabled' ? job.enabled : !job.enabled))
     }
 
     if (scheduleModeFilter !== 'all') {
       filtered = filtered.filter((job) =>
-        scheduleModeFilter === 'cron' ? job.scheduleMode === 'cron' : job.scheduleMode === 'interval'
+        scheduleModeFilter === 'cron' ? job.scheduleMode === 'cron' : job.scheduleMode === 'interval',
       )
     }
 
@@ -230,61 +278,93 @@ export function GlobalSchedules() {
     return filtered
   }, [jobs, statusFilter, scheduleModeFilter, repoFilter, sortOption, searchQuery])
 
-  const repoOptions = useMemo(() => [
-    { value: 'all', label: 'All Repos', description: `${jobs.length} total jobs` },
-    ...uniqueRepos.map((repo) => ({
-      value: repo.path,
-      label: repo.name,
-      description: `${jobs.filter((j) => jobBucket(j) === repo.path).length} jobs`,
-    })),
-  ], [jobs, uniqueRepos])
+  const repoOptions = useMemo(
+    () => [
+      {
+        value: 'all',
+        label: t('All Repos'),
+        description: t('{count} total jobs', { count: jobs.length }),
+      },
+      ...uniqueRepos.map((repo) => ({
+        value: repo.path,
+        label: repo.name,
+        description: t('{count} jobs', {
+          count: jobs.filter((j) => jobBucket(j) === repo.path).length,
+        }),
+      })),
+    ],
+    [jobs, uniqueRepos],
+  )
 
-  const statusOptions = useMemo(() => [
-    { value: 'all', label: 'All Status' },
-    { value: 'enabled', label: 'Enabled' },
-    { value: 'disabled', label: 'Disabled' },
-  ], [])
+  const statusOptions = useMemo(
+    () => [
+      { value: 'all', label: t('All Status') },
+      { value: 'enabled', label: t('Enabled') },
+      { value: 'disabled', label: t('Disabled') },
+    ],
+    [],
+  )
 
-  const modeOptions = useMemo(() => [
-    { value: 'all', label: 'All Modes' },
-    { value: 'cron', label: 'Cron' },
-    { value: 'interval', label: 'Interval' },
-  ], [])
+  const modeOptions = useMemo(
+    () => [
+      { value: 'all', label: t('All Modes') },
+      { value: 'cron', label: t('Cron') },
+      { value: 'interval', label: t('Interval') },
+    ],
+    [],
+  )
 
-  const sortOptions = useMemo(() => [
-    { value: 'nextRun', label: 'Next Run' },
-    { value: 'name', label: 'Name' },
-    { value: 'repo', label: 'Repository' },
-  ], [])
+  const sortOptions = useMemo(
+    () => [
+      { value: 'nextRun', label: t('Next Run') },
+      { value: 'name', label: t('Name') },
+      { value: 'repo', label: t('Repository') },
+    ],
+    [],
+  )
 
-  const runStatusOptions = useMemo(() => [
-    { value: 'all', label: 'All Status' },
-    { value: 'running', label: 'Running' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'failed', label: 'Failed' },
-    { value: 'cancelled', label: 'Cancelled' },
-  ], [])
+  const runStatusOptions = useMemo(
+    () => [
+      { value: 'all', label: t('All Status') },
+      { value: 'running', label: t('Running') },
+      { value: 'completed', label: t('Completed') },
+      { value: 'failed', label: t('Failed') },
+      { value: 'cancelled', label: t('Cancelled') },
+    ],
+    [],
+  )
 
-  const runTriggerOptions = useMemo(() => [
-    { value: 'all', label: 'All Triggers' },
-    { value: 'manual', label: 'Manual' },
-    { value: 'schedule', label: 'Scheduled' },
-  ], [])
+  const runTriggerOptions = useMemo(
+    () => [
+      { value: 'all', label: t('All Triggers') },
+      { value: 'manual', label: t('Manual') },
+      { value: 'schedule', label: t('Scheduled') },
+    ],
+    [],
+  )
 
-  const runSortOptions = useMemo(() => [
-    { value: 'startedAt', label: 'Date' },
-    { value: 'jobName', label: 'Job Name' },
-    { value: 'duration', label: 'Duration' },
-  ], [])
+  const runSortOptions = useMemo(
+    () => [
+      { value: 'startedAt', label: t('Date') },
+      { value: 'jobName', label: t('Job Name') },
+      { value: 'duration', label: t('Duration') },
+    ],
+    [],
+  )
 
-  const runRepoOptions = useMemo(() => [
-    { value: 'all', label: 'All Repos', description: '' },
-    ...uniqueRepos.filter((repo) => repo.repoId !== null).map((repo) => ({
-      value: `${repo.repoId}|${repo.path}`,
-      label: repo.name,
-      description: repo.path,
-    })),
-  ], [uniqueRepos])
+  const runRepoOptions = useMemo(
+    () => [
+      { value: 'all', label: t('All Repos'), description: '' },
+      ...uniqueRepos
+        .filter((repo) => repo.repoId !== null)
+        .map((repo) => ({
+          value: `${repo.repoId}|${repo.path}`,
+          label: repo.name,
+          description: repo.path,
+        })),
+    ],
+    [uniqueRepos],
+  )
 
   const handleDelete = () => {
     const target = deletingJob ? targetForJob(deletingJob) : null
@@ -292,10 +372,7 @@ export function GlobalSchedules() {
       return
     }
 
-    deleteMutation.mutate(
-      { target, jobId: deletingJob.id },
-      { onSuccess: () => closeDialog() }
-    )
+    deleteMutation.mutate({ target, jobId: deletingJob.id }, { onSuccess: () => closeDialog() })
   }
 
   const handleCancelRun = (target: ScheduleTargetRef, jobId: number, runId: number) => {
@@ -331,7 +408,7 @@ export function GlobalSchedules() {
           closeDialog()
           setSelectedRepoId(undefined)
         },
-      }
+      },
     )
   }
 
@@ -348,7 +425,7 @@ export function GlobalSchedules() {
         onSuccess: () => {
           closeDialog()
         },
-      }
+      },
     )
   }
 
@@ -392,12 +469,12 @@ export function GlobalSchedules() {
   }
 
   const selectedRunIndex = runId !== null ? sortedRuns.findIndex((run) => run.id === runId) : -1
-  const selectedRunPrev = scheduleTab === 'runs' && selectedRunIndex > 0
-    ? () => selectRun(sortedRuns[selectedRunIndex - 1].id)
-    : undefined
-  const selectedRunNext = scheduleTab === 'runs' && selectedRunIndex >= 0 && selectedRunIndex < sortedRuns.length - 1
-    ? () => selectRun(sortedRuns[selectedRunIndex + 1].id)
-    : undefined
+  const selectedRunPrev =
+    scheduleTab === 'runs' && selectedRunIndex > 0 ? () => selectRun(sortedRuns[selectedRunIndex - 1].id) : undefined
+  const selectedRunNext =
+    scheduleTab === 'runs' && selectedRunIndex >= 0 && selectedRunIndex < sortedRuns.length - 1
+      ? () => selectRun(sortedRuns[selectedRunIndex + 1].id)
+      : undefined
 
   if (isLoading) {
     return (
@@ -412,10 +489,10 @@ export function GlobalSchedules() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Card>
           <CardContent className="p-6">
-            <p className="text-destructive">Failed to load schedules</p>
+            <p className="text-destructive">{t('Failed to load schedules')}</p>
             <Button variant="outline" onClick={() => navigate('/')} className="mt-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
+              {t('Back to Home')}
             </Button>
           </CardContent>
         </Card>
@@ -434,24 +511,30 @@ export function GlobalSchedules() {
       <Header>
         <Header.BackButton to="/" />
         <div className="min-w-0 flex-1 px-3">
-          <ScheduleRepoSwitcher name="All repos" />
-          <p className="text-xs text-muted-foreground truncate">Schedules</p>
+          <ScheduleRepoSwitcher name={t('All repos')} />
+          <p className="text-xs text-muted-foreground truncate">{t('Schedules')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Header.Actions>
             <ScheduleReportsBell />
             <Button
-              onClick={() => { openNewJob(); setSelectedRepoId(undefined) }}
+              onClick={() => {
+                openNewJob()
+                setSelectedRepoId(undefined)
+              }}
               size="sm"
               className="hidden sm:flex"
             >
               <Plus className="w-4 h-4 mr-2" />
-              New Schedule
+              {t('New Schedule')}
             </Button>
             <Button
-              onClick={() => { openNewJob(); setSelectedRepoId(undefined) }}
+              onClick={() => {
+                openNewJob()
+                setSelectedRepoId(undefined)
+              }}
               size="sm"
-              aria-label="New Schedule"
+              aria-label={t('New Schedule')}
               className="sm:hidden h-10 w-10 p-0"
             >
               <Plus className="w-5 h-5" />
@@ -460,34 +543,60 @@ export function GlobalSchedules() {
         </div>
       </Header>
 
-      <Tabs value={scheduleTab} onValueChange={(v) => setScheduleTab(v as ScheduleTab)} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <Tabs
+        value={scheduleTab}
+        onValueChange={(v) => setScheduleTab(v as ScheduleTab)}
+        className="flex-1 min-h-0 flex flex-col overflow-hidden"
+      >
         <div className="border-b border-border px-4">
           <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0">
-            <TabsTrigger value="jobs" className="rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-              Jobs
+            <TabsTrigger
+              value="overview"
+              className="rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              {t('Overview')}
             </TabsTrigger>
-            <TabsTrigger value="runs" className="rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-              Run History
+            <TabsTrigger
+              value="jobs"
+              className="rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              {t('Jobs')}
             </TabsTrigger>
-            <TabsTrigger value="prompts" className="rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-              Prompts
+            <TabsTrigger
+              value="runs"
+              className="rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              {t('Run History')}
+            </TabsTrigger>
+            <TabsTrigger
+              value="prompts"
+              className="rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              {t('Prompts')}
             </TabsTrigger>
           </TabsList>
         </div>
 
+        <TabsContent value="overview" className="mt-0 flex-1 min-h-0 overflow-y-auto">
+          <OverviewTab />
+        </TabsContent>
         <TabsContent value="jobs" className="mt-0 flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="px-2 sm:px-4">
-            <ScheduleListToolbar search={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Search jobs">
+            <ScheduleListToolbar
+              search={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder={t('Search jobs')}
+            >
               <Combobox
                 value={repoFilter}
                 onChange={setRepoFilter}
                 options={repoOptions}
-                placeholder="All Repos"
+                placeholder={t('All Repos')}
                 className="w-[130px] shrink-0 sm:w-[180px]"
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label="Filters" className="shrink-0 relative">
+                  <Button variant="outline" size="icon" aria-label={t('Filters')} className="shrink-0 relative">
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     {(statusFilter !== 'all' || scheduleModeFilter !== 'all') && (
                       <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
@@ -505,67 +614,67 @@ export function GlobalSchedules() {
                     }}
                     className="text-xs text-muted-foreground"
                   >
-                    Clear all filters
+                    {t('Clear all filters')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Status</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t('Status')}</DropdownMenuLabel>
                   <DropdownMenuCheckboxItem
                     checked={statusFilter === 'all'}
                     onCheckedChange={() => setStatusFilter('all')}
                     onSelect={(e) => e.preventDefault()}
                   >
-                    All Status
+                    {t('All Status')}
                   </DropdownMenuCheckboxItem>
-                  {statusOptions.filter((opt) => opt.value !== 'all').map((opt) => (
-                    <DropdownMenuCheckboxItem
-                      key={opt.value}
-                      checked={statusFilter === opt.value}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setStatusFilter(opt.value as StatusFilter)
-                        } else {
-                          setStatusFilter('all')
-                        }
-                      }}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {opt.label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
+                  {statusOptions
+                    .filter((opt) => opt.value !== 'all')
+                    .map((opt) => (
+                      <DropdownMenuCheckboxItem
+                        key={opt.value}
+                        checked={statusFilter === opt.value}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setStatusFilter(opt.value as StatusFilter)
+                          } else {
+                            setStatusFilter('all')
+                          }
+                        }}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {opt.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Mode</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t('Mode')}</DropdownMenuLabel>
                   <DropdownMenuCheckboxItem
                     checked={scheduleModeFilter === 'all'}
                     onCheckedChange={() => setScheduleModeFilter('all')}
                     onSelect={(e) => e.preventDefault()}
                   >
-                    All Modes
+                    {t('All Modes')}
                   </DropdownMenuCheckboxItem>
-                  {modeOptions.filter((opt) => opt.value !== 'all').map((opt) => (
-                    <DropdownMenuCheckboxItem
-                      key={opt.value}
-                      checked={scheduleModeFilter === opt.value}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setScheduleModeFilter(opt.value as ScheduleModeFilter)
-                        } else {
-                          setScheduleModeFilter('all')
-                        }
-                      }}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {opt.label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Sort</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
-                    {sortOptions.map((opt) => (
-                      <DropdownMenuRadioItem
+                  {modeOptions
+                    .filter((opt) => opt.value !== 'all')
+                    .map((opt) => (
+                      <DropdownMenuCheckboxItem
                         key={opt.value}
-                        value={opt.value}
+                        checked={scheduleModeFilter === opt.value}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setScheduleModeFilter(opt.value as ScheduleModeFilter)
+                          } else {
+                            setScheduleModeFilter('all')
+                          }
+                        }}
                         onSelect={(e) => e.preventDefault()}
                       >
+                        {opt.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>{t('Sort')}</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+                    {sortOptions.map((opt) => (
+                      <DropdownMenuRadioItem key={opt.value} value={opt.value} onSelect={(e) => e.preventDefault()}>
                         {opt.label}
                       </DropdownMenuRadioItem>
                     ))}
@@ -584,14 +693,14 @@ export function GlobalSchedules() {
                       <CalendarClock className="h-8 w-8 text-muted-foreground" />
                     </div>
                     <div className="space-y-2">
-                      <p className="text-lg font-semibold">No schedules yet</p>
+                      <p className="text-lg font-semibold">{t('No schedules yet')}</p>
                       <p className="text-sm text-muted-foreground">
-                        Create schedules for your repositories to automate recurring agent work.
+                        {t('Create schedules for your repositories to automate recurring agent work.')}
                       </p>
                     </div>
                     <Button onClick={() => navigate('/')}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Go to Repositories
+                      {t('Go to Repositories')}
                     </Button>
                   </CardContent>
                 </Card>
@@ -604,9 +713,9 @@ export function GlobalSchedules() {
                       <CalendarClock className="h-8 w-8 text-muted-foreground" />
                     </div>
                     <div className="space-y-2">
-                      <p className="text-lg font-semibold">No matching schedules</p>
+                      <p className="text-lg font-semibold">{t('No matching schedules')}</p>
                       <p className="text-sm text-muted-foreground">
-                        Try a different search or adjust your filters.
+                        {t('Try a different search or adjust your filters.')}
                       </p>
                     </div>
                     <Button
@@ -618,7 +727,7 @@ export function GlobalSchedules() {
                         setSearchQuery('')
                       }}
                     >
-                      Clear Filters
+                      {t('Clear Filters')}
                     </Button>
                   </CardContent>
                 </Card>
@@ -646,17 +755,17 @@ export function GlobalSchedules() {
 
         <TabsContent value="runs" className="mt-0 flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="px-2 sm:px-4">
-            <ScheduleListToolbar search={runSearch} onSearchChange={setRunSearch} searchPlaceholder="Search runs">
+            <ScheduleListToolbar search={runSearch} onSearchChange={setRunSearch} searchPlaceholder={t('Search runs')}>
               <Combobox
                 value={runRepoFilter}
                 onChange={setRunRepoFilter}
                 options={runRepoOptions}
-                placeholder="All Repos"
+                placeholder={t('All Repos')}
                 className="w-[130px] shrink-0 sm:w-[180px]"
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label="Filters" className="shrink-0 relative">
+                  <Button variant="outline" size="icon" aria-label={t('Filters')} className="shrink-0 relative">
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     {(runStatusFilter !== 'all' || runTriggerFilter !== 'all' || runSortOption !== 'startedAt') && (
                       <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
@@ -674,67 +783,70 @@ export function GlobalSchedules() {
                     }}
                     className="text-xs text-muted-foreground"
                   >
-                    Clear all filters
+                    {t('Clear all filters')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Status</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t('Status')}</DropdownMenuLabel>
                   <DropdownMenuCheckboxItem
                     checked={runStatusFilter === 'all'}
                     onCheckedChange={() => setRunStatusFilter('all')}
                     onSelect={(e) => e.preventDefault()}
                   >
-                    All Status
+                    {t('All Status')}
                   </DropdownMenuCheckboxItem>
-                  {runStatusOptions.filter((opt) => opt.value !== 'all').map((opt) => (
-                    <DropdownMenuCheckboxItem
-                      key={opt.value}
-                      checked={runStatusFilter === opt.value}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setRunStatusFilter(opt.value)
-                        } else {
-                          setRunStatusFilter('all')
-                        }
-                      }}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {opt.label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
+                  {runStatusOptions
+                    .filter((opt) => opt.value !== 'all')
+                    .map((opt) => (
+                      <DropdownMenuCheckboxItem
+                        key={opt.value}
+                        checked={runStatusFilter === opt.value}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setRunStatusFilter(opt.value)
+                          } else {
+                            setRunStatusFilter('all')
+                          }
+                        }}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {opt.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Trigger</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t('Trigger')}</DropdownMenuLabel>
                   <DropdownMenuCheckboxItem
                     checked={runTriggerFilter === 'all'}
                     onCheckedChange={() => setRunTriggerFilter('all')}
                     onSelect={(e) => e.preventDefault()}
                   >
-                    All Triggers
+                    {t('All Triggers')}
                   </DropdownMenuCheckboxItem>
-                  {runTriggerOptions.filter((opt) => opt.value !== 'all').map((opt) => (
-                    <DropdownMenuCheckboxItem
-                      key={opt.value}
-                      checked={runTriggerFilter === opt.value}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setRunTriggerFilter(opt.value)
-                        } else {
-                          setRunTriggerFilter('all')
-                        }
-                      }}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {opt.label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Sort</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup value={runSortOption} onValueChange={(v) => setRunSortOption(v as 'startedAt' | 'jobName' | 'duration')}>
-                    {runSortOptions.map((opt) => (
-                      <DropdownMenuRadioItem
+                  {runTriggerOptions
+                    .filter((opt) => opt.value !== 'all')
+                    .map((opt) => (
+                      <DropdownMenuCheckboxItem
                         key={opt.value}
-                        value={opt.value}
+                        checked={runTriggerFilter === opt.value}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setRunTriggerFilter(opt.value)
+                          } else {
+                            setRunTriggerFilter('all')
+                          }
+                        }}
                         onSelect={(e) => e.preventDefault()}
                       >
+                        {opt.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>{t('Sort')}</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    value={runSortOption}
+                    onValueChange={(v) => setRunSortOption(v as 'startedAt' | 'jobName' | 'duration')}
+                  >
+                    {runSortOptions.map((opt) => (
+                      <DropdownMenuRadioItem key={opt.value} value={opt.value} onSelect={(e) => e.preventDefault()}>
                         {opt.label}
                       </DropdownMenuRadioItem>
                     ))}
@@ -743,7 +855,7 @@ export function GlobalSchedules() {
               </DropdownMenu>
               {unreadTotal > 0 && (
                 <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handleNextUnread}>
-                  Next unread ({unreadTotal})
+                  {t('Next unread ({count})', { count: unreadTotal })}
                 </Button>
               )}
             </ScheduleListToolbar>
@@ -756,7 +868,12 @@ export function GlobalSchedules() {
                 runsLoading={runsLoading && allRuns.length === 0}
                 selectedRunId={runId}
                 onSelectRun={selectRun}
-                isFiltered={Boolean(debouncedRunSearch) || runStatusFilter !== 'all' || runRepoFilter !== 'all' || runTriggerFilter !== 'all'}
+                isFiltered={
+                  Boolean(debouncedRunSearch) ||
+                  runStatusFilter !== 'all' ||
+                  runRepoFilter !== 'all' ||
+                  runTriggerFilter !== 'all'
+                }
               />
             </div>
           </div>
@@ -784,7 +901,9 @@ export function GlobalSchedules() {
         cancelPending={cancelRunPending}
         runLoading={selectedRunLookupLoading}
         runError={selectedRunLookupError}
-        onRetry={() => { void refetchSelectedRun() }}
+        onRetry={() => {
+          void refetchSelectedRun()
+        }}
         onNextUnread={handleNextUnread}
         nextUnreadCount={unreadTotal}
         onPrev={selectedRunPrev}
@@ -805,9 +924,11 @@ export function GlobalSchedules() {
         showRepoSelector
         repoId={selectedRepoId}
         onRepoChange={setSelectedRepoId}
-        serverTarget={editingJob && editingJob.repoId === null && editingJob.serverId && editingJob.directory
-          ? { serverId: editingJob.serverId, directory: editingJob.directory }
-          : undefined}
+        serverTarget={
+          editingJob && editingJob.repoId === null && editingJob.serverId && editingJob.directory
+            ? { serverId: editingJob.serverId, directory: editingJob.directory }
+            : undefined
+        }
       />
 
       <DeleteDialog
@@ -815,8 +936,8 @@ export function GlobalSchedules() {
         onOpenChange={(open) => !open && closeDialog()}
         onConfirm={handleDelete}
         onCancel={closeDialog}
-        title="Delete Schedule"
-        description={DELETE_SCHEDULE_DESCRIPTION}
+        title={t('Delete Schedule')}
+        description={t(DELETE_SCHEDULE_DESCRIPTION)}
         isDeleting={deleteMutation.isPending}
       />
     </div>

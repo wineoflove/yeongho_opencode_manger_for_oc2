@@ -1,5 +1,6 @@
 import { CalendarClock, History, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 type TabType = 'jobs' | 'detail' | 'runs'
 
@@ -23,7 +24,7 @@ export function ScheduleTabMenu({ activeTab, onTabChange, className }: ScheduleT
         onClick={() => onTabChange('jobs')}
       >
         <CalendarClock className="h-5 w-5" />
-        <span>Jobs</span>
+        <span>{t('Jobs')}</span>
       </button>
       <button
         type="button"
@@ -36,7 +37,7 @@ export function ScheduleTabMenu({ activeTab, onTabChange, className }: ScheduleT
         onClick={() => onTabChange('detail')}
       >
         <Info className="h-5 w-5" />
-        <span>Detail</span>
+        <span>{t('Detail')}</span>
       </button>
       <button
         type="button"
@@ -49,7 +50,7 @@ export function ScheduleTabMenu({ activeTab, onTabChange, className }: ScheduleT
         onClick={() => onTabChange('runs')}
       >
         <History className="h-5 w-5" />
-        <span>Runs</span>
+        <span>{t('Runs')}</span>
       </button>
     </div>
   )

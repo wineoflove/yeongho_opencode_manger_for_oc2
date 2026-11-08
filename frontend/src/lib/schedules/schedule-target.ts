@@ -3,6 +3,7 @@ import type { AssistantModeStatus } from '@opencode-manager/shared/types'
 import { ASSISTANT_REPO_ID, ASSISTANT_REPO_NAME } from '@opencode-manager/shared/utils'
 import { getRepoDisplayName } from '@/lib/utils'
 import { getAssistantPath } from '@/lib/navigation'
+import { t } from '@/i18n/translate'
 
 export interface ScheduleTarget {
   repoId: number
@@ -32,8 +33,8 @@ export function scheduleTargetFromAssistant(status: AssistantModeStatus): Schedu
   return {
     repoId: ASSISTANT_REPO_ID,
     kind: 'assistant',
-    name: ASSISTANT_REPO_NAME,
-    subtitle: 'Built-in assistant',
+    name: t(ASSISTANT_REPO_NAME),
+    subtitle: t('Built-in assistant'),
     fullPath: status.directory,
     backHref: getAssistantPath(),
   }

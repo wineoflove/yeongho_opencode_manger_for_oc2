@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { RunDetailPanel } from './RunDetailPanel'
 import type { Repo } from '@/api/types'
 import type { ScheduleRun } from '@opencode-manager/shared/types'
+import { getLocale, setLocale } from '@/i18n/locale'
 
 const mocks = vi.hoisted(() => ({
   getRepo: vi.fn(),
@@ -165,6 +166,68 @@ describe('RunDetailPanel read aloud', () => {
   })
 })
 
+describe('RunDetailPanel outcome summary', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.useMarkScheduleRunViewed.mockReturnValue({ mutate: vi.fn(), isPending: false })
+    mocks.getRepo.mockResolvedValue(repo)
+  })
+
+  const usageTotals = { input: 1000, output: 400, reasoning: 100, cacheRead: 0, cacheWrite: 0, cost: 0.0123, messages: 3 }
+
+  it('shows the reported outcome, work, delivery, artifacts, usage and agent', () => {
+    renderPanel({
+      ...run,
+      outcome: 'partial',
+      outcomeReport: {
+        outcome: 'partial',
+        summary: 'Processed most invoices',
+        processed: 8,
+        remaining: 2,
+        unit: 'invoices',
+        delivery: 'published',
+        artifacts: ['reports/invoices.md'],
+        reportedAt: 1,
+        agent: 'assistant',
+        reportCount: 1,
+      },
+      usage: {
+        computedAt: 1,
+        sessions: 1,
+        totals: usageTotals,
+        byModel: { 'openai/gpt-test': usageTotals },
+        additional: null,
+        error: null,
+      },
+      agentUsed: 'assistant',
+    })
+
+    const summary = screen.getByRole('region', { name: 'Outcome' })
+    expect(summary).toHaveTextContent('Partial')
+    expect(summary).toHaveTextContent('Processed most invoices')
+    expect(summary).toHaveTextContent('8 done · 2 left invoices')
+    expect(summary).toHaveTextContent('Published')
+    expect(summary).toHaveTextContent('reports/invoices.md')
+    expect(summary).toHaveTextContent('1,500 tokens · $0.0123')
+    expect(summary).toHaveTextContent('openai/gpt-test')
+    expect(summary).toHaveTextContent('assistant')
+  })
+
+  it('labels an unreported run without inventing report details', () => {
+    renderPanel({ ...run, outcome: 'unreported', outcomeReport: null, usage: null, agentUsed: null })
+
+    const summary = screen.getByRole('region', { name: 'Outcome' })
+    expect(summary).toHaveTextContent('Unreported')
+    expect(summary).toHaveTextContent('Not tracked')
+  })
+
+  it('omits the outcome section for a run without any outcome data', () => {
+    renderPanel()
+
+    expect(screen.queryByRole('region', { name: 'Outcome' })).not.toBeInTheDocument()
+  })
+})
+
 describe('RunDetailPanel local link handling', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -294,9 +357,39 @@ describe('RunDetailPanel open session', () => {
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/repos/5/sessions/ses_new'))
     const [input, context] = apiMocks.createSessionWithContext.mock.calls[0] ?? []
     expect(input).toEqual({ directory: '/abs/repos/my-repo', title: 'Daily recap (continued)' })
-    expect(context).toContain('scheduled run #1 "Daily recap", which completed and finished at 2026-10-02T00:00:00.000Z')
+    expect(context).toContain('scheduled run #1 "Daily recap", which completed at 2026-10-02T00:00:00.000Z')
     expect(context).toContain('branch `schedule/run-1` at commit `abc123`')
     expect(context).toContain(`Run output:\n\n${run.responseText}`)
+  })
+
+  it('seeds the continued session in Korean', async () => {
+    const previous = getLocale()
+    setLocale('ko')
+    try {
+      apiMocks.createSessionWithContext.mockResolvedValue({ id: 'ses_new' })
+      renderPanel({
+        ...run,
+        sessionId: 'ses_run',
+        sessionTitle: null,
+        finishedAt: Date.UTC(2026, 9, 2),
+        worktreePath: null,
+        runBranch: 'schedule/run-1',
+        commitHash: 'abc123',
+      })
+
+      await waitFor(() => expect(screen.getByRole('button', { name: '세션 열기' })).toBeEnabled())
+      fireEvent.click(screen.getByRole('button', { name: '세션 열기' }))
+
+      await waitFor(() => expect(apiMocks.createSessionWithContext).toHaveBeenCalled())
+      const [input, context] = apiMocks.createSessionWithContext.mock.calls[0] ?? []
+      expect(input).toEqual({ directory: '/abs/repos/my-repo', title: '스케줄 실행 (이어서)' })
+      expect(context).toContain('스케줄 실행 #1 "스케줄 실행"의 문맥입니다. 이 실행은 2026-10-02T00:00:00.000Z에 완료되었습니다.')
+      expect(context).toContain('브랜치 `schedule/run-1`의 커밋 `abc123`')
+      expect(context).toContain(`실행 출력:\n\n${run.responseText}`)
+      expect(context).not.toMatch(/Context from|Run output|temporary worktree/)
+    } finally {
+      setLocale(previous)
+    }
   })
 
   it('includes the error and notes no committed changes for a failed worktree run', async () => {

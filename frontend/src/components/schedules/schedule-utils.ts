@@ -1,80 +1,99 @@
 import cronstrue from 'cronstrue'
-import { formatDistanceToNow } from 'date-fns'
-import type { CreateScheduleJobRequest, ScheduleJob, ScheduleRun, ScheduleSandboxConfig, ScheduleWorkspaceMode, UpdateScheduleJobRequest } from '@opencode-manager/shared/types'
+import 'cronstrue/locales/ko'
+import { getLocale } from '@/i18n/locale'
+import { formatRelativeTime, intlLocale } from '@/i18n/format'
+import type {
+  CreateScheduleJobRequest,
+  ScheduleJob,
+  ScheduleRun,
+  ScheduleSandboxConfig,
+  ScheduleWorkspaceMode,
+  UpdateScheduleJobRequest,
+} from '@opencode-manager/shared/types'
 import type { RadioOption } from '@/components/ui/radio-option-group'
 import { formatDuration } from '@/lib/utils'
 import { formatSandboxResources } from '@/lib/sandboxResources'
+import { msg, t, tn } from '@/i18n/translate'
 
 export const intervalOptions = [
-  { label: '15m', value: 15 },
-  { label: '30m', value: 30 },
-  { label: '1h', value: 60 },
-  { label: '4h', value: 240 },
-  { label: '1d', value: 1440 },
+  { label: msg('15m'), value: 15 },
+  { label: msg('30m'), value: 30 },
+  { label: msg('1h'), value: 60 },
+  { label: msg('4h'), value: 240 },
+  { label: msg('1d'), value: 1440 },
 ]
 
 export const cronPresetOptions = [
-  { label: 'Weekdays 9 AM', value: '0 9 * * 1-5' },
-  { label: 'Daily 9 AM', value: '0 9 * * *' },
-  { label: 'Twice daily', value: '0 9,17 * * *' },
-  { label: 'Mondays 8 AM', value: '0 8 * * 1' },
+  { label: msg('Weekdays 9 AM'), value: '0 9 * * 1-5' },
+  { label: msg('Daily 9 AM'), value: '0 9 * * *' },
+  { label: msg('Twice daily'), value: '0 9,17 * * *' },
+  { label: msg('Mondays 8 AM'), value: '0 8 * * 1' },
 ]
 
 export const schedulePresetOptions = [
-  { label: 'Interval', value: 'interval' },
-  { label: 'Hourly', value: 'hourly' },
-  { label: 'Daily', value: 'daily' },
-  { label: 'Weekdays', value: 'weekdays' },
-  { label: 'Weekly', value: 'weekly' },
-  { label: 'Monthly', value: 'monthly' },
-  { label: 'Advanced', value: 'advanced' },
+  { label: msg('Interval'), value: 'interval' },
+  { label: msg('Hourly'), value: 'hourly' },
+  { label: msg('Daily'), value: 'daily' },
+  { label: msg('Weekdays'), value: 'weekdays' },
+  { label: msg('Weekly'), value: 'weekly' },
+  { label: msg('Monthly'), value: 'monthly' },
+  { label: msg('Advanced'), value: 'advanced' },
 ] as const
 
 export const weekdayOptions = [
-  { label: 'Mon', value: '1' },
-  { label: 'Tue', value: '2' },
-  { label: 'Wed', value: '3' },
-  { label: 'Thu', value: '4' },
-  { label: 'Fri', value: '5' },
-  { label: 'Sat', value: '6' },
-  { label: 'Sun', value: '0' },
+  { label: msg('Mon'), value: '1' },
+  { label: msg('Tue'), value: '2' },
+  { label: msg('Wed'), value: '3' },
+  { label: msg('Thu'), value: '4' },
+  { label: msg('Fri'), value: '5' },
+  { label: msg('Sat'), value: '6' },
+  { label: msg('Sun'), value: '0' },
 ] as const
 
-export type SchedulePreset = typeof schedulePresetOptions[number]['value']
+export type SchedulePreset = (typeof schedulePresetOptions)[number]['value']
 
 export const workspaceModeOptions: Array<RadioOption<ScheduleWorkspaceMode>> = [
   {
     value: 'worktree',
-    label: 'Fresh worktree, cleaned up',
-    description: 'Each run gets its own worktree. Changes are committed to a run branch and the worktree is removed when the run ends.',
+    label: msg('Fresh worktree, cleaned up'),
+    description: msg(
+      'Each run gets its own worktree. Changes are committed to a run branch and the worktree is removed when the run ends.',
+    ),
   },
   {
     value: 'kept-worktree',
-    label: 'Fresh worktree, kept',
-    description: 'Each run gets its own worktree, which stays on disk afterwards so you can continue in it. Kept worktrees are listed on the job details.',
+    label: msg('Fresh worktree, kept'),
+    description: msg(
+      'Each run gets its own worktree, which stays on disk afterwards so you can continue in it. Kept worktrees are listed on the job details.',
+    ),
   },
   {
     value: 'shared-worktree',
-    label: 'Shared worktree',
-    description: 'Every run reuses one worktree and branch, so work builds up from run to run.',
+    label: msg('Shared worktree'),
+    description: msg('Every run reuses one worktree and branch, so work builds up from run to run.'),
   },
   {
     value: 'in-place',
-    label: 'In place',
-    description: 'Runs directly in the target project directory. Used for projects on a linked server.',
+    label: msg('In place'),
+    description: msg('Runs directly in the target project directory. Used for projects on a linked server.'),
   },
 ]
 
 export function formatWorkspaceMode(mode: ScheduleWorkspaceMode): string {
-  return workspaceModeOptions.find((option) => option.value === mode)?.label ?? mode
+  const label = workspaceModeOptions.find((option) => option.value === mode)?.label
+  return label ? t(label) : mode
 }
 
 export function formatScheduleSandbox(sandbox: ScheduleSandboxConfig | null | undefined): string {
   if (!sandbox?.enabled) {
-    return 'Off'
+    return t('Off')
   }
 
-  return sandbox.resources ? `On · ${formatSandboxResources(sandbox.resources)}` : 'On · server defaults'
+  return sandbox.resources
+    ? t('On · {resources}', {
+        resources: formatSandboxResources(sandbox.resources),
+      })
+    : t('On · server defaults')
 }
 
 export function getLocalTimeZone(): string {
@@ -178,7 +197,11 @@ export function detectSchedulePreset(job?: ScheduleJob): {
   const expression = job.cronExpression?.trim() ?? ''
   const fields = expression.split(/\s+/)
   if (fields.length !== 5) {
-    return { ...defaults, preset: 'advanced', cronExpression: expression || defaults.cronExpression }
+    return {
+      ...defaults,
+      preset: 'advanced',
+      cronExpression: expression || defaults.cronExpression,
+    }
   }
 
   const [minute, hour, dayOfMonth, month, dayOfWeek] = fields
@@ -202,17 +225,34 @@ export function detectSchedulePreset(job?: ScheduleJob): {
   const timeOfDay = toTimeValue(Number.parseInt(hour, 10), Number.parseInt(minute, 10))
 
   if (month === '*' && dayOfMonth === '*' && dayOfWeek === '*') {
-    return { ...defaults, preset: 'daily', timeOfDay, cronExpression: expression }
+    return {
+      ...defaults,
+      preset: 'daily',
+      timeOfDay,
+      cronExpression: expression,
+    }
   }
 
   if (month === '*' && dayOfMonth === '*' && dayOfWeek === '1-5') {
-    return { ...defaults, preset: 'weekdays', timeOfDay, cronExpression: expression, weeklyDays: ['1', '2', '3', '4', '5'] }
+    return {
+      ...defaults,
+      preset: 'weekdays',
+      timeOfDay,
+      cronExpression: expression,
+      weeklyDays: ['1', '2', '3', '4', '5'],
+    }
   }
 
   if (month === '*' && dayOfMonth === '*') {
     const weeklyDays = expandDayOfWeekExpression(dayOfWeek)
     if (weeklyDays && weeklyDays.length > 0) {
-      return { ...defaults, preset: 'weekly', timeOfDay, weeklyDays, cronExpression: expression }
+      return {
+        ...defaults,
+        preset: 'weekly',
+        timeOfDay,
+        weeklyDays,
+        cronExpression: expression,
+      }
     }
   }
 
@@ -226,7 +266,12 @@ export function detectSchedulePreset(job?: ScheduleJob): {
     }
   }
 
-  return { ...defaults, preset: 'advanced', timeOfDay, cronExpression: expression }
+  return {
+    ...defaults,
+    preset: 'advanced',
+    timeOfDay,
+    cronExpression: expression,
+  }
 }
 
 export function buildCronExpressionFromPreset(input: {
@@ -260,20 +305,20 @@ export function buildCronExpressionFromPreset(input: {
 
 export function formatIntervalLabel(intervalMinutes: number | null): string {
   if (!intervalMinutes) {
-    return 'Custom interval'
+    return t('Custom interval')
   }
 
   if (intervalMinutes % 1440 === 0) {
     const days = intervalMinutes / 1440
-    return `Every ${days} day${days === 1 ? '' : 's'}`
+    return tn('Every {count} day', 'Every {count} days', days)
   }
 
   if (intervalMinutes % 60 === 0) {
     const hours = intervalMinutes / 60
-    return `Every ${hours} hour${hours === 1 ? '' : 's'}`
+    return tn('Every {count} hour', 'Every {count} hours', hours)
   }
 
-  return `Every ${intervalMinutes} minute${intervalMinutes === 1 ? '' : 's'}`
+  return tn('Every {count} minute', 'Every {count} minutes', intervalMinutes)
 }
 
 export function formatCronHumanText(cronExpression: string | null): string | null {
@@ -284,6 +329,7 @@ export function formatCronHumanText(cronExpression: string | null): string | nul
   try {
     return cronstrue.toString(cronExpression, {
       throwExceptionOnParseError: true,
+      locale: getLocale(),
       use24HourTimeFormat: false,
     })
   } catch {
@@ -293,7 +339,7 @@ export function formatCronHumanText(cronExpression: string | null): string | nul
 
 export function formatScheduleSummary(job: ScheduleJob): string {
   if (job.scheduleMode === 'cron') {
-    return `${formatCronHumanText(job.cronExpression) ?? (job.cronExpression ?? 'Custom cron')}${job.timezone ? ` - ${job.timezone}` : ''}`
+    return `${formatCronHumanText(job.cronExpression) ?? job.cronExpression ?? t('Custom cron')}${job.timezone ? ` - ${job.timezone}` : ''}`
   }
 
   return formatIntervalLabel(job.intervalMinutes)
@@ -301,7 +347,7 @@ export function formatScheduleSummary(job: ScheduleJob): string {
 
 export function formatScheduleShortLabel(job: ScheduleJob): string {
   if (job.scheduleMode === 'cron') {
-    return formatCronHumanText(job.cronExpression) ?? 'Custom cron'
+    return formatCronHumanText(job.cronExpression) ?? t('Custom cron')
   }
 
   return formatIntervalLabel(job.intervalMinutes)
@@ -327,7 +373,7 @@ export function formatDraftScheduleSummary(input: {
 
   return builtCronExpression
     ? `${humanText ?? builtCronExpression} - ${input.timezone.trim() || 'UTC'}`
-    : 'Choose a schedule'
+    : t('Choose a schedule')
 }
 
 export function toUpdateScheduleRequest(data: CreateScheduleJobRequest): UpdateScheduleJobRequest {
@@ -353,20 +399,21 @@ export function toUpdateScheduleRequest(data: CreateScheduleJobRequest): UpdateS
 
 export function formatTimestamp(value: number | null): string {
   if (!value) {
-    return 'Never'
+    return t('Never')
   }
 
-  return `${new Date(value).toLocaleString()} (${formatDistanceToNow(value, { addSuffix: true })})`
+  return `${new Date(value).toLocaleString(intlLocale())} (${formatRelativeTime(value)})`
 }
 
-export function formatRunDuration(run: Pick<ScheduleRun, 'startedAt' | 'finishedAt'>, now: number = Date.now()): string {
+export function formatRunDuration(
+  run: Pick<ScheduleRun, 'startedAt' | 'finishedAt'>,
+  now: number = Date.now(),
+): string {
   return formatDuration((run.finishedAt ?? now) - run.startedAt)
 }
 
 export function getJobStatusTone(job: ScheduleJob): string {
-  return job.enabled
-    ? 'bg-success/10 text-success border-success/20'
-    : 'bg-muted text-muted-foreground border-border'
+  return job.enabled ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground border-border'
 }
 
 export function hasSkillMetadata(job?: ScheduleJob | null): boolean {
@@ -383,4 +430,6 @@ export function matchesScheduleJobSearch(job: ScheduleJob & { repoName?: string 
   return [job.name, job.description, job.repoName].some((field) => field?.toLowerCase().includes(term))
 }
 
-export const DELETE_SCHEDULE_DESCRIPTION = 'This removes the job definition and all recorded run history for it. Any kept or shared worktrees are removed after their pending changes are committed to their branches; the branches are kept.'
+export const DELETE_SCHEDULE_DESCRIPTION = msg(
+  'This removes the job definition and all recorded run history for it. Any kept or shared worktrees are removed after their pending changes are committed to their branches; the branches are kept.',
+)

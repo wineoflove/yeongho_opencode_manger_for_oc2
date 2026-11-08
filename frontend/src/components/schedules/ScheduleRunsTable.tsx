@@ -1,8 +1,17 @@
-import { formatDistanceToNow } from 'date-fns'
+import { formatRelativeTime, intlLocale } from '@/i18n/format'
 import { History, Loader2, Trash2 } from 'lucide-react'
 import { formatRunDuration } from '@/components/schedules/schedule-utils'
 import { cn } from '@/lib/utils'
-import { formatRunBranch, getRunRepoName, getRunStatusIcon, getRunStatusLabel, getRunTitle, type ScheduleRunRow } from './schedule-run-display'
+import {
+  formatRunBranch,
+  getRunRepoName,
+  getRunStatusIcon,
+  getRunStatusLabel,
+  getRunTitle,
+  type ScheduleRunRow,
+} from './schedule-run-display'
+import { t } from '@/i18n/translate'
+import { OutcomeBadge } from './OutcomeBadge'
 
 interface ScheduleRunsTableProps {
   runs: ScheduleRunRow[]
@@ -38,9 +47,11 @@ export function ScheduleRunsTable({
       <div className="flex items-center justify-center p-6">
         <div className="text-center">
           <History className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-          <p className="text-sm font-medium">{isFiltered ? 'No matching runs' : 'No runs yet'}</p>
+          <p className="text-sm font-medium">{isFiltered ? t('No matching runs') : t('No runs yet')}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {isFiltered ? 'Try a different search or clear the filters.' : 'Use Run now to generate the first execution record and log bundle.'}
+            {isFiltered
+              ? t('Try a different search or clear the filters.')
+              : t('Use Run now to generate the first execution record and log bundle.')}
           </p>
         </div>
       </div>
@@ -51,14 +62,32 @@ export function ScheduleRunsTable({
     <table className="w-full text-sm">
       <thead className="sticky top-0 z-10 whitespace-nowrap bg-background text-xs uppercase text-muted-foreground">
         <tr className="border-b border-border/60">
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Status</th>
-          <th scope="col" className="px-3 py-2.5 text-left font-medium">Run</th>
-          {showRepo && <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Repo</th>}
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Trigger</th>
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Started</th>
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Duration</th>
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Branch</th>
-          <th scope="col" className="w-px px-3 py-2.5 text-right font-medium">Actions</th>
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Status')}
+          </th>
+          <th scope="col" className="px-3 py-2.5 text-left font-medium">
+            {t('Run')}
+          </th>
+          {showRepo && (
+            <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+              {t('Repo')}
+            </th>
+          )}
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Trigger')}
+          </th>
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Started')}
+          </th>
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Duration')}
+          </th>
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Branch')}
+          </th>
+          <th scope="col" className="w-px px-3 py-2.5 text-right font-medium">
+            {t('Actions')}
+          </th>
         </tr>
       </thead>
       <tbody className="divide-y divide-border/60">
@@ -66,8 +95,8 @@ export function ScheduleRunsTable({
           const isUnread = run.viewedAt === null && (run.status === 'completed' || run.status === 'failed')
           const isSelected = selectedRunId === run.id
           const repoName = getRunRepoName(run)
-          const startedLabel = run.status === 'running' ? 'Running' : formatDistanceToNow(run.startedAt, { addSuffix: true })
-          const startedTitle = new Date(run.startedAt).toLocaleString()
+          const startedLabel = run.status === 'running' ? t('Running') : formatRelativeTime(run.startedAt)
+          const startedTitle = new Date(run.startedAt).toLocaleString(intlLocale())
           const mobileDetail = repoName ? `${startedLabel} · ${repoName}` : startedLabel
 
           return (
@@ -92,21 +121,36 @@ export function ScheduleRunsTable({
                         event.stopPropagation()
                         onSelectRun(run.id)
                       }}
-                      aria-label={`Open run ${getRunTitle(run)}`}
-                      className={cn('min-w-0 truncate rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50', isUnread ? 'font-semibold' : 'font-medium')}
+                      aria-label={t('Open run {title}', {
+                        title: getRunTitle(run),
+                      })}
+                      className={cn(
+                        'min-w-0 truncate rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                        isUnread ? 'font-semibold' : 'font-medium',
+                      )}
                     >
                       {getRunTitle(run)}
                     </button>
+                    {run.outcome && <OutcomeBadge outcome={run.outcome} />}
                     {isUnread && (
-                      <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">NEW</span>
+                      <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        {t('NEW')}
+                      </span>
                     )}
                   </span>
                   {run.errorText && (
-                    <span className={cn('truncate text-xs sm:max-w-[24rem]', run.status === 'cancelled' ? 'text-muted-foreground' : 'text-destructive/80')}>
+                    <span
+                      className={cn(
+                        'truncate text-xs sm:max-w-[24rem]',
+                        run.status === 'cancelled' ? 'text-muted-foreground' : 'text-destructive/80',
+                      )}
+                    >
                       {run.errorText}
                     </span>
                   )}
-                  <span className="truncate text-xs text-muted-foreground sm:hidden" title={startedTitle}>{mobileDetail}</span>
+                  <span className="truncate text-xs text-muted-foreground sm:hidden" title={startedTitle}>
+                    {mobileDetail}
+                  </span>
                 </div>
               </td>
               {showRepo && (
@@ -116,10 +160,16 @@ export function ScheduleRunsTable({
               )}
               <td className="hidden px-3 py-2.5 capitalize text-muted-foreground sm:table-cell">{run.triggerSource}</td>
               <td className="hidden whitespace-nowrap px-3 py-2.5 sm:table-cell">
-                <span className="text-muted-foreground" title={startedTitle}>{startedLabel}</span>
+                <span className="text-muted-foreground" title={startedTitle}>
+                  {startedLabel}
+                </span>
               </td>
-              <td className="hidden px-3 py-2.5 tabular-nums text-muted-foreground sm:table-cell">{formatRunDuration(run)}</td>
-              <td className="hidden px-3 py-2.5 font-mono text-xs text-muted-foreground sm:table-cell">{formatRunBranch(run) ?? '—'}</td>
+              <td className="hidden px-3 py-2.5 tabular-nums text-muted-foreground sm:table-cell">
+                {formatRunDuration(run)}
+              </td>
+              <td className="hidden px-3 py-2.5 font-mono text-xs text-muted-foreground sm:table-cell">
+                {formatRunBranch(run) ?? '—'}
+              </td>
               <td className="px-3 py-2.5">
                 <div className="flex items-center justify-end">
                   {onDeleteRun && run.status !== 'running' && (
@@ -130,8 +180,8 @@ export function ScheduleRunsTable({
                         onDeleteRun(run.id)
                       }}
                       disabled={deleteRunPending}
-                      title="Delete run"
-                      aria-label="Delete run"
+                      title={t('Delete run')}
+                      aria-label={t('Delete run')}
                       className="flex items-center p-1.5 text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
                     >
                       <Trash2 className="h-4 w-4" />

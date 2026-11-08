@@ -28,6 +28,23 @@ describe('useScheduleUrlState', () => {
     expect(result.current.scheduleTab).toBe('jobs')
   })
 
+  it('uses a configured default tab and omits it from the URL', () => {
+    const { result, capturedSearch } = renderHookWithRouterAndLocation(() =>
+      useScheduleUrlState({ defaultTab: 'overview' }),
+    )
+    expect(result.current.scheduleTab).toBe('overview')
+    act(() => {
+      result.current.setScheduleTab('jobs')
+    })
+    expect(result.current.scheduleTab).toBe('jobs')
+    expect(capturedSearch.current).toContain('scheduleTab=jobs')
+    act(() => {
+      result.current.setScheduleTab('overview')
+    })
+    expect(result.current.scheduleTab).toBe('overview')
+    expect(capturedSearch.current).not.toContain('scheduleTab')
+  })
+
   it('openEditJob sets dialog to edit and sets jobId', () => {
     const { result, capturedSearch } = renderHookWithRouterAndLocation(() => useScheduleUrlState(), )
     act(() => {

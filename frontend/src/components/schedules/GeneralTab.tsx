@@ -11,6 +11,7 @@ import { SandboxResourceInputs } from '@/components/sandbox/SandboxResourceInput
 import { workspaceModeOptions } from '@/components/schedules/schedule-utils'
 import type { ScheduleWorkspaceMode } from '@opencode-manager/shared/types'
 import { Info } from 'lucide-react'
+import { t } from '@/i18n/translate'
 
 export type ScheduleSandboxFields = {
   enabled: boolean
@@ -110,46 +111,46 @@ export function GeneralTab({
       <div className="space-y-4">
         {showRepoSelector && !isEditing && (
           <div className="space-y-2">
-            <Label>Repository</Label>
+            <Label>{t('Repository')}</Label>
             <Combobox
               value={repoId?.toString() ?? ''}
               onChange={(value) => onRepoChange?.(value ? Number(value) : undefined)}
               options={repoOptions}
-              placeholder="Select a repository"
+              placeholder={t('Select a repository')}
               allowCustomValue={false}
             />
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="schedule-name">Name</Label>
+            <Label htmlFor="schedule-name">{t('Name')}</Label>
             <Input
               id="schedule-name"
               value={name}
               onChange={(event) => onNameChange(event.target.value)}
-              placeholder="Nightly repo health check"
+              placeholder={t('Nightly repo health check')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="schedule-description">Description</Label>
+            <Label htmlFor="schedule-description">{t('Description')}</Label>
             <Input
               id="schedule-description"
               value={description}
               onChange={(event) => onDescriptionChange(event.target.value)}
-              placeholder="What this job checks or produces"
+              placeholder={t('What this job checks or produces')}
             />
           </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-end">
           <div className="space-y-2">
-            <Label htmlFor="schedule-agent">Agent slug</Label>
+            <Label htmlFor="schedule-agent">{t('Agent slug')}</Label>
             <Combobox
               value={agentSlug}
               onChange={onAgentSlugChange}
               options={agentOptions}
-              placeholder="Select an agent"
+              placeholder={t('Select an agent')}
               allowCustomValue
               showClear
             />
@@ -157,15 +158,15 @@ export function GeneralTab({
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="schedule-model">Model override</Label>
-              <InfoHint text="Pick from detected OpenCode models or type a custom provider/model value." />
+              <Label htmlFor="schedule-model">{t('Model override')}</Label>
+              <InfoHint text={t('Pick from detected OpenCode models or type a custom provider/model value.')} />
             </div>
             <ModelCombobox
               id="schedule-model"
               value={model}
               onChange={onModelChange}
               directory={modelDirectory}
-              placeholder="Workspace default"
+              placeholder={t('Workspace default')}
               allowCustomValue
               showClear
             />
@@ -175,8 +176,8 @@ export function GeneralTab({
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <p id="schedule-enabled-label" className="text-sm font-medium">Enabled</p>
-              <InfoHint text="Auto-run this job on its schedule while still allowing manual runs from the dashboard." />
+              <p id="schedule-enabled-label" className="text-sm font-medium">{t('Enabled')}</p>
+              <InfoHint text={t('Auto-run this job on its schedule while still allowing manual runs from the dashboard.')} />
             </div>
             <Switch checked={enabled} onCheckedChange={onEnabledChange} aria-labelledby="schedule-enabled-label" />
           </div>
@@ -185,27 +186,29 @@ export function GeneralTab({
         <div className="rounded-lg border border-border bg-card p-4 space-y-4">
           {showWorkspaceMode && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Workspace</p>
+              <p className="text-sm font-medium">{t('Workspace')}</p>
               <RadioOptionGroup
                 name="schedule-workspace-mode"
                 value={workspaceMode}
                 onChange={onWorkspaceModeChange}
-                options={workspaceModeOptions.filter((option) => option.value !== 'in-place')}
+                options={workspaceModeOptions
+                  .filter((option) => option.value !== 'in-place')
+                  .map((option) => ({ ...option, label: t(option.label), description: option.description && t(option.description) }))}
               />
             </div>
           )}
           {showBranch && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Label htmlFor="schedule-branch">Base branch</Label>
-              <InfoHint text="Runs start from origin/<branch> when it exists, so local commits that are not pushed are not included. A shared worktree continues from its own branch after the first run. Leave empty to use the repository's default branch." />
+              <Label htmlFor="schedule-branch">{t('Base branch')}</Label>
+              <InfoHint text={t("Runs start from origin/<branch> when it exists, so local commits that are not pushed are not included. A shared worktree continues from its own branch after the first run. Leave empty to use the repository's default branch.")} />
             </div>
             <BranchCombobox
               id="schedule-branch"
               repoId={branchRepoId}
               value={branch}
               onValueChange={onBranchChange}
-              placeholder="Defaults to default branch"
+              placeholder={t('Defaults to default branch')}
               remotes="bare"
               clearable
             />
@@ -214,12 +217,12 @@ export function GeneralTab({
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Permissions</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">{t('Permissions')}</h3>
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <p id="schedule-allow-external-label" className="text-sm font-medium">Allow access outside the working directory</p>
-                <InfoHint text="When disabled, runs are confined to the worktree. Enable to allow the agent to read/write files elsewhere on the system." />
+                <p id="schedule-allow-external-label" className="text-sm font-medium">{t('Allow access outside the working directory')}</p>
+                <InfoHint text={t('When disabled, runs are confined to the worktree. Enable to allow the agent to read/write files elsewhere on the system.')} />
               </div>
               <Switch
                 checked={allowExternalDirectory}
@@ -231,8 +234,8 @@ export function GeneralTab({
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <p id="schedule-allow-questions-label" className="text-sm font-medium">Allow questions</p>
-                <InfoHint text="Scheduled runs are unattended. When disabled, the agent's question tool is denied so a run can never stall waiting for an answer that nobody is there to give." />
+                <p id="schedule-allow-questions-label" className="text-sm font-medium">{t('Allow questions')}</p>
+                <InfoHint text={t("Scheduled runs are unattended. When disabled, the agent's question tool is denied so a run can never stall waiting for an answer that nobody is there to give.")} />
               </div>
               <Switch
                 checked={allowQuestions}
@@ -244,8 +247,8 @@ export function GeneralTab({
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="schedule-bash-deny">Blocked bash commands</Label>
-                <InfoHint text="One glob per line. These bash commands are always blocked. The throwaway worktree (never auto-pushed) is the real safety boundary." />
+                <Label htmlFor="schedule-bash-deny">{t('Blocked bash commands')}</Label>
+                <InfoHint text={t('One glob per line. These bash commands are always blocked. The throwaway worktree (never auto-pushed) is the real safety boundary.')} />
               </div>
               <Textarea
                 id="schedule-bash-deny"
@@ -263,13 +266,13 @@ export function GeneralTab({
 
         {sandbox && (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-muted-foreground">Sandbox</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">{t('Sandbox')}</h3>
             <div className="rounded-lg border border-border bg-card p-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-0.5">
-                  <p id="schedule-sandbox-label" className="text-sm font-medium">Run in sandbox</p>
+                  <p id="schedule-sandbox-label" className="text-sm font-medium">{t('Run in sandbox')}</p>
                   <p className="text-xs text-muted-foreground">
-                    Each run and its subagents get a dedicated VM with Docker, removed after the run.
+                    {t('Each run and its subagents get a dedicated VM with Docker, removed after the run.')}
                   </p>
                   {sandbox.unavailableReason ? (
                     <p className="text-xs text-destructive">{sandbox.unavailableReason}</p>

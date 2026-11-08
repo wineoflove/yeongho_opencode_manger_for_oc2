@@ -15,6 +15,8 @@ import { showToast } from '@/lib/toast'
 import { useMarkScheduleRunViewed } from '@/hooks/useSchedules'
 import { Loader2 } from 'lucide-react'
 import type { ScheduleRun } from '@opencode-manager/shared/types'
+import { t } from '@/i18n/translate'
+import { RunOutcomeSummary } from './RunOutcomeSummary'
 
 interface RunDetailPanelProps {
   repoId: number | null
@@ -68,7 +70,7 @@ export function RunDetailPanel({ repoId, serverId, activeRun, selectedRunLoading
   }
 
   if (!activeRun) {
-    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Select a run to inspect logs and output.</div>
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{t('Select a run to inspect logs and output.')}</div>
   }
 
   const { sessionId } = activeRun
@@ -88,12 +90,12 @@ export function RunDetailPanel({ repoId, serverId, activeRun, selectedRunLoading
     setOpeningSession(true)
     try {
       const session = await createSessionWithContext(
-        { directory: repo.fullPath, title: `${activeRun.sessionTitle ?? 'Scheduled run'} (continued)` },
+        { directory: repo.fullPath, title: t('{title} (continued)', { title: activeRun.sessionTitle ?? t('Scheduled run') }) },
         buildRunContext(activeRun),
       )
       navigate(getSessionPath(repoId, session.id))
     } catch (error) {
-      showToast.error(`Could not open a repository session for this run: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showToast.error(t('Could not open a repository session for this run: {reason}', { reason: error instanceof Error ? error.message : t('Unknown error') }))
     } finally {
       setOpeningSession(false)
     }
@@ -101,25 +103,26 @@ export function RunDetailPanel({ repoId, serverId, activeRun, selectedRunLoading
 
   return (
     <>
+      <RunOutcomeSummary run={activeRun} />
       <Tabs key={`${activeRun.id}-${String(activeRun.responseText ? 'response' : activeRun.errorText ? 'error' : 'log')}`} defaultValue={activeRun.responseText ? 'response' : activeRun.errorText ? 'error' : 'log'} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3">
           <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0">
-            <TabsTrigger value="log" className="rounded-none border-b-2 border-transparent px-3 py-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">Log</TabsTrigger>
-            <TabsTrigger value="response" disabled={!activeRun.responseText} className="rounded-none border-b-2 border-transparent px-3 py-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">Assistant Output</TabsTrigger>
-            <TabsTrigger value="error" disabled={!activeRun.errorText} className="rounded-none border-b-2 border-transparent px-3 py-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeRun.status === 'cancelled' ? 'Details' : 'Error'}</TabsTrigger>
+            <TabsTrigger value="log" className="rounded-none border-b-2 border-transparent px-3 py-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">{t('Log')}</TabsTrigger>
+            <TabsTrigger value="response" disabled={!activeRun.responseText} className="rounded-none border-b-2 border-transparent px-3 py-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">{t('Assistant Output')}</TabsTrigger>
+            <TabsTrigger value="error" disabled={!activeRun.errorText} className="rounded-none border-b-2 border-transparent px-3 py-2 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeRun.status === 'cancelled' ? t('Details') : t('Error')}</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2 py-1">
             {activeRun.responseText && <TTSButton messageId={`schedule-run-${activeRun.id}`} content={activeRun.responseText} />}
             {(sessionId || opensNewRepoSession) && (
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { void handleOpenSession() }} disabled={openingSession || (opensNewRepoSession && !repo)}>
                 {openingSession ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-                Open session
+                {t('Open session')}
               </Button>
             )}
             {activeRun.status === 'running' && (
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onCancelRun} disabled={cancelRunPending}>
                 {cancelRunPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-                Cancel run
+                {t('Cancel run')}
               </Button>
             )}
           </div>
@@ -128,7 +131,7 @@ export function RunDetailPanel({ repoId, serverId, activeRun, selectedRunLoading
           {selectedRunLoading && !activeRun ? (
             <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
-            <pre className="whitespace-pre-wrap break-words text-sm font-mono leading-6">{activeRun.logText ?? 'No log text captured.'}</pre>
+            <pre className="whitespace-pre-wrap break-words text-sm font-mono leading-6">{activeRun.logText ?? t('No log text captured.')}</pre>
           )}
         </TabsContent>
         <TabsContent value="response" className="mt-0 min-h-0 flex-1 flex flex-col overflow-hidden">
@@ -137,12 +140,12 @@ export function RunDetailPanel({ repoId, serverId, activeRun, selectedRunLoading
           ) : activeRun.responseText ? (
             <>
               {repoId !== null && repoPending && (
-                <div role="status" className="px-3 pt-2 text-xs text-muted-foreground">Loading repository details for local links.</div>
+                <div role="status" className="px-3 pt-2 text-xs text-muted-foreground">{t('Loading repository details for local links.')}</div>
               )}
               {repoId !== null && repoError && (
                 <div role="alert" className="flex items-center gap-2 px-3 pt-2 text-xs text-destructive">
-                  <span>Could not load repository details for local links.</span>
-                  <Button variant="outline" size="sm" onClick={() => { void refetchRepo() }}>Retry</Button>
+                  <span>{t('Could not load repository details for local links.')}</span>
+                  <Button variant="outline" size="sm" onClick={() => { void refetchRepo() }}>{t('Retry')}</Button>
                 </div>
               )}
               <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] xl:[mask-image:linear-gradient(to_bottom,transparent,black_16px,black)]">
@@ -150,14 +153,14 @@ export function RunDetailPanel({ repoId, serverId, activeRun, selectedRunLoading
               </div>
             </>
           ) : (
-            <div className="p-3"><pre className="whitespace-pre-wrap break-words text-sm font-mono leading-6">No assistant output captured.</pre></div>
+            <div className="p-3"><pre className="whitespace-pre-wrap break-words text-sm font-mono leading-6">{t('No assistant output captured.')}</pre></div>
           )}
         </TabsContent>
         <TabsContent value="error" className="mt-0 min-h-0 flex-1 overflow-y-auto px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] xl:[mask-image:linear-gradient(to_bottom,transparent,black_16px,black)]">
           {selectedRunLoading && !activeRun ? (
             <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
-            <pre className={`whitespace-pre-wrap break-words text-sm font-mono leading-6 ${activeRun.status === 'cancelled' ? 'text-muted-foreground' : 'text-destructive'}`}>{activeRun.errorText ?? 'No error recorded.'}</pre>
+            <pre className={`whitespace-pre-wrap break-words text-sm font-mono leading-6 ${activeRun.status === 'cancelled' ? 'text-muted-foreground' : 'text-destructive'}`}>{activeRun.errorText ?? t('No error recorded.')}</pre>
           )}
         </TabsContent>
       </Tabs>
@@ -173,20 +176,39 @@ export function RunDetailPanel({ repoId, serverId, activeRun, selectedRunLoading
   )
 }
 
+function describeRunHeader(run: ScheduleRun): string {
+  const vars = {
+    id: run.id,
+    title: run.sessionTitle ?? t('Scheduled run'),
+    status: run.status,
+    time: run.finishedAt ? new Date(run.finishedAt).toISOString() : '',
+  }
+  if (run.status === 'completed') {
+    return run.finishedAt
+      ? t('Context from scheduled run #{id} "{title}", which completed at {time}.', vars)
+      : t('Context from scheduled run #{id} "{title}", which completed.', vars)
+  }
+  return run.finishedAt
+    ? t('Context from scheduled run #{id} "{title}", which ended as {status} at {time}.', vars)
+    : t('Context from scheduled run #{id} "{title}", which ended as {status}.', vars)
+}
+
 function buildRunContext(run: ScheduleRun): string {
-  const finished = run.finishedAt ? ` and finished at ${new Date(run.finishedAt).toISOString()}` : ''
   const sections = [
-    `Context from scheduled run #${run.id} "${run.sessionTitle ?? 'Scheduled run'}", which ${run.status === 'completed' ? 'completed' : `ended as ${run.status}`}${finished}.`,
+    describeRunHeader(run),
     describeRunChanges(run),
-    run.responseText ? `Run output:\n\n${run.responseText}` : 'The run produced no output.',
-    run.errorText ? `Run error:\n\n${run.errorText}` : null,
+    run.responseText ? `${t('Run output:')}\n\n${run.responseText}` : t('The run produced no output.'),
+    run.errorText ? `${t('Run error:')}\n\n${run.errorText}` : null,
   ]
   return sections.filter((section): section is string => section !== null).join('\n\n')
 }
 
 function describeRunChanges(run: ScheduleRun): string {
   if (run.runBranch && run.commitHash) {
-    return `The run worked in a temporary worktree that has since been removed. Its changes were committed to branch \`${run.runBranch}\` at commit \`${run.commitHash}\`; they are not in this checkout unless that branch is checked out or merged.`
+    return t(
+      'The run worked in a temporary worktree that has since been removed. Its changes were committed to branch `{branch}` at commit `{commit}`; they are not in this checkout unless that branch is checked out or merged.',
+      { branch: run.runBranch, commit: run.commitHash },
+    )
   }
-  return 'The run worked in a temporary worktree that has since been removed and committed no changes.'
+  return t('The run worked in a temporary worktree that has since been removed and committed no changes.')
 }

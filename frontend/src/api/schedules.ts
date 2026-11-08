@@ -1,5 +1,6 @@
 import { fetchWrapper, fetchWrapperVoid } from './fetchWrapper'
 import { API_BASE_URL } from '@/config'
+import { ScheduleOverviewResponseSchema } from '@opencode-manager/shared/schemas'
 import type {
   CreateScheduleJobRequest,
   RemoveScheduleWorktreesRequest,
@@ -65,6 +66,13 @@ export interface ListAllRunsParams {
 export interface ScheduleCount {
   total: number
   enabled: number
+}
+
+/** Loads the global automation overview for a 1, 7 or 30 day window in the given IANA time zone. */
+export async function fetchScheduleOverview(windowDays: 1 | 7 | 30, tz: string) {
+  const params = new URLSearchParams({ windowDays: String(windowDays), tz })
+  const response = await fetchWrapper<unknown>(`${API_BASE_URL}/api/schedules/overview?${params}`)
+  return ScheduleOverviewResponseSchema.parse(response)
 }
 
 export async function listAllSchedules(): Promise<{ jobs: ScheduleJobWithRepo[] }> {

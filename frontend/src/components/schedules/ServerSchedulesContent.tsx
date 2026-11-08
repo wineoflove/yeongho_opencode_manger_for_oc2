@@ -27,6 +27,7 @@ import {
   ScheduleTabMenu,
 } from '@/components/schedules'
 import { DELETE_SCHEDULE_DESCRIPTION, matchesScheduleJobSearch, toUpdateScheduleRequest } from './schedule-utils'
+import { t, tn } from '@/i18n/translate'
 
 type ServerScheduleTab = 'jobs' | 'detail' | 'runs'
 type ServerScheduleDialog = 'new' | 'edit' | 'delete' | null
@@ -54,10 +55,7 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
     () => allSchedules?.filter((job) => job.serverId === serverId && job.directory === directory),
     [allSchedules, directory, serverId],
   )
-  const selectedJob = useMemo(
-    () => jobs?.find((job) => job.id === jobId),
-    [jobs, jobId],
-  )
+  const selectedJob = useMemo(() => jobs?.find((job) => job.id === jobId), [jobs, jobId])
   const { data: fetchedJob, isFetching: isJobFetching } = useServerSchedule(serverId, jobId)
   const { data: runs, isLoading: runsLoading } = useServerScheduleRuns(serverId, jobId, 30)
 
@@ -69,10 +67,7 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
   const clearRunsMutation = useClearServerScheduleRuns(serverId)
   const deleteRunMutation = useDeleteServerScheduleRun(serverId)
 
-  const visibleJobs = useMemo(
-    () => (jobs ?? []).filter((job) => matchesScheduleJobSearch(job, search)),
-    [jobs, search],
-  )
+  const visibleJobs = useMemo(() => (jobs ?? []).filter((job) => matchesScheduleJobSearch(job, search)), [jobs, search])
   const clearableRuns = useMemo(() => (runs ?? []).filter((run) => run.status !== 'running'), [runs])
   const runningRun = useMemo(() => runs?.find((run) => run.status === 'running') ?? null, [runs])
   const activeJob = selectedJob ?? fetchedJob
@@ -84,20 +79,26 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
   }
 
   const handleCreate = (data: CreateScheduleJobRequest) => {
-    createMutation.mutate({ ...data, directory }, {
-      onSuccess: (job) => {
-        setDialog(null)
-        setJobId(job.id)
-        setTab('detail')
+    createMutation.mutate(
+      { ...data, directory },
+      {
+        onSuccess: (job) => {
+          setDialog(null)
+          setJobId(job.id)
+          setTab('detail')
+        },
       },
-    })
+    )
   }
 
   const handleUpdate = (data: CreateScheduleJobRequest) => {
     if (dialog !== 'edit' || jobId === null) return
-    updateMutation.mutate({ jobId, data: toUpdateScheduleRequest(data) }, {
-      onSuccess: () => setDialog(null),
-    })
+    updateMutation.mutate(
+      { jobId, data: toUpdateScheduleRequest(data) },
+      {
+        onSuccess: () => setDialog(null),
+      },
+    )
   }
 
   const handleDelete = () => {
@@ -156,14 +157,14 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
                 <CalendarClock className="h-6 w-6 text-muted-foreground" />
               </div>
               <div className="space-y-2">
-                <p className="text-xl font-semibold tracking-tight">No schedules yet</p>
+                <p className="text-xl font-semibold tracking-tight">{t('No schedules yet')}</p>
                 <p className="text-sm text-muted-foreground">
-                  Create a schedule for this remote project to automate recurring agent work in {directory}.
+                  {t('Create a schedule for this remote project to automate recurring agent work in {directory}.', { directory })}
                 </p>
               </div>
               <Button onClick={() => setDialog('new')}>
                 <Plus className="mr-2 h-4 w-4" />
-                Create First Schedule
+                {t('Create First Schedule')}
               </Button>
             </CardContent>
           </Card>
@@ -171,10 +172,10 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
           <>
             {tab === 'jobs' && (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <ScheduleListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Search jobs">
+                <ScheduleListToolbar search={search} onSearchChange={setSearch} searchPlaceholder={t('Search jobs')}>
                   <Button onClick={() => setDialog('new')} size="sm" className="h-9 shrink-0">
                     <Plus className="mr-1 h-4 w-4" />
-                    New Schedule
+                    {t('New Schedule')}
                   </Button>
                 </ScheduleListToolbar>
                 <div className="flex min-h-0 flex-1 flex-col pt-2">
@@ -186,8 +187,14 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
                       onOpen={openJob}
                       onRunNow={handleRunNow}
                       onToggleEnabled={handleToggleEnabled}
-                      onEdit={(job) => { setJobId(job.id); setDialog('edit') }}
-                      onDelete={(job) => { setJobId(job.id); setDialog('delete') }}
+                      onEdit={(job) => {
+                        setJobId(job.id)
+                        setDialog('edit')
+                      }}
+                      onDelete={(job) => {
+                        setJobId(job.id)
+                        setDialog('delete')
+                      }}
                       onCancelRun={handleCancelJobRun}
                       runPending={runMutation.isPending}
                       cancelPending={cancelRunMutation.isPending}
@@ -199,10 +206,20 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
             {tab === 'detail' && (
               <JobDetailTab
                 selectedJob={activeJob}
-                onEdit={(job) => { setJobId(job.id); setDialog('edit') }}
-                onDelete={(id) => { setJobId(id); setDialog('delete') }}
-                onToggleEnabled={() => { if (activeJob) handleToggleEnabled(activeJob) }}
-                onRunNow={() => { if (activeJob) handleRunNow(activeJob) }}
+                onEdit={(job) => {
+                  setJobId(job.id)
+                  setDialog('edit')
+                }}
+                onDelete={(id) => {
+                  setJobId(id)
+                  setDialog('delete')
+                }}
+                onToggleEnabled={() => {
+                  if (activeJob) handleToggleEnabled(activeJob)
+                }}
+                onRunNow={() => {
+                  if (activeJob) handleRunNow(activeJob)
+                }}
                 updatePending={updateMutation.isPending}
                 runPending={runMutation.isPending}
                 runningRun={Boolean(runningRun)}
@@ -228,13 +245,13 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
         )}
       </div>
 
-      {hasJobs && (
-        <ScheduleTabMenu activeTab={tab} onTabChange={setTab} />
-      )}
+      {hasJobs && <ScheduleTabMenu activeTab={tab} onTabChange={setTab} />}
 
       <ScheduleJobDialog
         open={dialog === 'new' || dialog === 'edit'}
-        onOpenChange={(open) => { if (!open) setDialog(null) }}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null)
+        }}
         job={editingJob}
         isSaving={createMutation.isPending || updateMutation.isPending}
         onSubmit={dialog === 'edit' ? handleUpdate : handleCreate}
@@ -243,35 +260,49 @@ export function ServerSchedulesContent({ target }: ServerSchedulesContentProps) 
 
       <DeleteDialog
         open={dialog === 'delete'}
-        onOpenChange={(open) => { if (!open) setDialog(null) }}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null)
+        }}
         onConfirm={handleDelete}
         onCancel={() => setDialog(null)}
-        title="Delete Schedule"
-        description={DELETE_SCHEDULE_DESCRIPTION}
+        title={t('Delete Schedule')}
+        description={t(DELETE_SCHEDULE_DESCRIPTION)}
         isDeleting={deleteMutation.isPending}
       />
 
       <ScheduleRunRemovalDialog
         open={clearRunsOpen}
-        onOpenChange={(open) => { if (!open) setClearRunsOpen(false) }}
-        title="Clear run history"
+        onOpenChange={(open) => {
+          if (!open) setClearRunsOpen(false)
+        }}
+        title={t('Clear run history')}
         description={
-          <>This permanently deletes all <strong>{clearableRuns.length}</strong> finished run{clearableRuns.length === 1 ? '' : 's'} for this schedule. A run in progress is kept. This cannot be undone.</>
+          <>
+            {tn(
+              'This permanently deletes {count} finished run for this schedule. A run in progress is kept. This cannot be undone.',
+              'This permanently deletes all {count} finished runs for this schedule. A run in progress is kept. This cannot be undone.',
+              clearableRuns.length,
+            )}
+          </>
         }
         affectedWorktreeCount={0}
         isPending={clearRunsMutation.isPending}
         onCancel={() => setClearRunsOpen(false)}
         onConfirm={() => {
           if (jobId === null) return
-          clearRunsMutation.mutate(jobId, { onSuccess: () => setClearRunsOpen(false) })
+          clearRunsMutation.mutate(jobId, {
+            onSuccess: () => setClearRunsOpen(false),
+          })
         }}
       />
 
       <ScheduleRunRemovalDialog
         open={runToDelete !== null}
-        onOpenChange={(open) => { if (!open) setRunToDelete(null) }}
-        title="Delete run"
-        description="This permanently deletes this run. This cannot be undone."
+        onOpenChange={(open) => {
+          if (!open) setRunToDelete(null)
+        }}
+        title={t('Delete run')}
+        description={t('This permanently deletes this run. This cannot be undone.')}
         affectedWorktreeCount={0}
         isPending={deleteRunMutation.isPending}
         onCancel={() => setRunToDelete(null)}

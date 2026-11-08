@@ -1,11 +1,18 @@
 import type { MouseEvent } from 'react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatRelativeTime, intlLocale } from '@/i18n/format'
 import { Loader2, MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { formatScheduleShortLabel, formatScheduleSummary } from './schedule-utils'
 import type { ScheduleJobWithRepo, ScheduleRunSummary } from '@/api/schedules'
+import { t, tn } from '@/i18n/translate'
 
 interface ScheduleJobsTableProps {
   jobs: ScheduleJobWithRepo[]
@@ -30,7 +37,7 @@ function isUnreadRun(lastRun: ScheduleRunSummary): boolean {
 function ScheduleJobNewPill() {
   return (
     <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-      NEW
+      {t('NEW')}
     </span>
   )
 }
@@ -55,21 +62,32 @@ function ScheduleJobStatusIndicator({ job }: { job: ScheduleJobWithRepo }) {
 
 function ScheduleJobLastResult({ lastRun }: { lastRun: ScheduleRunSummary | null }) {
   if (!lastRun) {
-    return <span className="text-muted-foreground">No runs yet</span>
+    return <span className="text-muted-foreground">{t('No runs yet')}</span>
   }
 
   if (lastRun.status === 'running') {
-    return <span className="text-muted-foreground">Running · {formatDistanceToNow(lastRun.startedAt)}</span>
+    return (
+      <span className="text-muted-foreground">
+        {t('Running · {duration}', {
+          duration: formatRelativeTime(lastRun.startedAt, { addSuffix: false }),
+        })}
+      </span>
+    )
   }
 
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <span className="shrink-0 text-muted-foreground">
-        {formatDistanceToNow(lastRun.finishedAt ?? lastRun.startedAt, { addSuffix: true })}
+        {formatRelativeTime(lastRun.finishedAt ?? lastRun.startedAt)}
       </span>
       {isUnreadRun(lastRun) && <ScheduleJobNewPill />}
       {lastRun.preview && (
-        <span className={cn('hidden truncate sm:inline', lastRun.status === 'failed' ? 'text-destructive/80' : 'text-muted-foreground')}>
+        <span
+          className={cn(
+            'hidden truncate sm:inline',
+            lastRun.status === 'failed' ? 'text-destructive/80' : 'text-muted-foreground',
+          )}
+        >
           {lastRun.preview}
         </span>
       )}
@@ -92,22 +110,39 @@ export function ScheduleJobsTable({
   runPending = false,
   cancelPending = false,
 }: ScheduleJobsTableProps) {
-  const runAction = (action: ((target: ScheduleJobWithRepo) => void) | undefined, job: ScheduleJobWithRepo) => (event: MouseEvent) => {
-    event.stopPropagation()
-    action?.(job)
-  }
+  const runAction =
+    (action: ((target: ScheduleJobWithRepo) => void) | undefined, job: ScheduleJobWithRepo) => (event: MouseEvent) => {
+      event.stopPropagation()
+      action?.(job)
+    }
 
   return (
     <table className="w-full text-sm">
       <thead className="sticky top-0 z-10 whitespace-nowrap bg-background text-xs uppercase text-muted-foreground">
         <tr className="border-b border-border/60">
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Status</th>
-          <th scope="col" className="px-3 py-2.5 text-left font-medium">Job</th>
-          {showRepo && <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Repo</th>}
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Schedule</th>
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Next run</th>
-          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">Last result</th>
-          <th scope="col" className="w-px px-3 py-2.5 text-right font-medium">Actions</th>
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Status')}
+          </th>
+          <th scope="col" className="px-3 py-2.5 text-left font-medium">
+            {t('Job')}
+          </th>
+          {showRepo && (
+            <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+              {t('Repo')}
+            </th>
+          )}
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Schedule')}
+          </th>
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Next run')}
+          </th>
+          <th scope="col" className="hidden px-3 py-2.5 text-left font-medium sm:table-cell">
+            {t('Last result')}
+          </th>
+          <th scope="col" className="w-px px-3 py-2.5 text-right font-medium">
+            {t('Actions')}
+          </th>
         </tr>
       </thead>
       <tbody className="divide-y divide-border/60">
@@ -116,40 +151,39 @@ export function ScheduleJobsTable({
           const isRunning = lastRun?.status === 'running'
           const isPaused = !job.enabled
           const isSelected = selectedJobId === job.id
-          const statusLabel = isRunning ? 'Running' : isPaused ? 'Paused' : 'Active'
-          const nextRunLabel = !job.enabled || !job.nextRunAt
-            ? '—'
-            : job.nextRunAt <= Date.now()
-              ? 'Due now'
-              : formatDistanceToNow(job.nextRunAt, { addSuffix: true })
-          const nextRunTitle = job.enabled && job.nextRunAt ? new Date(job.nextRunAt).toLocaleString() : undefined
+          const statusLabel = isRunning ? t('Running') : isPaused ? t('Paused') : t('Active')
+          const nextRunLabel =
+            !job.enabled || !job.nextRunAt
+              ? '—'
+              : job.nextRunAt <= Date.now()
+                ? t('Due now')
+                : formatRelativeTime(job.nextRunAt)
+          const nextRunTitle =
+            job.enabled && job.nextRunAt ? new Date(job.nextRunAt).toLocaleString(intlLocale()) : undefined
           const scheduleLabel = formatScheduleShortLabel(job)
           const scheduleTitle = formatScheduleSummary(job)
           const mobileDetail = showRepo ? `${job.repoName} · ${scheduleLabel}` : scheduleLabel
 
           const showRunNow = Boolean(onRunNow) && !isRunning
-          const hasMenu = showRunNow || Boolean(onToggleEnabled) || Boolean(onEdit) || Boolean(onOpenJob) || Boolean(onDelete)
+          const hasMenu =
+            showRunNow || Boolean(onToggleEnabled) || Boolean(onEdit) || Boolean(onOpenJob) || Boolean(onDelete)
 
-          const contextualAction = isRunning && onCancelRun ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={runAction(onCancelRun, job)}
-              disabled={cancelPending}
-            >
-              Cancel
-            </Button>
-          ) : isPaused && onToggleEnabled ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={runAction(onToggleEnabled, job)}
-            >
-              Resume
-            </Button>
-          ) : null
+          const contextualAction =
+            isRunning && onCancelRun ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={runAction(onCancelRun, job)}
+                disabled={cancelPending}
+              >
+                {t('Cancel')}
+              </Button>
+            ) : isPaused && onToggleEnabled ? (
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={runAction(onToggleEnabled, job)}>
+                {t('Resume')}
+              </Button>
+            ) : null
 
           return (
             <tr
@@ -179,22 +213,26 @@ export function ScheduleJobsTable({
                         event.stopPropagation()
                         onOpen(job)
                       }}
-                      aria-label={`Open ${job.name}`}
+                      aria-label={t('Open {name}', { name: job.name })}
                       className="min-w-0 truncate rounded-sm text-left font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:max-w-[20rem]"
                     >
                       {job.name}
                     </button>
                     {job.retainedWorktreeCount > 0 && (
                       <span
-                        title="Worktrees this schedule has left on disk. Manage them from the job details."
+                        title={t('Worktrees this schedule has left on disk. Manage them from the job details.')}
                         className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
                       >
-                        {job.retainedWorktreeCount} worktree{job.retainedWorktreeCount === 1 ? '' : 's'}
+                        {tn('{count} worktree', '{count} worktrees', job.retainedWorktreeCount)}
                       </span>
                     )}
                   </span>
-                  {job.description && <span className="truncate text-xs text-muted-foreground sm:max-w-[20rem]">{job.description}</span>}
-                  <span className="truncate text-xs text-muted-foreground sm:hidden" title={scheduleTitle}>{mobileDetail}</span>
+                  {job.description && (
+                    <span className="truncate text-xs text-muted-foreground sm:max-w-[20rem]">{job.description}</span>
+                  )}
+                  <span className="truncate text-xs text-muted-foreground sm:hidden" title={scheduleTitle}>
+                    {mobileDetail}
+                  </span>
                   <span className="mt-0.5 text-xs sm:hidden">
                     <ScheduleJobLastResult lastRun={lastRun} />
                   </span>
@@ -215,10 +253,14 @@ export function ScheduleJobsTable({
                 </td>
               )}
               <td className="hidden px-3 py-2.5 sm:table-cell">
-                <span className="block truncate text-muted-foreground" title={scheduleTitle}>{scheduleLabel}</span>
+                <span className="block truncate text-muted-foreground" title={scheduleTitle}>
+                  {scheduleLabel}
+                </span>
               </td>
               <td className="hidden px-3 py-2.5 sm:table-cell">
-                <span className="block truncate text-muted-foreground" title={nextRunTitle}>{nextRunLabel}</span>
+                <span className="block truncate text-muted-foreground" title={nextRunTitle}>
+                  {nextRunLabel}
+                </span>
               </td>
               <td className="hidden max-w-[16rem] px-3 py-2.5 sm:table-cell">
                 <ScheduleJobLastResult lastRun={lastRun} />
@@ -232,7 +274,7 @@ export function ScheduleJobsTable({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="More actions"
+                          aria-label={t('More actions')}
                           className="h-7 w-7 text-muted-foreground"
                           onClick={(event) => event.stopPropagation()}
                         >
@@ -241,20 +283,24 @@ export function ScheduleJobsTable({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
                         {showRunNow && onRunNow && (
-                          <DropdownMenuItem disabled={runPending} onClick={runAction(onRunNow, job)}>Run now</DropdownMenuItem>
+                          <DropdownMenuItem disabled={runPending} onClick={runAction(onRunNow, job)}>
+                            {t('Run now')}
+                          </DropdownMenuItem>
                         )}
                         {onToggleEnabled && (
                           <DropdownMenuItem onClick={runAction(onToggleEnabled, job)}>
-                            {job.enabled ? 'Pause' : 'Resume'}
+                            {job.enabled ? t('Pause') : t('Resume')}
                           </DropdownMenuItem>
                         )}
-                        {onEdit && <DropdownMenuItem onClick={runAction(onEdit, job)}>Edit</DropdownMenuItem>}
-                        {onOpenJob && <DropdownMenuItem onClick={runAction(onOpenJob, job)}>Open job</DropdownMenuItem>}
+                        {onEdit && <DropdownMenuItem onClick={runAction(onEdit, job)}>{t('Edit')}</DropdownMenuItem>}
+                        {onOpenJob && (
+                          <DropdownMenuItem onClick={runAction(onOpenJob, job)}>{t('Open job')}</DropdownMenuItem>
+                        )}
                         {onDelete && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={runAction(onDelete, job)}>
-                              Delete
+                              {t('Delete')}
                             </DropdownMenuItem>
                           </>
                         )}

@@ -36,6 +36,7 @@ import { TimingTab } from './TimingTab'
 import { PromptTab } from './PromptTab'
 import { SkillsTab } from './SkillsTab'
 import { McpTab } from './McpTab'
+import { t } from '@/i18n/translate'
 
 const EMPTY_TEMPLATES: PromptTemplate[] = []
 
@@ -95,13 +96,13 @@ export function ScheduleJobDialog({ open, onOpenChange, job, isSaving, onSubmit,
   const sandboxPreferences = preferences?.sandbox
   const sandboxAvailable = health?.sandbox?.available === true
   const sandboxUnavailableReason = sandboxPreferences?.enabled !== true
-    ? 'Sandboxing is turned off in Settings.'
+    ? t('Sandboxing is turned off in Settings.')
     : !sandboxAvailable
-      ? (health === undefined ? 'Checking sandbox availability...' : (health.sandbox?.reason ?? 'Sandboxing is unavailable on this host.'))
+      ? (health === undefined ? t('Checking sandbox availability...') : (health.sandbox?.reason ?? t('Sandboxing is unavailable on this host.')))
       : null
   const parsedSandboxResources = parseSandboxResourceInput(sandboxCpus, sandboxMemoryGib)
-  const sandboxCpusPlaceholder = sandboxPreferences?.cpus !== undefined ? String(sandboxPreferences.cpus) : 'Server default'
-  const sandboxMemoryPlaceholder = sandboxPreferences?.memoryMib !== undefined ? formatSandboxMemory(sandboxPreferences.memoryMib) : 'Server default'
+  const sandboxCpusPlaceholder = sandboxPreferences?.cpus !== undefined ? String(sandboxPreferences.cpus) : t('Server default')
+  const sandboxMemoryPlaceholder = sandboxPreferences?.memoryMib !== undefined ? formatSandboxMemory(sandboxPreferences.memoryMib) : t('Server default')
 
   const serverTargetId = serverTarget?.serverId
   const serverTargetDirectory = serverTarget?.directory
@@ -142,8 +143,8 @@ export function ScheduleJobDialog({ open, onOpenChange, job, isSaving, onSubmit,
   const repoOptions = useMemo<ComboboxOption[]>(() => {
     const assistantOption: ComboboxOption = {
       value: ASSISTANT_REPO_ID.toString(),
-      label: ASSISTANT_REPO_NAME,
-      description: 'Built-in assistant',
+      label: t(ASSISTANT_REPO_NAME),
+      description: t('Built-in assistant'),
     }
     const repoEntries = repos
       .filter((repo) => repo.cloneStatus === 'ready')
@@ -310,19 +311,19 @@ export function ScheduleJobDialog({ open, onOpenChange, job, isSaving, onSubmit,
         className="flex h-dvh max-h-dvh w-full max-w-4xl flex-col gap-0 overflow-hidden border-border bg-background p-0 shadow-lg sm:h-[min(85vh,760px)] sm:max-h-[85vh] sm:max-w-[90vw] sm:w-[calc(100vw-1rem)]"
       >
         <DialogHeader className="shrink-0 space-y-1 border-b border-border px-3 sm:px-6 py-4">
-          <DialogTitle>{job ? 'Edit schedule' : 'New schedule'}</DialogTitle>
+          <DialogTitle>{job ? t('Edit schedule') : t('New schedule')}</DialogTitle>
           <DialogDescription className="mt-0">
-            {serverTarget ? 'Create a reusable job for this remote project' : 'Create a reusable repo job'} with a visual schedule builder, manual runs, and optional advanced metadata.
+            {serverTarget ? t('Create a reusable job for this remote project with a visual schedule builder, manual runs, and optional advanced metadata.') : t('Create a reusable repo job with a visual schedule builder, manual runs, and optional advanced metadata.')}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="basics" className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="border-b border-border px-3 sm:px-6 pb-3">
             <TabsList className="grid h-9 w-full grid-cols-5 bg-card p-0.5">
-              <TabsTrigger value="basics" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">General</TabsTrigger>
-              <TabsTrigger value="timing" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Timing</TabsTrigger>
-              <TabsTrigger value="prompt" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Prompt</TabsTrigger>
-              <TabsTrigger value="skills" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Skills</TabsTrigger>
+              <TabsTrigger value="basics" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('General')}</TabsTrigger>
+              <TabsTrigger value="timing" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('Timing')}</TabsTrigger>
+              <TabsTrigger value="prompt" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('Prompt')}</TabsTrigger>
+              <TabsTrigger value="skills" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">{t('Skills')}</TabsTrigger>
               <TabsTrigger value="mcp" className="h-8 px-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">MCP</TabsTrigger>
             </TabsList>
           </div>
@@ -423,10 +424,10 @@ export function ScheduleJobDialog({ open, onOpenChange, job, isSaving, onSubmit,
         <div className="mt-0 shrink-0 border-t border-border px-3 sm:px-6 py-4 flex flex-row flex-wrap items-center gap-2 sm:justify-end">
           {missingRequirements.length > 0 ? (
             <p id="schedule-requirements" className="order-last w-full text-xs text-muted-foreground sm:order-first sm:mr-auto sm:w-auto">
-              Required: {missingRequirements.join(', ')}
+              {t('Required: {items}', { items: missingRequirements.join(', ') })}
             </p>
           ) : null}
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving} className="flex-1 sm:flex-none">Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving} className="flex-1 sm:flex-none">{t('Cancel')}</Button>
           <Button
             onClick={handleSubmit}
             disabled={isSaving || missingRequirements.length > 0}
@@ -434,7 +435,7 @@ export function ScheduleJobDialog({ open, onOpenChange, job, isSaving, onSubmit,
             className="flex-1 sm:flex-none"
           >
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {isSaving ? 'Saving...' : job ? 'Save changes' : 'Create schedule'}
+            {isSaving ? t('Saving...') : job ? t('Save changes') : t('Create schedule')}
           </Button>
         </div>
       </DialogContent>
@@ -454,8 +455,8 @@ export function ScheduleJobDialog({ open, onOpenChange, job, isSaving, onSubmit,
           }
         }}
         onCancel={() => { if (!deleteTemplateMutation.isPending) setDeletingTemplateId(null) }}
-        title="Delete template"
-        description="Are you sure you want to delete this template?"
+        title={t('Delete template')}
+        description={t('Are you sure you want to delete this template?')}
         isDeleting={deleteTemplateMutation.isPending}
       />
     </Dialog>
