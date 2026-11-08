@@ -7,6 +7,7 @@ import type { CommandInfo } from '@opencode-manager/shared/opencode'
 import { getBuiltinCommands } from '@/lib/builtinCommands'
 import { rankByMatch } from '@/lib/fuzzyMatch'
 import { useRecentCommandsStore } from '@/stores/recentCommandsStore'
+import { t } from '@/i18n/translate'
 
 function sortCommandsByName(commands: CommandInfo[]): CommandInfo[] {
   return [...commands].sort((a, b) => a.name.localeCompare(b.name))
@@ -58,7 +59,7 @@ export function useCommands(options: UseCommandsOptions = {}) {
     commands,
     recentNames,
     loading,
-    error: error ? 'Failed to load commands' : null,
+    error: error ? t('Failed to load commands') : null,
     searchCommands,
     findCommand,
   }

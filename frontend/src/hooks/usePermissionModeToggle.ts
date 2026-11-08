@@ -1,4 +1,5 @@
 import { useSessionPermissionMode, useSetSessionPermissionMode } from '@/hooks/useSessionPermissionMode'
+import { t } from '@/i18n/translate'
 
 export function usePermissionModeToggle(
   sessionID: string,
@@ -15,15 +16,15 @@ export function usePermissionModeToggle(
 
   const label = !loaded
     ? isError
-      ? 'Permissions: unavailable'
-      : 'Permissions: loading'
+      ? t('Permissions: unavailable')
+      : t('Permissions: loading')
     : lockedReason === 'child'
-      ? 'Inherited from parent session'
+      ? t('Inherited from parent session')
       : lockedReason === 'schedule'
-        ? "Scheduled runs use the schedule's permission configuration"
+        ? t("Scheduled runs use the schedule's permission configuration")
         : isAuto
-          ? 'Permissions: auto-accept all'
-          : 'Permissions: follow configured rules'
+          ? t('Permissions: auto-accept all')
+          : t('Permissions: follow configured rules')
 
   const toggle = () => {
     if (disabled) return

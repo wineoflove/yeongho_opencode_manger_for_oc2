@@ -37,6 +37,7 @@ import { toggleSessionPin } from "../api/sessionPins";
 import { SESSION_PINS_QUERY_KEY } from "./useSessionPins";
 import { admitInboxItem, type TranscriptCache } from "../lib/session-projection";
 import type { SessionPin } from "@opencode-manager/shared/schemas";
+import { t } from "@/i18n/translate";
 
 const SESSION_LIST_PAGE_SIZE = 25
 
@@ -278,7 +279,7 @@ export const useCreateSession = (
     }) => {
       const targetDirectory = data.directory ?? directory;
       if (!targetDirectory) {
-        throw new Error('A directory is required to create a session');
+        throw new Error(t("A directory is required to create a session"));
       }
       return createSession({ ...data, directory: targetDirectory }, serverId);
     },
@@ -339,7 +340,7 @@ export const useDeleteSession = (directory?: string | string[]) => {
       const failures = results.filter(result => result.status === 'rejected')
 
       if (failures.length > 0) {
-        throw new Error(`Failed to delete ${failures.length} session(s)`)
+        throw new Error(t("Failed to delete {count} session(s)", { count: failures.length }))
       }
 
       return { deleted: targets.length, results }
@@ -347,12 +348,12 @@ export const useDeleteSession = (directory?: string | string[]) => {
     onSuccess: ({ deleted }, variables) => {
       removeDeletedSessionsFromListCaches(queryClient, variables);
       cleanupSessionPins(queryClient, variables, primaryDirectory);
-      showToast.success(deleted === 1 ? 'Session deleted' : `${deleted} sessions deleted`);
+      showToast.success(deleted === 1 ? t("Session deleted") : t("{count} sessions deleted", { count: deleted }));
     },
     onError: (_error, variables) => {
       invalidateSessionListCaches(queryClient);
       cleanupSessionPins(queryClient, variables, primaryDirectory);
-      showToast.error('Failed to delete sessions');
+      showToast.error(t("Failed to delete sessions"));
     },
   });
 };
@@ -408,12 +409,14 @@ export const useUpdateSession = (directory?: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ sessionID, title }: { sessionID: string; title: string }) => {
+    mutationFn: async ({ sessionID, title }: { sessionID: string; title: string; directory?: string }) => {
       return renameSession(sessionID, title, serverId);
     },
     onSuccess: (_, variables) => {
       const { sessionID } = variables;
-      queryClient.invalidateQueries({ queryKey: serverScopedKey(sessionQueryKey(sessionID, directory), serverId) });
+      queryClient.invalidateQueries({
+        queryKey: serverScopedKey(sessionQueryKey(sessionID, variables.directory ?? directory), serverId),
+      });
       invalidateSessionListCaches(queryClient);
     },
   });
@@ -540,7 +543,7 @@ export const useBackgroundSession = () => {
   return useMutation({
     mutationFn: (sessionID: string) => backgroundSession(sessionID, serverId),
     onError: (error) => {
-      showToast.error(error instanceof Error ? error.message : "Failed to move work to the background");
+      showToast.error(error instanceof Error ? error.message : t("Failed to move work to the background"));
     },
   });
 };
@@ -650,12 +653,12 @@ export const useLoadSkill = (sessionID: string | undefined) => {
   const serverId = useOpenCodeServerId();
   return useMutation<void, Error, { skillName: string }>({
     mutationFn: async ({ skillName }: { skillName: string }) => {
-      if (!sessionID) throw new Error("No active session");
+      if (!sessionID) throw new Error(t("No active session"));
 
       return activateSkill(sessionID, skillName, serverId);
     },
     onError: (error) => {
-      showToast.error(error instanceof Error ? error.message : "Failed to load skill");
+      showToast.error(error instanceof Error ? error.message : t("Failed to load skill"));
     },
   });
 };

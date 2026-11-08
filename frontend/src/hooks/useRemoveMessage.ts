@@ -9,6 +9,7 @@ import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
 import { useSyncSessionSelection } from '@/hooks/useOpenCode'
 import { showToast } from '@/lib/toast'
 import { sessionTranscriptQueryKey } from '@/lib/queryInvalidation'
+import { t } from '@/i18n/translate'
 
 interface UseRemoveMessageOptions {
   sessionId: string
@@ -25,7 +26,7 @@ export function useRemoveMessage({ sessionId, directory }: UseRemoveMessageOptio
       await commitRevert(sessionId, serverId)
     },
     onError: () => {
-      showToast.error('Failed to remove message')
+      showToast.error(t('Failed to remove message'))
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: sessionTranscriptQueryKey(sessionId) })
@@ -81,7 +82,7 @@ export function useRefreshMessage({ sessionId, directory }: UseRefreshMessageOpt
       })
     },
     onError: () => {
-      showToast.error('Failed to refresh message')
+      showToast.error(t('Failed to refresh message'))
     }
   })
 }

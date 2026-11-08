@@ -17,6 +17,7 @@ import { openCodeEventStream } from '@/lib/opencode-event-stream'
 import type { EventStreamSubscription } from '@/lib/opencode-event-stream'
 import { serverScopedKey } from '@/lib/serverScope'
 import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
+import { t } from '@/i18n/translate'
 
 type V2StreamEvent = V2Event & { directory?: string; serverId?: string }
 
@@ -154,8 +155,8 @@ export const useSSE = (directory?: string | string[], currentSessionId?: string)
       }
 
       case 'installation.updated':
-        showToast.success(`OpenCode updated to v${event.data.version}`, {
-          description: 'The server has been successfully upgraded.',
+        showToast.success(t('OpenCode updated to v{version}', { version: event.data.version }), {
+          description: t('The server has been successfully upgraded.'),
           duration: 5000,
         })
         break
@@ -210,7 +211,7 @@ export const useSSE = (directory?: string | string[], currentSessionId?: string)
         invalidateShellCaches(queryClient)
         eventStreamSubscriptionRef.current?.reportVisibility(document.visibilityState === 'visible', sessionIdRef.current, serverId)
       } else {
-        setError('Connection lost. Reconnecting...')
+        setError(t('Connection lost. Reconnecting...'))
       }
     }
 

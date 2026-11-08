@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { OpenCodeLifecycleStatus, OpenCodeRecoveryAction } from '@opencode-manager/shared/opencode'
 import { fetchWrapper } from '@/api/fetchWrapper'
+import { msg, t } from '@/i18n/translate'
 
 export interface HealthResponse {
   status: 'healthy' | 'degraded' | 'unhealthy'
@@ -24,7 +25,7 @@ export interface OpenCodeServerIssue {
   attemptedRecoveryActions: OpenCodeRecoveryAction[]
 }
 
-const DEFAULT_ISSUE_MESSAGE = 'OpenCode server is not responding'
+const DEFAULT_ISSUE_MESSAGE = msg('OpenCode server is not responding')
 
 async function fetchHealth(): Promise<HealthResponse> {
   return fetchWrapper<HealthResponse>('/api/health', { acceptedStatuses: [503] })
@@ -42,14 +43,14 @@ export function getOpenCodeServerIssue(health: HealthResponse | undefined): Open
     if (lifecycle.state !== 'failed' && lifecycle.state !== 'recovering' && lifecycle.state !== 'unhealthy') return null
     return {
       state: lifecycle.state,
-      message: lifecycle.lastError ?? health.error ?? DEFAULT_ISSUE_MESSAGE,
+      message: lifecycle.lastError ?? health.error ?? t(DEFAULT_ISSUE_MESSAGE),
       attemptedRecoveryActions: lifecycle.attemptedRecoveryActions,
     }
   }
   if (health.opencode === 'healthy') return null
   return {
     state: health.status === 'unhealthy' ? 'failed' : 'unhealthy',
-    message: health.error ?? DEFAULT_ISSUE_MESSAGE,
+    message: health.error ?? t(DEFAULT_ISSUE_MESSAGE),
     attemptedRecoveryActions: [],
   }
 }

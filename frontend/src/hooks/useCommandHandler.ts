@@ -7,6 +7,7 @@ import { showToast } from '@/lib/toast'
 import type { CommandInfo, ModelRef } from '@opencode-manager/shared/opencode'
 import { useSessionStatus } from '@/stores/sessionStatusStore'
 import { isBuiltinCommand, type CommandActions } from '@/lib/builtinCommands'
+import { t } from '@/i18n/translate'
 
 interface CommandSubmission {
   text: string
@@ -40,7 +41,7 @@ export function useCommandHandler({
         await actions[command.action](submission.text)
         return !command.keepsPrompt
       } catch (error) {
-        showToast.error(`Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        showToast.error(t('Command failed: {error}', { error: error instanceof Error ? error.message : 'Unknown error' }))
         return false
       }
     }
@@ -60,7 +61,7 @@ export function useCommandHandler({
       )
       return true
     } catch (error) {
-      showToast.error(`Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showToast.error(t('Command failed: {error}', { error: error instanceof Error ? error.message : 'Unknown error' }))
       setSessionStatus(sessionID, { type: 'idle' })
       return false
     }

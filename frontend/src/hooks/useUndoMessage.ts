@@ -3,6 +3,7 @@ import { clearRevert, stageRevert } from '@/api/opencode'
 import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
 import { showToast } from '@/lib/toast'
 import { sessionTranscriptQueryKey } from '@/lib/queryInvalidation'
+import { t } from '@/i18n/translate'
 
 interface UseUndoMessageOptions {
   sessionId: string
@@ -24,7 +25,7 @@ export function useUndoMessage({
       return messageContent
     },
     onError: () => {
-      showToast.error('Failed to undo message')
+      showToast.error(t('Failed to undo message'))
     },
     onSuccess: (restoredPrompt) => {
       queryClient.invalidateQueries({ queryKey: sessionTranscriptQueryKey(sessionId) })
@@ -48,7 +49,7 @@ export function useRedoMessage({ sessionId, directory }: UseRedoMessageOptions) 
   return useMutation({
     mutationFn: async () => clearRevert(sessionId, serverId),
     onError: () => {
-      showToast.error('Failed to redo message')
+      showToast.error(t('Failed to redo message'))
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: sessionTranscriptQueryKey(sessionId) })

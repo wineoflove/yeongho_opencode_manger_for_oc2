@@ -4,6 +4,7 @@ import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
 import { invalidateSessionCaches } from '@/lib/queryInvalidation'
 import { serverScopedKey } from '@/lib/serverScope'
 import { showToast as toast } from '@/lib/toast'
+import { t } from '@/i18n/translate'
 
 export function useMcpServers() {
   const queryClient = useQueryClient()
@@ -22,10 +23,10 @@ export function useMcpServers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcp-status'] })
       invalidateSessionCaches(queryClient)
-      toast.success('MCP server connected')
+      toast.success(t('MCP server connected'))
     },
     onError: (error: Error) => {
-      toast.error(`Failed to connect MCP server: ${error.message}`)
+      toast.error(t('Failed to connect MCP server: {error}', { error: error.message }))
     },
   })
 
@@ -34,10 +35,10 @@ export function useMcpServers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcp-status'] })
       invalidateSessionCaches(queryClient)
-      toast.success('MCP server disconnected')
+      toast.success(t('MCP server disconnected'))
     },
     onError: (error: Error) => {
-      toast.error(`Failed to disconnect MCP server: ${error.message}`)
+      toast.error(t('Failed to disconnect MCP server: {error}', { error: error.message }))
     },
   })
 
@@ -45,7 +46,7 @@ export function useMcpServers() {
     mutationFn: ({ name, directory }: { name: string; directory?: string }) =>
       mcpApi.startAuth(name, directory),
     onError: (error: Error) => {
-      toast.error(`Failed to start authentication: ${error.message}`)
+      toast.error(t('Failed to start authentication: {error}', { error: error.message }))
     },
   })
 
@@ -54,10 +55,10 @@ export function useMcpServers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mcp-status'] })
       invalidateSessionCaches(queryClient)
-      toast.success('Authentication credentials removed')
+      toast.success(t('Authentication credentials removed'))
     },
     onError: (error: Error) => {
-      toast.error(`Failed to remove authentication: ${error.message}`)
+      toast.error(t('Failed to remove authentication: {error}', { error: error.message }))
     },
   })
 

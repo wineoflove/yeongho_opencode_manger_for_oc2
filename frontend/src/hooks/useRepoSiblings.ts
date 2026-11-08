@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createRepoWorkspace, deleteRepoWorkspace, getRepoSiblings, type RepoSibling } from '@/api/repos'
 import { showToast } from '@/lib/toast'
 import type { CreateRepoWorkspaceRequest } from '@opencode-manager/shared/types'
+import { t } from '@/i18n/translate'
 
 export function repoSiblingsQueryKey(repoId: number | undefined) {
   return ['repo', 'siblings', repoId] as const
@@ -21,7 +22,7 @@ export function useDeleteRepoWorkspaces(repoId: number | undefined) {
 
   return useMutation({
     mutationFn: async (directories: string[]) => {
-      if (!repoId) throw new Error('Repo id is required')
+      if (!repoId) throw new Error(t('Repo id is required'))
       const results = await Promise.allSettled(
         directories.map((directory) => deleteRepoWorkspace(repoId, directory)),
       )
@@ -35,15 +36,15 @@ export function useDeleteRepoWorkspaces(repoId: number | undefined) {
       const deleted = total - failed
       const reason = firstError ? `: ${firstError}` : ''
       if (failed === 0) {
-        showToast.success(deleted === 1 ? 'Worktree deleted' : `${deleted} worktrees deleted`)
+        showToast.success(deleted === 1 ? t('Worktree deleted') : t('{count} worktrees deleted', { count: deleted }))
       } else if (deleted === 0) {
-        showToast.error(`Failed to delete worktrees${reason}`)
+        showToast.error(`${t('Failed to delete worktrees')}${reason}`)
       } else {
-        showToast.error(`Deleted ${deleted}, failed ${failed}${reason}`)
+        showToast.error(`${t('Deleted {deleted}, failed {failed}', { deleted, failed })}${reason}`)
       }
     },
     onError: () => {
-      showToast.error('Failed to delete worktrees')
+      showToast.error(t('Failed to delete worktrees'))
     },
   })
 }
@@ -53,15 +54,15 @@ export function useCreateRepoWorkspace(repoId: number | undefined) {
 
   return useMutation({
     mutationFn: async (request: CreateRepoWorkspaceRequest = {}) => {
-      if (!repoId) throw new Error('Repo id is required')
+      if (!repoId) throw new Error(t('Repo id is required'))
       return createRepoWorkspace(repoId, request)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: repoSiblingsQueryKey(repoId) })
-      showToast.success('Worktree created')
+      showToast.success(t('Worktree created'))
     },
     onError: (error) => {
-      showToast.error(`Failed to create worktree: ${error.message}`)
+      showToast.error(t('Failed to create worktree: {reason}', { reason: error.message }))
     },
   })
 }

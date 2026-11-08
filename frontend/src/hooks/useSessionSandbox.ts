@@ -3,6 +3,7 @@ import { getSessionSandbox, setSessionSandbox } from '@/api/sessionSandbox'
 import { showToast } from '@/lib/toast'
 import { FetchError } from '@/api/fetchWrapper'
 import type { SessionSandboxState, SetSessionSandboxRequest } from '@opencode-manager/shared/schemas'
+import { t } from '@/i18n/translate'
 
 function sessionSandboxQueryKey(sessionId: string) {
   return ['session-sandbox', sessionId] as const
@@ -25,7 +26,7 @@ export function useSetSessionSandbox(sessionId: string) {
       queryClient.setQueryData(sessionSandboxQueryKey(sessionId), state)
     },
     onError: (error) => {
-      showToast.error(error instanceof FetchError ? error.message : 'Failed to update sandbox mode')
+      showToast.error(error instanceof FetchError ? error.message : t('Failed to update sandbox mode'))
     },
   })
 }

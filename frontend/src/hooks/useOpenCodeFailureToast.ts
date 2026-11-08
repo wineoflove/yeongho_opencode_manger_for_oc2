@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { showToast } from '@/lib/toast'
 import { getOpenCodeServerIssue, useServerHealth } from '@/hooks/useServerHealth'
 import { useSettingsDialog } from '@/hooks/useSettingsDialog'
+import { t } from '@/i18n/translate'
 
 export const OPENCODE_FAILURE_TOAST_ID = 'opencode-server-failure'
 
@@ -23,12 +24,12 @@ export function useOpenCodeFailureToast(enabled: boolean, onRestart: () => void)
     if (failureMessage !== null) {
       if (notifiedFailureRef.current === failureMessage) return
       notifiedFailureRef.current = failureMessage
-      showToast.error('OpenCode server failed', {
+      showToast.error(t('OpenCode server failed'), {
         id: OPENCODE_FAILURE_TOAST_ID,
         duration: Infinity,
         description: failureMessage,
-        action: { label: 'View logs', onClick: () => openTab('logs') },
-        cancel: { label: 'Restart', onClick: onRestart },
+        action: { label: t('View logs'), onClick: () => openTab('logs') },
+        cancel: { label: t('Restart'), onClick: onRestart },
       })
       return
     }
@@ -36,7 +37,7 @@ export function useOpenCodeFailureToast(enabled: boolean, onRestart: () => void)
     if (isHealthy && notifiedFailureRef.current !== null) {
       notifiedFailureRef.current = null
       showToast.dismiss(OPENCODE_FAILURE_TOAST_ID)
-      showToast.success('OpenCode server is back online')
+      showToast.success(t('OpenCode server is back online'))
     }
   }, [failureMessage, isHealthy, openTab, onRestart])
 }

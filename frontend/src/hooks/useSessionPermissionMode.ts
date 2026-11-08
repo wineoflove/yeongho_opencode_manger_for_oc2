@@ -4,6 +4,7 @@ import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
 import { serverScopedKey } from '@/lib/serverScope'
 import { showToast } from '@/lib/toast'
 import type { SessionPermissionModeState, SetSessionPermissionModeRequest } from '@opencode-manager/shared/schemas'
+import { t } from '@/i18n/translate'
 
 function sessionPermissionModeQueryKey(sessionId: string, serverId: string) {
   return serverScopedKey(['session-permission-mode', sessionId], serverId)
@@ -29,7 +30,7 @@ export function useSetSessionPermissionMode(sessionId: string) {
       queryClient.setQueryData(sessionPermissionModeQueryKey(sessionId, serverId), state)
     },
     onError: () => {
-      showToast.error('Failed to update permission mode')
+      showToast.error(t('Failed to update permission mode'))
     },
   })
 }

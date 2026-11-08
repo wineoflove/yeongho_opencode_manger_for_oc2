@@ -6,6 +6,7 @@ import { buildConflictResolutionPrompt } from '@/lib/git-conflict-prompt'
 import { getSessionPath } from '@/lib/navigation'
 import { invalidateSessionListCaches } from '@/lib/queryInvalidation'
 import { showToast } from '@/lib/toast'
+import { t } from '@/i18n/translate'
 import type { GitOperationState } from '@opencode-manager/shared'
 
 interface ResolveConflictsInput {
@@ -28,7 +29,7 @@ export function useResolveConflictsWithAgent(repo: ResolveConflictsRepo) {
       return createSessionWithPrompt(
         {
           directory: repo.fullPath,
-          title: `Resolve ${operation.kind} conflicts`,
+          title: t('Resolve {kind} conflicts', { kind: operation.kind }),
         },
         buildConflictResolutionPrompt({ operation, branch }),
         serverId,
@@ -40,7 +41,7 @@ export function useResolveConflictsWithAgent(repo: ResolveConflictsRepo) {
     },
     onError: (error) => {
       showToast.error(
-        `Could not start conflict resolution: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        t('Could not start conflict resolution: {reason}', { reason: error instanceof Error ? error.message : t('Unknown error') }),
       )
     },
   })

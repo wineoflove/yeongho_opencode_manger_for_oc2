@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { fetchFileRange, applyFilePatches } from '@/api/files'
 import type { PatchOperation } from '@/types/files'
+import { t } from '@/i18n/translate'
 
 interface UseVirtualizedContentOptions {
   filePath: string
@@ -171,7 +172,7 @@ export function useVirtualizedContent({
         clearEdits()
       }
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to save edits')
+      const error = err instanceof Error ? err : new Error(t('Failed to save edits'))
       setSaveError(error)
       throw error
     } finally {

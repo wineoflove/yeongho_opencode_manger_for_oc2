@@ -7,6 +7,7 @@ import {
   normalizeModelVariant,
   setModelVariant,
 } from '@opencode-manager/shared/opencode'
+import { t } from '@/i18n/translate'
 
 export interface UseVariantsResult {
   availableVariants: string[]
@@ -40,7 +41,7 @@ export function useVariants(
   const saveVariant = useModelStateMutation(
     ({ model, value }: SaveVariantInput) => saveOpenCodeModelVariant(model, value),
     (state, input: SaveVariantInput) => setModelVariant(state, input.model, input.value),
-    'Failed to save model variant to backend',
+    t('Failed to save model variant to backend'),
   )
 
   const setVariant = useCallback(

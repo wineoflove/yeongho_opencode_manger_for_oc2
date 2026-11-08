@@ -1,4 +1,5 @@
 import { useSessionSandbox, useSetSessionSandbox } from '@/hooks/useSessionSandbox'
+import { t } from '@/i18n/translate'
 
 export function useSandboxToggle(sessionID: string, options: { enabled?: boolean } = {}) {
   const { data, isError } = useSessionSandbox(sessionID, options)
@@ -14,13 +15,13 @@ export function useSandboxToggle(sessionID: string, options: { enabled?: boolean
 
   const label = !loaded
     ? isError
-      ? 'Sandbox: unavailable'
-      : 'Sandbox: loading'
+      ? t('Sandbox: unavailable')
+      : t('Sandbox: loading')
     : lockedReason === 'child'
-      ? 'Inherited from parent session'
+      ? t('Inherited from parent session')
       : isSandboxed
-        ? 'Sandbox: commands run in a microVM'
-        : 'Sandbox: commands run on the host'
+        ? t('Sandbox: commands run in a microVM')
+        : t('Sandbox: commands run on the host')
 
   const toggle = () => {
     if (disabled) return

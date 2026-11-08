@@ -6,6 +6,7 @@ import { shellsQueryKey } from '@/lib/queryInvalidation'
 import { serverScopedKey } from '@/lib/serverScope'
 import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
 import { showToast } from '@/lib/toast'
+import { t } from '@/i18n/translate'
 
 function useShellListQuery<TData = ShellRecord[]>(
   directory: string | undefined,
@@ -68,7 +69,7 @@ export function useKillShell(directory: string | undefined) {
       )
     },
     onError: (error) => {
-      showToast.error(error instanceof Error ? error.message : 'Failed to kill shell command')
+      showToast.error(error instanceof Error ? error.message : t('Failed to kill shell command'))
     },
   })
 }

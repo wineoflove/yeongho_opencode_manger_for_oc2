@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { settingsApi } from '@/api/settings'
 import { invalidateSkillCaches } from '@/lib/queryInvalidation'
 import type { SkillFileInfo } from '@opencode-manager/shared'
+import { t } from '@/i18n/translate'
 
 export function useDeleteSkill() {
   const queryClient = useQueryClient()
@@ -14,10 +15,10 @@ export function useDeleteSkill() {
       settingsApi.deleteSkill(name, scope, repoId),
     onSuccess: () => {
       invalidateSkillCaches(queryClient)
-      toast.success('Skill deleted successfully')
+      toast.success(t('Skill deleted successfully'))
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete skill')
+      toast.error(error instanceof Error ? error.message : t('Failed to delete skill'))
     },
   })
 

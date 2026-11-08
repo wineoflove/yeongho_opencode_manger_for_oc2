@@ -7,6 +7,7 @@ import {
   deletePromptTemplate,
 } from '@/api/prompt-templates'
 import { showToast } from '@/lib/toast'
+import { t } from '@/i18n/translate'
 
 export function usePromptTemplates() {
   return useQuery({
@@ -24,10 +25,10 @@ export function useCreatePromptTemplate() {
     mutationFn: (data: CreatePromptTemplateRequest) => createPromptTemplate(data).then(r => r.template),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prompt-templates'] })
-      showToast.success('Template created')
+      showToast.success(t('Template created'))
     },
     onError: (error) => {
-      showToast.error(`Failed to create template: ${error instanceof Error ? error.message : String(error)}`)
+      showToast.error(t('Failed to create template: {error}', { error: error instanceof Error ? error.message : String(error) }))
     },
   })
 }
@@ -39,10 +40,10 @@ export function useUpdatePromptTemplate() {
       updatePromptTemplate(id, data).then(r => r.template),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prompt-templates'] })
-      showToast.success('Template updated')
+      showToast.success(t('Template updated'))
     },
     onError: (error) => {
-      showToast.error(`Failed to update template: ${error instanceof Error ? error.message : String(error)}`)
+      showToast.error(t('Failed to update template: {error}', { error: error instanceof Error ? error.message : String(error) }))
     },
   })
 }
@@ -53,10 +54,10 @@ export function useDeletePromptTemplate() {
     mutationFn: (id: number) => deletePromptTemplate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prompt-templates'] })
-      showToast.success('Template deleted')
+      showToast.success(t('Template deleted'))
     },
     onError: (error) => {
-      showToast.error(`Failed to delete template: ${error instanceof Error ? error.message : String(error)}`)
+      showToast.error(t('Failed to delete template: {error}', { error: error instanceof Error ? error.message : String(error) }))
     },
   })
 }

@@ -3,6 +3,7 @@ import type { SessionMessageInfo } from '@opencode-manager/shared/opencode'
 import { useTTS } from './useTTS'
 import { collectVisibleAssistantTexts } from '@/lib/visibleMessageTexts'
 import { showToast } from '@/lib/toast'
+import { t } from '@/i18n/translate'
 
 export function useSpeakVisibleMessages(
   containerRef: RefObject<HTMLElement | null>,
@@ -19,7 +20,7 @@ export function useSpeakVisibleMessages(
       return
     }
     if (state === 'error') {
-      showToast.error(error ?? 'Text-to-speech failed')
+      showToast.error(error ?? t('Text-to-speech failed'))
       pendingRef.current = false
     }
   }, [state, error, activeMessageId])
