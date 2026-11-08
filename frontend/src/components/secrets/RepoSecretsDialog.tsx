@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SecretsManager } from './SecretsManager'
+import { t } from '@/i18n/translate'
 
 interface RepoSecretsContentProps {
   repoId: number
@@ -26,7 +27,7 @@ export function RepoSecretsDialog({ open, onOpenChange, repoId }: RepoSecretsDia
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent mobileFullscreen className="sm:max-w-3xl sm:max-h-[85vh] gap-0 flex flex-col p-0 md:p-6 pb-safe">
         <DialogHeader className="p-4 sm:p-6 border-b shrink-0">
-          <DialogTitle>Secrets</DialogTitle>
+          <DialogTitle>{t('Secrets')}</DialogTitle>
         </DialogHeader>
         <RepoSecretsContent repoId={repoId} />
       </DialogContent>

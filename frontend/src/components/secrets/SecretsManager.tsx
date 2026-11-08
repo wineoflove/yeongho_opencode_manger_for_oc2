@@ -20,17 +20,58 @@ import {
   type SecretKind,
 } from '@opencode-manager/shared/schemas'
 import type { SecretScope } from '@/api/secrets'
+import { msg, t, template } from '@/i18n/translate'
 
-const KIND_META: Record<SecretKind, { label: string; namespace: string; emptyHint: string }> = {
+interface KindMeta {
+  readonly namespace: string
+  readonly nameLabel: string
+  readonly valueLabel: string
+  readonly add: string
+  readonly empty: string
+  readonly emptyHint: string
+  readonly saved: string
+  readonly updated: string
+  readonly saveFailed: string
+  readonly removed: string
+  readonly removeFailed: string
+  readonly removeTitle: string
+  readonly removeDescription: string
+}
+
+const KIND_META: Record<SecretKind, KindMeta> = {
   secret: {
-    label: 'Secret',
     namespace: 'secrets',
-    emptyHint: 'Secret values are encrypted and never shown again once saved.',
+    nameLabel: msg('Secret name'),
+    valueLabel: msg('Secret value'),
+    add: msg('Add secret'),
+    empty: msg('No secrets yet'),
+    emptyHint: msg('Secret values are encrypted and never shown again once saved.'),
+    saved: msg('Secret saved'),
+    updated: msg('Secret updated'),
+    saveFailed: msg('Failed to save secret'),
+    removed: msg('Secret removed'),
+    removeFailed: msg('Failed to remove secret'),
+    removeTitle: msg('Remove Secret'),
+    removeDescription: msg(
+      'This removes the secret from this scope. Sessions that reference it will no longer receive a value.',
+    ),
   },
   variable: {
-    label: 'Variable',
     namespace: 'vars',
-    emptyHint: 'Variable values are stored in plain text and shown here.',
+    nameLabel: msg('Variable name'),
+    valueLabel: msg('Variable value'),
+    add: msg('Add variable'),
+    empty: msg('No variables yet'),
+    emptyHint: msg('Variable values are stored in plain text and shown here.'),
+    saved: msg('Variable saved'),
+    updated: msg('Variable updated'),
+    saveFailed: msg('Failed to save variable'),
+    removed: msg('Variable removed'),
+    removeFailed: msg('Failed to remove variable'),
+    removeTitle: msg('Remove Variable'),
+    removeDescription: msg(
+      'This removes the variable from this scope. Sessions that reference it will no longer receive a value.',
+    ),
   },
 }
 
@@ -52,23 +93,27 @@ interface SecretsManagerProps {
 }
 
 export function SecretsManager({ scope }: SecretsManagerProps) {
+  const [injectionBefore, injectionAfter] = template(
+    'Values are injected into sessions only when the repository maps them in {file}, for example:',
+  ).split('{file}')
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Values are injected into sessions only when the repository maps them in{' '}
-        <code className="font-mono">.ocm/project.json</code>, for example:
+        {injectionBefore}
+        <code className="font-mono">.ocm/project.json</code>
+        {injectionAfter}
       </p>
       <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 p-2 font-mono text-xs">
         {PROJECT_CONFIG_EXAMPLE}
       </pre>
       <p className="text-xs text-muted-foreground">
-        Precedence: environment &gt; repository &gt; global. The same reference text works in a GitHub workflow.
+        {t('Precedence: environment > repository > global. The same reference text works in a GitHub workflow.')}
       </p>
 
       <Tabs defaultValue="secret">
         <TabsList className="w-full justify-start">
-          <TabsTrigger value="secret">Secrets</TabsTrigger>
-          <TabsTrigger value="variable">Variables</TabsTrigger>
+          <TabsTrigger value="secret">{t('Secrets')}</TabsTrigger>
+          <TabsTrigger value="variable">{t('Variables')}</TabsTrigger>
         </TabsList>
         <TabsContent value="secret" className="mt-2 px-0">
           <SecretKindPanel scope={scope} kind="secret" />
@@ -134,13 +179,13 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
 
     const nameResult = SecretNameSchema.safeParse(form.name)
     if (!nameResult.success) {
-      setFormError(nameResult.error.issues[0]?.message ?? 'Invalid name')
+      setFormError(nameResult.error.issues[0]?.message ?? t('Invalid name'))
       return
     }
 
     const valueResult = SecretValueSchema.safeParse(form.value)
     if (!valueResult.success) {
-      setFormError(valueResult.error.issues[0]?.message ?? 'Invalid value')
+      setFormError(valueResult.error.issues[0]?.message ?? t('Invalid value'))
       return
     }
 
@@ -149,7 +194,7 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
     if (isRepoScope && trimmedEnvironment) {
       const environmentResult = EnvironmentNameSchema.safeParse(trimmedEnvironment)
       if (!environmentResult.success) {
-        setFormError(environmentResult.error.issues[0]?.message ?? 'Invalid environment')
+        setFormError(environmentResult.error.issues[0]?.message ?? t('Invalid environment'))
         return
       }
       environment = environmentResult.data
@@ -158,10 +203,10 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
     setFormError(null)
     try {
       await setSecret.mutateAsync({ kind, name: nameResult.data, value: valueResult.data, environment })
-      showToast.success(`${meta.label} ${isEditing ? 'updated' : 'saved'}`)
+      showToast.success(t(isEditing ? meta.updated : meta.saved))
       cancelForm()
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : `Failed to save ${meta.label.toLowerCase()}`)
+      setFormError(error instanceof Error ? error.message : t(meta.saveFailed))
     }
   }
 
@@ -173,17 +218,17 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
         name: removeTarget.name,
         environment: removeTarget.environment ?? undefined,
       })
-      showToast.success(`${meta.label} removed`)
+      showToast.success(t(meta.removed))
       setRemoveTarget(null)
     } catch (error) {
-      showToast.error(error instanceof Error ? error.message : `Failed to remove ${meta.label.toLowerCase()}`)
+      showToast.error(error instanceof Error ? error.message : t(meta.removeFailed))
     }
   }
 
   const handleCopyReference = async (entry: SecretEntry) => {
     const copied = await copyTextToClipboard(secretReference(kind, entry.name))
-    if (copied) showToast.success('Reference copied')
-    else showToast.error('Failed to copy reference')
+    if (copied) showToast.success(t('Reference copied'))
+    else showToast.error(t('Failed to copy reference'))
   }
 
   return (
@@ -191,7 +236,7 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
       {form ? (
         <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-border bg-card p-3">
           <div className="space-y-1">
-            <Label htmlFor={nameId}>{meta.label} name</Label>
+            <Label htmlFor={nameId}>{t(meta.nameLabel)}</Label>
             <Input
               id={nameId}
               value={form.name}
@@ -205,12 +250,12 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
 
           {isRepoScope && (
             <div className="space-y-1">
-              <Label htmlFor={environmentId}>Environment (optional)</Label>
+              <Label htmlFor={environmentId}>{t('Environment (optional)')}</Label>
               <Input
                 id={environmentId}
                 value={form.environment}
                 onChange={(event) => setForm({ ...form, environment: event.target.value })}
-                placeholder="e.g. e2e"
+                placeholder={t('e.g. {example}', { example: 'e2e' })}
                 className="font-mono"
                 autoComplete="off"
                 disabled={isEditing}
@@ -219,7 +264,7 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
           )}
 
           <div className="space-y-1">
-            <Label htmlFor={valueId}>{meta.label} value</Label>
+            <Label htmlFor={valueId}>{t(meta.valueLabel)}</Label>
             <Textarea
               id={valueId}
               value={form.value}
@@ -237,17 +282,17 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
 
           <div className="flex justify-end gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={cancelForm}>
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button type="submit" size="sm" disabled={setSecret.isPending}>
-              {setSecret.isPending ? 'Saving...' : 'Save'}
+              {setSecret.isPending ? t('Saving...') : t('Save')}
             </Button>
           </div>
         </form>
       ) : (
         <Button type="button" variant="outline" size="sm" onClick={startAdd}>
           <Plus className="h-3 w-3 mr-1" />
-          Add {meta.label.toLowerCase()}
+          {t(meta.add)}
         </Button>
       )}
 
@@ -255,8 +300,8 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
         isLoading={entriesQuery.isLoading}
         error={entriesQuery.error as Error | null}
         isEmpty={entries.length === 0}
-        emptyTitle={`No ${meta.label.toLowerCase()}s yet`}
-        emptyHint={meta.emptyHint}
+        emptyTitle={t(meta.empty)}
+        emptyHint={t(meta.emptyHint)}
         maxHeightClassName="max-h-none"
       >
         {entries.map((entry) => (
@@ -267,7 +312,7 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
             badges={entry.environment ? <Badge variant="secondary">{entry.environment}</Badge> : undefined}
             description={
               <span>
-                Updated {formatShortRelativeTime(new Date(entry.updatedAt))}
+                {t('Updated {time}', { time: formatShortRelativeTime(new Date(entry.updatedAt)) })}
                 {kind === 'variable' && entry.value !== undefined ? ` · ${entry.value}` : ''}
               </span>
             }
@@ -278,7 +323,7 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  aria-label={`Copy reference for ${entry.name}`}
+                  aria-label={t('Copy reference for {name}', { name: entry.name })}
                   onClick={() => handleCopyReference(entry)}
                 >
                   <Copy className="h-4 w-4" />
@@ -288,7 +333,7 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  aria-label={`Update ${entry.name}`}
+                  aria-label={t('Update {name}', { name: entry.name })}
                   onClick={() => startEdit(entry)}
                 >
                   <Pencil className="h-4 w-4" />
@@ -298,7 +343,7 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  aria-label={`Remove ${entry.name}`}
+                  aria-label={t('Remove {name}', { name: entry.name })}
                   onClick={() => setRemoveTarget(entry)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -316,8 +361,8 @@ function SecretKindPanel({ scope, kind }: SecretKindPanelProps) {
         }}
         onConfirm={handleRemove}
         onCancel={() => setRemoveTarget(null)}
-        title={`Remove ${meta.label}`}
-        description={`This removes the ${meta.label.toLowerCase()} from this scope. Sessions that reference it will no longer receive a value.`}
+        title={t(meta.removeTitle)}
+        description={t(meta.removeDescription)}
         itemName={removeTarget?.name}
         isDeleting={deleteSecret.isPending}
       />
