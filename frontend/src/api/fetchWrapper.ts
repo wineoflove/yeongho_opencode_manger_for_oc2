@@ -1,4 +1,5 @@
 import { FetchError } from '@opencode-manager/shared'
+import { t } from '@/i18n/translate'
 import type { ApiErrorResponse } from '@opencode-manager/shared'
 
 export { FetchError }
@@ -14,12 +15,13 @@ function formatDetails(details: unknown): string | undefined {
     return details
       .map((d) => {
         if (typeof d !== 'object' || d === null) return null
-        const path = Array.isArray((d as Record<string, unknown>).path) 
-          ? ((d as Record<string, unknown>).path as string[]) 
+        const path = Array.isArray((d as Record<string, unknown>).path)
+          ? ((d as Record<string, unknown>).path as string[])
           : undefined
-        const message = typeof (d as Record<string, unknown>).message === 'string'
-          ? (d as Record<string, unknown>).message as string
-          : undefined
+        const message =
+          typeof (d as Record<string, unknown>).message === 'string'
+            ? ((d as Record<string, unknown>).message as string)
+            : undefined
         return path?.length ? `${path.join('.')}: ${message}` : message
       })
       .filter(Boolean)
@@ -32,27 +34,34 @@ function formatDetails(details: unknown): string | undefined {
 async function handleResponse(response: Response): Promise<never> {
   const text = await response.text().catch(() => '')
   const data: ApiErrorResponse = (() => {
-    if (!text) return { error: 'An error occurred' }
+    if (!text) return { error: t('An error occurred') }
     try {
       return JSON.parse(text) as ApiErrorResponse
     } catch {
-      return { error: /^\s*</.test(text) ? `Request failed with status ${response.status}` : text }
+      return {
+        error: /^\s*</.test(text)
+          ? t('Request failed with status {status}', {
+              status: response.status,
+            })
+          : text,
+      }
     }
   })()
-  const errorData = data as ApiErrorResponse & { message?: string; data?: { message?: unknown } }
-  const openCodeMessage = typeof errorData.data?.message === 'string'
-    ? errorData.data.message
-    : undefined
+  const errorData = data as ApiErrorResponse & {
+    message?: string
+    data?: { message?: unknown }
+  }
+  const openCodeMessage = typeof errorData.data?.message === 'string' ? errorData.data.message : undefined
   const detail = data.detail || formatDetails(data.details)
   throw new FetchError(
-    data.error || errorData.message || openCodeMessage || 'Request failed',
+    data.error || errorData.message || openCodeMessage || t('Request failed'),
     response.status,
     data.code,
     detail,
     {
       details: data.details,
       validationIssues: data.validationIssues,
-    }
+    },
   )
 }
 
@@ -68,10 +77,7 @@ function buildUrl(url: string, params?: Record<string, string | number | boolean
   return urlObj
 }
 
-async function fetchWithTimeout(
-  url: string,
-  options: FetchWrapperOptions = {}
-): Promise<Response> {
+async function fetchWithTimeout(url: string, options: FetchWrapperOptions = {}): Promise<Response> {
   const { timeout = 30000, params, acceptedStatuses, ...fetchOptions } = options
   const urlObj = buildUrl(url, params)
 
@@ -94,37 +100,28 @@ async function fetchWithTimeout(
     return response
   } catch (error) {
     if (timeoutId) clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new FetchError('Request timeout', 408, 'TIMEOUT')
+    if ((error instanceof Error || error instanceof DOMException) && error.name === 'AbortError') {
+      throw new FetchError(t('Request timeout'), 408, 'TIMEOUT')
     }
     throw error
   }
 }
 
-async function fetchWrapper<T = unknown>(
-  url: string,
-  options: FetchWrapperOptions = {}
-): Promise<T> {
+async function fetchWrapper<T = unknown>(url: string, options: FetchWrapperOptions = {}): Promise<T> {
   const response = await fetchWithTimeout(url, options)
 
   try {
     return await response.json()
   } catch {
-    throw new FetchError('Invalid JSON response', response.status, 'INVALID_JSON')
+    throw new FetchError(t('Invalid JSON response'), response.status, 'INVALID_JSON')
   }
 }
 
-async function fetchWrapperVoid(
-  url: string,
-  options: FetchWrapperOptions = {}
-): Promise<void> {
+async function fetchWrapperVoid(url: string, options: FetchWrapperOptions = {}): Promise<void> {
   await fetchWithTimeout(url, options)
 }
 
-async function fetchWrapperBlob(
-  url: string,
-  options: FetchWrapperOptions = {}
-): Promise<Blob> {
+async function fetchWrapperBlob(url: string, options: FetchWrapperOptions = {}): Promise<Blob> {
   const response = await fetchWithTimeout(url, options)
   return response.blob()
 }

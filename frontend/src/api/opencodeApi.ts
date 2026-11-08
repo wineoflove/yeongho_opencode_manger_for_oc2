@@ -1,7 +1,13 @@
-import { ClientError, createOpenCodeApi, openCodeErrorStatus, type OpenCodeApi } from '@opencode-manager/shared/opencode'
+import {
+  ClientError,
+  createOpenCodeApi,
+  openCodeErrorStatus,
+  type OpenCodeApi,
+} from '@opencode-manager/shared/opencode'
 import { FetchError } from '@opencode-manager/shared'
 import { LOCAL_OPENCODE_SERVER_ID } from '@opencode-manager/shared/schemas'
 import { API_BASE_URL, OPENCODE_API_ENDPOINT } from '@/config'
+import { t } from '@/i18n/translate'
 
 const openCodeApis = new Map<string, OpenCodeApi>()
 
@@ -39,7 +45,7 @@ function toFetchError(error: unknown): FetchError {
     return new FetchError(error.message, status ?? 0, error.name)
   }
 
-  return new FetchError('Request failed', status ?? 0)
+  return new FetchError(t('Request failed'), status ?? 0)
 }
 
 export async function callOpenCode<T>(

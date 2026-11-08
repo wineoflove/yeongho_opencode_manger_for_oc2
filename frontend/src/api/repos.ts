@@ -2,9 +2,19 @@ import type { Repo } from './types'
 import { FetchError, fetchWrapper, fetchWrapperVoid, fetchWrapperBlob } from './fetchWrapper'
 import { API_BASE_URL } from '@/config'
 import { saveFile } from '@/lib/download'
-import type { CreateRepoWorkspaceRequest, DiscoverReposResponse, AssistantModeStatus, AssistantModeInitRequest, DeleteRepoRequest, DeleteRepoResult, RepoGitIdentity, WorktreeSetupResult } from '@opencode-manager/shared/types'
+import type {
+  CreateRepoWorkspaceRequest,
+  DiscoverReposResponse,
+  AssistantModeStatus,
+  AssistantModeInitRequest,
+  DeleteRepoRequest,
+  DeleteRepoResult,
+  RepoGitIdentity,
+  WorktreeSetupResult,
+} from '@opencode-manager/shared/types'
 import type { RepoSibling } from '@opencode-manager/shared/utils'
 import { formatScheduleWorktreeLabel } from '@/lib/schedules/schedule-worktree'
+import { t } from '@/i18n/translate'
 
 export type { RepoSibling } from '@opencode-manager/shared/utils'
 
@@ -42,14 +52,15 @@ export async function getRepo(id: number): Promise<Repo> {
   return fetchWrapper(`${API_BASE_URL}/api/repos/${id}`)
 }
 
-
 export function workspaceLabel(workspace: RepoSibling): string {
   return workspace.currentBranch || workspace.branch || workspace.localPath || 'worktree'
 }
 
 export function worktreeSourceLabel(worktree: RepoSibling): string | null {
   if (worktree.schedule) {
-    return `Schedule · ${formatScheduleWorktreeLabel(worktree.schedule.runId)}`
+    return t('Schedule · {worktree}', {
+      worktree: formatScheduleWorktreeLabel(worktree.schedule.runId),
+    })
   }
   if (worktree.worktreeSource === 'git') return 'Git'
   return worktree.worktreeSource === 'opencode' ? 'OpenCode' : null
@@ -71,7 +82,10 @@ export async function deleteRepoWorkspace(repoId: number, directory: string): Pr
   })
 }
 
-export async function createRepoWorkspace(repoId: number, request: CreateRepoWorkspaceRequest = {}): Promise<RepoWorktree & { worktreeSetup?: WorktreeSetupResult }> {
+export async function createRepoWorkspace(
+  repoId: number,
+  request: CreateRepoWorkspaceRequest = {},
+): Promise<RepoWorktree & { worktreeSetup?: WorktreeSetupResult }> {
   return fetchWrapper(`${API_BASE_URL}/api/repos/${repoId}/workspaces`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -89,7 +103,10 @@ export async function deleteRepo(id: number, options?: DeleteRepoOptions): Promi
   return fetchWrapper(`${API_BASE_URL}/api/repos/${id}`, {
     method: 'DELETE',
     ...(options
-      ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) }
+      ? {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(options),
+        }
       : {}),
   })
 }
@@ -156,7 +173,10 @@ export interface GitBranch {
   isWorktree?: boolean
 }
 
-export async function listBranches(id: number): Promise<{ branches: GitBranch[], status: { ahead: number, behind: number } }> {
+export async function listBranches(id: number): Promise<{
+  branches: GitBranch[]
+  status: { ahead: number; behind: number }
+}> {
   return fetchWrapper(`${API_BASE_URL}/api/repos/${id}/git/branches`)
 }
 
@@ -186,7 +206,7 @@ export async function downloadRepo(id: number, repoName: string, options?: Downl
   if (options?.includePaths?.length) params.append('includePaths', options.includePaths.join(','))
 
   const url = `${API_BASE_URL}/api/repos/${id}/download${params.toString() ? '?' + params.toString() : ''}`
-  
+
   const blob = await fetchWrapperBlob(url)
   await saveFile(blob, `${repoName}.zip`)
 }
@@ -219,7 +239,7 @@ export async function getAssistantModeStatus(id: number): Promise<AssistantModeS
 
 export async function initializeAssistantMode(
   id: number,
-  options?: AssistantModeInitRequest
+  options?: AssistantModeInitRequest,
 ): Promise<AssistantModeStatus> {
   return fetchWrapper(`${API_BASE_URL}/api/repos/${id}/assistant-mode`, {
     method: 'POST',
