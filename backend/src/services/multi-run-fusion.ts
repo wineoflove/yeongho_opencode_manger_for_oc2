@@ -256,12 +256,12 @@ async function collectFusionSource(
     }
 
     const reply = await readLatestAssistantReply(client, sessionId)
-    if (!reply || !reply.completed) {
-      return unavailable(entry, 'incomplete', 'The session has not produced a final reply.')
+    if (session.outcome === 'failed' || session.outcome === 'interrupted' || reply?.errorText) {
+      return unavailable(entry, 'failed', failureMessage(session, reply?.errorText ?? null))
     }
 
-    if (session.outcome === 'failed' || session.outcome === 'interrupted' || reply.errorText) {
-      return unavailable(entry, 'failed', failureMessage(session, reply.errorText))
+    if (!reply || !reply.completed) {
+      return unavailable(entry, 'incomplete', 'The session has not produced a final reply.')
     }
 
     const changes = await readSessionChanges(client, sessionId).catch(() => null)

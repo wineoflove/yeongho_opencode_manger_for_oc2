@@ -253,6 +253,35 @@ describe('collectFusionSources', () => {
     ])
   })
 
+  it('classifies an unfinished reply followed by a failed idle marker as failed with the recorded error', async () => {
+    const { client } = createFakeClient({
+      'ses-1': {
+        info: sessionInfo({ id: 'ses-1' }),
+        messages: [
+          {
+            id: 'msg_idle',
+            type: 'idle',
+            outcome: 'failed',
+            error: { type: 'aborted', message: 'Execution was interrupted repeatedly' },
+            time: { created: 9 },
+          } as unknown as SessionMessageInfo,
+          assistantMessage('Partial output', { completed: false }),
+        ],
+      },
+    })
+
+    const result = await collectFusionSources(client, [entry()])
+
+    expect(result.unavailable).toEqual([
+      {
+        entryId: 1,
+        model: 'openai/gpt-5',
+        reason: 'failed',
+        message: expect.stringContaining('Execution was interrupted repeatedly'),
+      },
+    ])
+  })
+
   it('classifies a failed session as failed and includes the error text', async () => {
     const { client } = createFakeClient({
       'ses-1': {
