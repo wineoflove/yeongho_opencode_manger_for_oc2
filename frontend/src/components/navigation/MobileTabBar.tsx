@@ -16,6 +16,7 @@ import {
   parseServerProjectRoute,
 } from '@/lib/navigation'
 import { openDialogParam } from '@/hooks/useDialogParam'
+import { t } from '@/i18n/translate'
 
 interface TabDef {
   key: string
@@ -60,7 +61,7 @@ function getMobileTabRouteState(pathname: string, search: string): MobileTabRout
     return { mode: 'global', isInsideRepo: false, repoId: null, serverScope: null }
   }
 
-  if (pathname === '/' || pathname === '/schedules') {
+  if (pathname === '/' || pathname === '/schedules' || pathname === '/stats' || pathname === '/system') {
     return { mode: 'global', isInsideRepo: false, repoId: null, serverScope: null }
   }
 
@@ -113,7 +114,7 @@ function buildGlobalTabs({ pathname, openSheet, open, close, navigate, isInsideR
   return [
     {
       key: 'sessions',
-      label: 'Sessions',
+      label: t('Sessions'),
       icon: List,
       onClick: () => open('sessions'),
       active: openSheet === 'sessions' || (pathname === '/' && !openSheet),
@@ -121,7 +122,7 @@ function buildGlobalTabs({ pathname, openSheet, open, close, navigate, isInsideR
     ...(showsFiles
       ? [{
           key: 'files',
-          label: 'Files',
+          label: t('Files'),
           icon: FolderOpen,
           onClick: handleFilesClick,
           active: openSheet === 'files',
@@ -138,7 +139,7 @@ function buildGlobalTabs({ pathname, openSheet, open, close, navigate, isInsideR
       : []),
     {
       key: 'assistant',
-      label: 'Assistant',
+      label: t('Assistant'),
       icon: Bot,
       onClick: handleAssistantClick,
       active: isAssistantPath(pathname) && !openSheet,
@@ -146,7 +147,7 @@ function buildGlobalTabs({ pathname, openSheet, open, close, navigate, isInsideR
     ...(showsSchedules
       ? [{
           key: 'schedules',
-          label: 'Schedules',
+          label: t('Schedules'),
           icon: CalendarClock,
           onClick: () => navigate('/schedules'),
           active: pathname === '/schedules' && !openSheet,
@@ -155,7 +156,7 @@ function buildGlobalTabs({ pathname, openSheet, open, close, navigate, isInsideR
       : []),
     {
       key: 'more',
-      label: 'More',
+      label: t('More'),
       icon: Menu,
       onClick: () => open('more'),
       active: openSheet === 'more',
@@ -168,21 +169,21 @@ function buildScheduleTabs(scheduleTab: ScheduleTab, setScheduleTab: (tab: Sched
   return [
     {
       key: 'jobs',
-      label: 'Jobs',
+      label: t('Jobs'),
       icon: CalendarClock,
       onClick: () => setScheduleTab('jobs'),
       active: scheduleTab === 'jobs',
     },
     {
       key: 'detail',
-      label: 'Detail',
+      label: t('Detail'),
       icon: Info,
       onClick: () => setScheduleTab('detail'),
       active: scheduleTab === 'detail',
     },
     {
       key: 'runs',
-      label: 'Runs',
+      label: t('Runs'),
       icon: History,
       onClick: () => setScheduleTab('runs'),
       active: scheduleTab === 'runs',

@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 const LOCAL_SERVER_LABEL = 'OC Manager'
 
@@ -30,7 +31,7 @@ interface LinkedServersNavProps {
 type ActivityState = 'needs-input' | 'running' | null
 
 function ServerConnectionDot({ connected }: { connected: boolean }) {
-  const label = connected ? 'Connected' : 'Disconnected'
+  const label = connected ? t('Connected') : t('Disconnected')
 
   return (
     <span
@@ -62,7 +63,7 @@ function AttentionDot({ activity, label }: { activity: ActivityState; label: str
   return (
     <span
       role="img"
-      aria-label={needsInput ? `${label} needs input` : `${label} is running`}
+      aria-label={needsInput ? t('{label} needs input', { label }) : t('{label} is running', { label })}
       className={cn(
         'absolute inset-0 rounded-full',
         needsInput ? 'z-[2] bg-warning' : 'z-[1] bg-info',
@@ -181,7 +182,7 @@ function LinkedServersMenuContent({
       <DropdownMenuSeparator />
       <DropdownMenuItem onSelect={() => openTab('servers')} className="gap-2">
         <Settings2 className="h-4 w-4 shrink-0" />
-        <span>Manage servers…</span>
+        <span>{t('Manage servers…')}</span>
       </DropdownMenuItem>
     </DropdownMenuContent>
   )
@@ -213,7 +214,7 @@ export function LinkedServersNav({ variant = 'sidebar' }: LinkedServersNavProps)
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Switch server, current: ${selectedName}`}
+          aria-label={t('Switch server, current: {name}', { name: selectedName })}
           className={cn(
             'flex items-center rounded-md text-sm text-foreground transition-colors duration-150',
             'hover:bg-accent/50',

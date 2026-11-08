@@ -20,6 +20,7 @@ import {
   SidebarItem,
 } from '@/components/ui/sidebar'
 import { List } from 'lucide-react'
+import { t } from '@/i18n/translate'
 
 const FOOTER_ITEM_KEYS = new Set(['home', 'settings', 'logout'])
 
@@ -84,7 +85,7 @@ export function DesktopSidebar() {
   const footerItems = items.filter((item) => FOOTER_ITEM_KEYS.has(item.key))
   const collapsedItems: MoreDrawerItem[] = [
     footerItems[0],
-    { key: 'sessions', label: 'Sessions', icon: List },
+    { key: 'sessions', label: t('Sessions'), icon: List },
     ...footerItems.slice(1),
   ]
 
@@ -135,9 +136,9 @@ export function DesktopSidebar() {
               <LinkedServersNav />
             </div>
 
-            <section aria-label="Sessions" className="flex min-h-0 flex-1 flex-col border-t border-border">
+            <section aria-label={t('Sessions')} className="flex min-h-0 flex-1 flex-col border-t border-border">
               <h2 className="px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Sessions
+                {t('Sessions')}
               </h2>
               <DesktopSessionTree />
             </section>

@@ -16,6 +16,7 @@ import { cn, getRepoDisplayName } from '@/lib/utils'
 import { getPathWithReturnTo, isAssistantPath, parseServerSessionRoute } from '@/lib/navigation'
 import { useMobileTabBar } from '@/hooks/useMobileTabBar'
 import { isLocalOpenCodeServer, useRouteOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
+import { msg, t } from '@/i18n/translate'
 
 interface MoreDrawerProps {
   isOpen: boolean
@@ -25,8 +26,8 @@ interface MoreDrawerProps {
 const ACCOUNT_ITEM_KEYS: ReadonlySet<string> = new Set(['settings', 'logout'])
 
 const ITEM_GROUPS: ReadonlyArray<{ label: string; keys: ReadonlySet<string> }> = [
-  { label: 'Workspace', keys: new Set(['files', 'source-control', 'terminal', 'preview', 'walkthrough']) },
-  { label: 'Project', keys: new Set(['mcp', 'skills', 'actions', 'schedules', 'all-schedules', 'reset-permissions']) },
+  { label: msg('Workspace'), keys: new Set(['files', 'source-control', 'terminal', 'preview', 'walkthrough']) },
+  { label: msg('Project'), keys: new Set(['mcp', 'skills', 'actions', 'schedules', 'all-schedules', 'reset-permissions']) },
 ]
 
 function MenuSection({ label, children }: { label?: string; children: ReactNode }) {
@@ -102,7 +103,7 @@ export function MoreDrawer({ isOpen, onClose }: MoreDrawerProps) {
 
   const currentBranch = repo?.currentBranch || repo?.branch
   const repoDisplayName = isAssistantRoute || isAssistantSession
-    ? 'Assistant'
+    ? t('Assistant')
     : repo ? getRepoDisplayName(repo) : null
 
   const handleSettingsClick = () => {
@@ -161,7 +162,7 @@ export function MoreDrawer({ isOpen, onClose }: MoreDrawerProps) {
   ].filter(Boolean).join(' · ')
 
   return (
-    <SideDrawer isOpen={isOpen} onClose={onClose} side="right" ariaLabel="More" widthClass="w-screen sm:w-[min(90vw,420px)]">
+    <SideDrawer isOpen={isOpen} onClose={onClose} side="right" ariaLabel={t('More')} widthClass="w-screen sm:w-[min(90vw,420px)]">
       <div ref={swipeRef} className="flex flex-col flex-1 min-h-0">
         <div className="flex flex-col flex-shrink-0 border-b border-border bg-background px-4 py-1.5">
           <div className="flex items-center justify-between gap-3 mb-2">
@@ -172,7 +173,7 @@ export function MoreDrawer({ isOpen, onClose }: MoreDrawerProps) {
               type="button"
               onClick={onClose}
               className="shrink-0 rounded-sm p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Close"
+              aria-label={t('Close')}
             >
               <X className="h-5 w-5" />
             </button>
@@ -207,7 +208,7 @@ export function MoreDrawer({ isOpen, onClose }: MoreDrawerProps) {
           )}
           <MenuSection>
             {(isSessionDetail || isRemoteSessionDetail) && (
-              <MenuRow icon={List} label="Sessions" onClick={() => openMobileSheet('sessions')} trailing />
+              <MenuRow icon={List} label={t('Sessions')} onClick={() => openMobileSheet('sessions')} trailing />
             )}
             {assistantCta?.to && (
               <MenuRow icon={assistantCta.icon} label={assistantCta.label} onClick={() => navigate(assistantCta.to!)} />
@@ -220,7 +221,7 @@ export function MoreDrawer({ isOpen, onClose }: MoreDrawerProps) {
             const groupItems = itemsInGroup(keys)
             if (groupItems.length === 0) return null
             return (
-              <MenuSection key={label} label={label}>
+              <MenuSection key={label} label={t(label)}>
                 {groupItems.map((item) => (
                   <MenuRow key={item.key} icon={item.icon} label={item.label} danger={item.danger} onClick={() => handleItemClick(item)} />
                 ))}

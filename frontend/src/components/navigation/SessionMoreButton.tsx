@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { ScheduleReportsBadge } from '@/components/notifications/ScheduleReportsBadge'
 import { useUnreadScheduleRuns } from '@/hooks/useSchedules'
 import { useMobileTabBar } from '@/hooks/useMobileTabBar'
+import { t } from '@/i18n/translate'
 
 export function SessionMoreButton() {
   const { open } = useMobileTabBar()
@@ -16,7 +17,7 @@ export function SessionMoreButton() {
       size="sm"
       onClick={() => open('more')}
       className="relative md:hidden h-10 w-10 p-0 text-foreground border-border hover:bg-accent"
-      aria-label={total > 0 ? `More, ${total} unread reports` : 'More'}
+      aria-label={total > 0 ? t('More, {count} unread reports', { count: total }) : t('More')}
     >
       <MoreVertical className="w-5 h-5" />
       <ScheduleReportsBadge total={total} failed={failed} />

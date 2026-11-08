@@ -27,6 +27,7 @@ import {
   normalizeDirectory,
   type SidebarSessionItem,
 } from '@/components/navigation/sidebar-session-tree'
+import { t } from '@/i18n/translate'
 
 function buildRemoteItem(session: Session, serverId: string, projectLabel: string): SidebarSessionItem {
   return {
@@ -75,9 +76,9 @@ function RemoteSessionRows({
     [sessions],
   )
 
-  if (isLoading) return <SessionNavStatus>Loading sessions...</SessionNavStatus>
-  if (isError) return <SessionNavStatus>Failed to load sessions</SessionNavStatus>
-  if (visibleSessions.length === 0) return <SessionNavStatus>No sessions</SessionNavStatus>
+  if (isLoading) return <SessionNavStatus>{t('Loading sessions...')}</SessionNavStatus>
+  if (isError) return <SessionNavStatus>{t('Failed to load sessions')}</SessionNavStatus>
+  if (visibleSessions.length === 0) return <SessionNavStatus>{t('No sessions')}</SessionNavStatus>
 
   return (
     <>
@@ -93,7 +94,7 @@ function RemoteSessionRows({
         )
       })}
       {hasMore && allSessionsPath && (
-        <SessionNavLink onClick={() => onSelectSession(allSessionsPath)}>All sessions</SessionNavLink>
+        <SessionNavLink onClick={() => onSelectSession(allSessionsPath)}>{t('All sessions')}</SessionNavLink>
       )}
     </>
   )
@@ -300,9 +301,9 @@ function RemoteProjectSearchResults({
     )
   }, [projects, nameMatchedProjects, sessionsByProjectId])
 
-  if (isLoading) return <SessionNavStatus>Loading sessions...</SessionNavStatus>
-  if (isError) return <SessionNavStatus>Failed to load sessions</SessionNavStatus>
-  if (visibleProjects.length === 0) return <SessionNavStatus>No sessions found</SessionNavStatus>
+  if (isLoading) return <SessionNavStatus>{t('Loading sessions...')}</SessionNavStatus>
+  if (isError) return <SessionNavStatus>{t('Failed to load sessions')}</SessionNavStatus>
+  if (visibleProjects.length === 0) return <SessionNavStatus>{t('No sessions found')}</SessionNavStatus>
 
   return (
     <>
@@ -372,19 +373,19 @@ export function RemoteProjectNavList({
   const { projects, showsInitialLoading, showsError } = useRemoteProjectsByActivity(serverId)
   const trimmedSearch = search.trim()
 
-  if (isServersLoading) return <SessionNavStatus>Loading projects...</SessionNavStatus>
-  if (serversPaused && servers.length === 0) return <SessionNavStatus>Servers unavailable</SessionNavStatus>
-  if (!server) return <SessionNavStatus>Server not found</SessionNavStatus>
-  if (!server.enabled) return <SessionNavStatus>Server is disabled</SessionNavStatus>
-  if (showsInitialLoading) return <SessionNavStatus>Loading projects...</SessionNavStatus>
+  if (isServersLoading) return <SessionNavStatus>{t('Loading projects...')}</SessionNavStatus>
+  if (serversPaused && servers.length === 0) return <SessionNavStatus>{t('Servers unavailable')}</SessionNavStatus>
+  if (!server) return <SessionNavStatus>{t('Server not found')}</SessionNavStatus>
+  if (!server.enabled) return <SessionNavStatus>{t('Server is disabled')}</SessionNavStatus>
+  if (showsInitialLoading) return <SessionNavStatus>{t('Loading projects...')}</SessionNavStatus>
   if (showsError) {
     return (
       <SessionNavStatus>
-        {statusById[serverId]?.connected === false ? 'Server unreachable' : 'Could not load projects'}
+        {statusById[serverId]?.connected === false ? t('Server unreachable') : t('Could not load projects')}
       </SessionNavStatus>
     )
   }
-  if (projects.length === 0) return <SessionNavStatus>No projects</SessionNavStatus>
+  if (projects.length === 0) return <SessionNavStatus>{t('No projects')}</SessionNavStatus>
 
   if (trimmedSearch) {
     return (

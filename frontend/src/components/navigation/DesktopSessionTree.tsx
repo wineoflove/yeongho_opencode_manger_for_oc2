@@ -28,6 +28,7 @@ import {
 import { getRepoPath } from '@/lib/navigation'
 import { getRepoDisplayName } from '@/lib/utils'
 import { buildPinnedSessionKeys } from '@/lib/sessionKey'
+import { t } from '@/i18n/translate'
 
 function SessionSearchInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const clear = () => onChange('')
@@ -45,8 +46,8 @@ function SessionSearchInput({ value, onChange }: { value: string; onChange: (val
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
         enterKeyHint="search"
-        aria-label="Search sessions"
-        placeholder="Search sessions..."
+        aria-label={t('Search sessions')}
+        placeholder={t('Search sessions...')}
         autoComplete="off"
         name="sidebar-session-search"
         className="h-8 pl-8 pr-9"
@@ -71,7 +72,7 @@ function SessionTreeLayout({
         <SessionSearchInput value={draft} onChange={onDraftChange} />
       </div>
 
-      <div role="region" aria-label="Session navigator" className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <div role="region" aria-label={t('Session navigator')} className="min-h-0 flex-1 overflow-y-auto pb-2">
         {children}
       </div>
     </div>
@@ -107,9 +108,9 @@ function SessionSearchResults({
     ...sessionGroups.filter((group) => group.items.length > 0),
   ]
 
-  if (nameMatches.isLoading || isSearchLoading) return <SessionNavStatus>Loading sessions...</SessionNavStatus>
-  if (nameMatches.isError || isSearchError) return <SessionNavStatus>Failed to load sessions</SessionNavStatus>
-  if (matchingGroups.length === 0) return <SessionNavStatus>No sessions found</SessionNavStatus>
+  if (nameMatches.isLoading || isSearchLoading) return <SessionNavStatus>{t('Loading sessions...')}</SessionNavStatus>
+  if (nameMatches.isError || isSearchError) return <SessionNavStatus>{t('Failed to load sessions')}</SessionNavStatus>
+  if (matchingGroups.length === 0) return <SessionNavStatus>{t('No sessions found')}</SessionNavStatus>
 
   return (
     <>
@@ -177,7 +178,7 @@ function LocalSessionTree() {
   return (
     <SessionTreeLayout draft={draft} onDraftChange={handleSearchChange}>
       {isLoading ? (
-        <SessionNavStatus>Loading repos...</SessionNavStatus>
+        <SessionNavStatus>{t('Loading repos...')}</SessionNavStatus>
       ) : trimmedDraft ? (
         <SessionSearchResults
           nameMatchedRepos={nameMatchedRepos}

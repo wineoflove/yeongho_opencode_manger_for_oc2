@@ -38,6 +38,7 @@ import { useRestoreFocusOnClose } from '@/hooks/useRestoreFocusOnClose'
 import { cn } from '@/lib/utils'
 import { useToolPanelLayout, useToolPanelWidth } from '@/hooks/useToolPanelLayout'
 import { isLocalOpenCodeServer, useRouteOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
+import { t } from '@/i18n/translate'
 
 interface PanelResizeState {
   pointerId: number
@@ -113,7 +114,7 @@ function PanelResizeHandle({ width, minWidth, maxWidth, onWidthChange }: PanelRe
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize panel"
+      aria-label={t('Resize panel')}
       tabIndex={0}
       aria-valuenow={width}
       aria-valuemin={minWidth}
@@ -189,7 +190,7 @@ function SessionsPanelBody({ docked, onClose, deleteActiveSessionPath }: Session
 function SessionsRailIndicator() {
   const { needsInput, running } = useActiveWorkCounts()
   const total = needsInput + running
-  const label = total > 0 ? `Sessions, ${needsInput} needs input, ${running} running` : 'Sessions'
+  const label = total > 0 ? t('Sessions, {needsInput} needs input, {running} running', { needsInput, running }) : t('Sessions')
 
   return (
     <>
@@ -446,7 +447,7 @@ export function ToolSidePanel({
             <button
               type="button"
               onClick={closePanel}
-              aria-label="Close panel"
+              aria-label={t('Close panel')}
               className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <X className="h-4 w-4" />
@@ -482,7 +483,7 @@ export function ToolSidePanel({
       ) : null}
 
       <TooltipProvider>
-        <nav ref={railRef} aria-label="Tools" className="flex w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto border-l border-border bg-background py-2">
+        <nav ref={railRef} aria-label={t('Tools')} className="flex w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto border-l border-border bg-background py-2">
           {panelTools.map(({ item, tool }) => (
             <RailButton
               key={item.key}

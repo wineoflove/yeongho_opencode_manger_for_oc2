@@ -354,6 +354,19 @@ describe('MobileTabBar', () => {
     expect(screen.getByText('Schedules')).toBeInTheDocument()
   })
 
+  it.each(['/stats', '/system'])('renders the global tab bar on %s', (path) => {
+    vi.mocked(useMobile).mockReturnValue(true)
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[path]}>
+          <MobileTabBar />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('Sessions')).toBeInTheDocument()
+    expect(screen.getByText('Schedules')).toBeInTheDocument()
+  })
+
   it('Sessions tab is active when pathname is / and no sheet is open', () => {
     vi.mocked(useMobile).mockReturnValue(true)
     const queryClient = new QueryClient()

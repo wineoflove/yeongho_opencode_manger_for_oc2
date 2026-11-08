@@ -5,6 +5,7 @@ import { SessionPickerSheet } from '@/components/session/SessionPickerSheet'
 import { NotificationsSheet } from '@/components/navigation/NotificationsSheet'
 import { MoreDrawer } from '@/components/navigation/MoreDrawer'
 import { isLocalOpenCodeServer, useRouteOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
+import { t } from '@/i18n/translate'
 
 export function MobileSheetHost() {
   const isMobile = useMobile()
@@ -21,7 +22,7 @@ export function MobileSheetHost() {
           isOpen
           onClose={close}
           basePath=""
-          repoName="Workspace Root"
+          repoName={t('Workspace Root')}
           allowNavigateAboveBase={true}
         />
       )}

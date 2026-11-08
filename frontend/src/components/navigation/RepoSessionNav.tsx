@@ -16,6 +16,7 @@ import {
   type SidebarSessionItem,
 } from '@/components/navigation/sidebar-session-tree'
 import type { Repo } from '@/api/types'
+import { t } from '@/i18n/translate'
 
 const OPEN_REPO_HEADER_STYLE: CSSProperties = {
   background: 'color-mix(in srgb, var(--color-primary) 15%, var(--color-card))',
@@ -65,7 +66,7 @@ export function RepoNavGroup({
           <button
             type="button"
             aria-expanded={isOpen}
-            aria-label={`Show sessions in ${name}`}
+            aria-label={t('Show sessions in {name}', { name })}
             onClick={onToggle}
             className="flex w-9 shrink-0 items-center justify-center pl-1 text-muted-foreground"
           >
@@ -134,9 +135,9 @@ export function SessionNavRow({ item, isCurrent, onSelect, repoLabel }: SessionN
       )}
     >
       <span className="w-3 shrink-0">
-        {item.isPinned && <Pin className="h-3 w-3" aria-label="Pinned" />}
+        {item.isPinned && <Pin className="h-3 w-3" aria-label={t('Pinned')} />}
       </span>
-      <span className="min-w-0 flex-1 truncate">{item.session.title || 'Untitled Session'}</span>
+      <span className="min-w-0 flex-1 truncate">{item.session.title || t('Untitled Session')}</span>
       {repoLabel && (
         <span className="max-w-24 shrink-0 truncate text-xs text-highlight">{repoLabel}</span>
       )}
@@ -147,10 +148,10 @@ export function SessionNavRow({ item, isCurrent, onSelect, repoLabel }: SessionN
       )}
       <SessionStatusIndicator sessionID={item.session.id} />
       {hasPermission(item.session.id) && (
-        <Bell className="h-3 w-3 shrink-0 text-highlight" aria-label="Pending permission" />
+        <Bell className="h-3 w-3 shrink-0 text-highlight" aria-label={t('Pending permission')} />
       )}
       {hasForm(item.session.id) && (
-        <HelpCircle className="h-3 w-3 shrink-0 text-info" aria-label="Pending form" />
+        <HelpCircle className="h-3 w-3 shrink-0 text-info" aria-label={t('Pending form')} />
       )}
       <span className="ml-auto min-w-[30px] shrink-0 text-right text-xs tabular-nums text-muted-foreground">
         {formatShortRelativeTime(new Date(item.session.time.updated))}
@@ -179,7 +180,7 @@ export function SearchClearButton({ onClear }: { onClear: () => void }) {
   return (
     <button
       type="button"
-      aria-label="Clear search"
+      aria-label={t('Clear search')}
       onClick={onClear}
       className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
     >
@@ -205,9 +206,9 @@ function RepoSessionList({ repo, onSelectSession }: RepoSessionListProps) {
     [repo, siblings.data],
   )
 
-  if (siblings.isLoading) return <SessionNavStatus>Loading sessions...</SessionNavStatus>
+  if (siblings.isLoading) return <SessionNavStatus>{t('Loading sessions...')}</SessionNavStatus>
   if (siblings.isError && siblings.data === undefined)
-    return <SessionNavStatus>Failed to load sessions</SessionNavStatus>
+    return <SessionNavStatus>{t('Failed to load sessions')}</SessionNavStatus>
 
   return <RepoSessionListItems repo={repo} worktrees={worktrees} onSelectSession={onSelectSession} />
 }
@@ -224,9 +225,9 @@ function RepoSessionListItems({ repo, worktrees, onSelectSession }: RepoSessionL
   const { groups, isLoading, isError, hasMore } = useSidebarRepoGroups({ repos, worktrees })
   const items = groups[0]?.items ?? []
 
-  if (isLoading) return <SessionNavStatus>Loading sessions...</SessionNavStatus>
-  if (isError) return <SessionNavStatus>Failed to load sessions</SessionNavStatus>
-  if (items.length === 0) return <SessionNavStatus>No sessions</SessionNavStatus>
+  if (isLoading) return <SessionNavStatus>{t('Loading sessions...')}</SessionNavStatus>
+  if (isError) return <SessionNavStatus>{t('Failed to load sessions')}</SessionNavStatus>
+  if (items.length === 0) return <SessionNavStatus>{t('No sessions')}</SessionNavStatus>
 
   return (
     <>
@@ -239,7 +240,7 @@ function RepoSessionListItems({ repo, worktrees, onSelectSession }: RepoSessionL
         />
       ))}
       {hasMore && (
-        <SessionNavLink onClick={() => onSelectSession(getRepoPath(repo.id))}>All sessions</SessionNavLink>
+        <SessionNavLink onClick={() => onSelectSession(getRepoPath(repo.id))}>{t('All sessions')}</SessionNavLink>
       )}
     </>
   )
@@ -289,7 +290,7 @@ export function RepoSessionNavList({
             {ready ? (
               <RepoSessionList repo={repo} onSelectSession={onSelectSession} />
             ) : (
-              <SessionNavStatus>Repository not ready</SessionNavStatus>
+              <SessionNavStatus>{t('Repository not ready')}</SessionNavStatus>
             )}
           </RepoNavGroup>
         )
@@ -326,8 +327,8 @@ export function NewSessionButton({
   return (
     <button
       type="button"
-      title="New session"
-      aria-label={`New session in ${label}`}
+      title={t('New session')}
+      aria-label={t('New session in {name}', { name: label })}
       aria-busy={isCreating}
       disabled={isCreating}
       onClick={() => createSession.mutate({ agent: undefined })}
