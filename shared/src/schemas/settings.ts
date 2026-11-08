@@ -244,6 +244,7 @@ export const UserPreferencesSchema = z.object({
   sessionDefaults: SessionDefaultsSchema.optional(),
   devicePairing: DevicePairingPreferencesSchema.optional(),
   disabledDefaultServerEnvVars: z.array(z.string()).optional(),
+  locale: z.enum(['ko', 'en']).optional(),
 });
 
 export const DEFAULT_TTS_CONFIG: TTSConfig = {
@@ -296,6 +297,7 @@ export const DEFAULT_USER_PREFERENCES = {
   serverEnvVars: [] as ServerEnvVar[],
   sandbox: DEFAULT_SANDBOX_PREFERENCES,
   sessionDefaults: DEFAULT_SESSION_DEFAULTS,
+  locale: 'ko' as const,
 };
 
 export const SettingsResponseSchema = z.object({

@@ -169,6 +169,9 @@ export { OPENCODE_CONFIG_SOURCE_NAMES } from './defaults'
 export const getOpenCodeConfigFilePath = () => path.join(ENV.WORKSPACE.BASE_PATH, ENV.WORKSPACE.CONFIG_DIR, 'opencode.json')
 export const getAgentsMdPath = () => path.join(ENV.WORKSPACE.BASE_PATH, ENV.WORKSPACE.CONFIG_DIR, 'AGENTS.md')
 export const getDatabasePath = () => ENV.DATABASE.PATH
+export const getManagerScriptsPath = () => path.resolve(process.env.OCM_SCRIPTS_DIR ?? 'scripts')
+export const getLearningsEntriesPath = () =>
+  path.resolve(process.env.OCM_LEARNINGS_ENTRIES_PATH ?? path.join(ENV.WORKSPACE.BASE_PATH, '.opencode', 'learnings', 'entries'))
 
 export const getTrustedOrigins = (): string[] =>
   ENV.AUTH.TRUSTED_ORIGINS
