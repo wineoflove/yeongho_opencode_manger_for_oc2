@@ -40,6 +40,7 @@
     "cronstrue": "^3.13.0",
     "date-fns": "^4.1.0",
     "diff": "^8.0.2",
+    "heic-to": "1.6.7",
     "jsqr": "^1.4.0",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.546.0",
