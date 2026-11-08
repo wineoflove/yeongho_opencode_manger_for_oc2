@@ -4,6 +4,10 @@ import * as fileService from '../services/files'
 import * as archiveService from '../services/archive'
 import { logger } from '../utils/logger'
 import { getErrorMessage, getStatusCode } from '../utils/error-utils'
+import { relative, sep } from 'node:path'
+import { getReposPath, getWorkspacePath } from '@opencode-manager/shared/config/env'
+import { createFileAccessPolicy, type RegisteredFileRoot } from '../services/file-access'
+import { createPromptAttachmentRoutes } from './prompt-attachments'
 
 function decodeFilePath(path: string): string {
   return decodeURIComponent(path)
@@ -36,8 +40,17 @@ function matchesIfNoneMatch(ifNoneMatch: string | undefined, etag: string): bool
   return values.includes('*') || values.includes(etag)
 }
 
-export function createFileRoutes() {
+export function createFileRoutes(
+  getRegisteredRoots: () => readonly RegisteredFileRoot[] | Promise<readonly RegisteredFileRoot[]> = () => [],
+) {
   const app = new Hono()
+  const access = async () =>
+    createFileAccessPolicy({
+      workspacePath: getWorkspacePath(),
+      reposPath: getReposPath(),
+      roots: await getRegisteredRoots(),
+    })
+  app.route('/attachments', createPromptAttachmentRoutes())
 
   app.get('*', async (c) => {
     const path = c.req.path
@@ -50,6 +63,8 @@ export function createFileRoutes() {
       }
 
       try {
+        const policy = await access()
+        const directoryPath = await policy.resolveArchive(userPath)
         logger.info(`Starting ZIP archive creation for ${userPath}`)
 
         const includeGit = c.req.query('includeGit') === 'true'
@@ -58,10 +73,11 @@ export function createFileRoutes() {
 
         const options: import('../services/archive').ArchiveOptions = {
           includeGit,
-          includePaths
+          includePaths,
+          canReadPath: await policy.archiveFilter(userPath),
         }
 
-        const archivePath = await archiveService.createDirectoryArchive(userPath, undefined, options)
+        const archivePath = await archiveService.createDirectoryArchive(directoryPath, undefined, options)
         const archiveSize = await archiveService.getArchiveSize(archivePath)
         const archiveStream = archiveService.getArchiveStream(archivePath)
         const dirName = userPath.split('/').pop() || 'download'
@@ -98,7 +114,10 @@ export function createFileRoutes() {
       }
 
       try {
-        const ignoredPaths = await archiveService.getIgnoredPathsList(userPath)
+        const policy = await access()
+        const ignoredPaths = await archiveService.getIgnoredPathsList(await policy.resolveArchive(userPath), {
+          canReadPath: await policy.archiveFilter(userPath),
+        })
         return c.json({ ignoredPaths })
       } catch (error: unknown) {
         logger.error('Failed to get ignored paths:', error)
@@ -108,6 +127,9 @@ export function createFileRoutes() {
 
     try {
       const userPath = getFilePathFromRequest(c, path.replace(/^\/api\/files\//, '') || '')
+      const policy = await access()
+      await policy.resolve(userPath)
+      const canReadEntry = (entry: string) => policy.canRead(relative(policy.reposPath, entry))
       const download = c.req.query('download') === 'true'
       const raw = c.req.query('raw') === 'true'
       const startLineParam = c.req.query('startLine')
@@ -129,7 +151,7 @@ export function createFileRoutes() {
         const metadata = await fileService.getRawFileMetadata(userPath)
 
         if (!metadata) {
-          const result = await fileService.getFile(userPath)
+          const result = await fileService.getFile(userPath, canReadEntry)
           return c.json(result)
         }
 
@@ -163,7 +185,7 @@ export function createFileRoutes() {
         })
       }
 
-      const result = await fileService.getFile(userPath)
+      const result = await fileService.getFile(userPath, canReadEntry)
 
       if (download && !result.isDirectory) {
         const content = result.content ? Buffer.from(result.content, 'base64') : Buffer.alloc(0)
@@ -194,6 +216,9 @@ export function createFileRoutes() {
       }
       
       const relativePath = body.relativePath as string | undefined
+      const policy = await access()
+      await policy.resolve(path)
+      await policy.resolve(`${path}${sep}${relativePath || file.name}`, { scopePath: path })
       const result = await fileService.uploadFile(path, file, relativePath)
       return c.json(result)
     } catch (error: unknown) {
@@ -207,6 +232,7 @@ export function createFileRoutes() {
       const path = getFilePathFromRequest(c, c.req.path.replace(/^\/api\/files\//, '') || '')
       const body = await c.req.json()
       
+      await (await access()).resolve(path)
       const result = await fileService.createFileOrFolder(path, body)
       return c.json(result)
     } catch (error: unknown) {
@@ -219,6 +245,7 @@ export function createFileRoutes() {
     try {
       const path = getFilePathFromRequest(c, c.req.path.replace(/^\/api\/files\//, '') || '')
       
+      await (await access()).resolve(path, { entryOnly: true })
       await fileService.deleteFileOrFolder(path)
       return c.json({ success: true })
     } catch (error: unknown) {
@@ -231,13 +258,17 @@ export function createFileRoutes() {
     try {
       const path = getFilePathFromRequest(c, c.req.path.replace(/^\/api\/files\//, '') || '')
       const body = await c.req.json()
-      
+      const policy = await access()
+
       if (body.patches && Array.isArray(body.patches)) {
+        await policy.resolve(path)
         const result = await fileService.applyFilePatches(path, body.patches)
         return c.json(result)
       }
-      
-      const result = await fileService.renameOrMoveFile(path, body)
+
+      await policy.resolve(path, { entryOnly: true })
+      await policy.resolve(body.newPath, { entryOnly: true })
+      const result = await fileService.renameOrMoveFile(path, body, () => policy.canRead(body.newPath))
       return c.json(result)
     } catch (error: unknown) {
       logger.error('Failed to patch file:', error)

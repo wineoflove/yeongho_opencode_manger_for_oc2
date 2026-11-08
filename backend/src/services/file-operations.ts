@@ -63,7 +63,7 @@ export async function fileExists(filePath: string): Promise<boolean> {
 export async function deletePath(filePath: string): Promise<void> {
   try {
     const fullPath = path.isAbsolute(filePath) ? filePath : path.join(getReposPath(), filePath)
-    const stats = await fs.stat(fullPath)
+    const stats = await fs.lstat(fullPath)
     
     if (stats.isDirectory()) {
       await fs.rm(fullPath, { recursive: true, force: true })
@@ -119,7 +119,10 @@ export function resolveWithinDirectory(rootDir: string, relativePath: string, es
   return resolved
 }
 
-export async function listDirectory(dirPath: string): Promise<Array<{
+export async function listDirectory(
+  dirPath: string,
+  canReadEntry?: (entryPath: string) => Promise<boolean>,
+): Promise<Array<{
   name: string
   path: string
   isDirectory: boolean
@@ -137,7 +140,7 @@ export async function listDirectory(dirPath: string): Promise<Array<{
       const entryPath = path.join(fullPath, entry.name)
       let stats: Awaited<ReturnType<typeof fs.stat>>
       try {
-        stats = await fs.stat(entryPath)
+        stats = canReadEntry && !(await canReadEntry(entryPath)) ? await fs.lstat(entryPath) : await fs.stat(entryPath)
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code
         if (code === 'ENOENT' || code === 'ENOTDIR' || code === 'ELOOP') {

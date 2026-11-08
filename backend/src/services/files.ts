@@ -100,7 +100,10 @@ export async function getRawFileMetadata(userPath: string): Promise<RawFileMetad
   }
 }
 
-export async function getFile(userPath: string): Promise<FileInfo> {
+export async function getFile(
+  userPath: string,
+  canReadEntry?: (entryPath: string) => Promise<boolean>,
+): Promise<FileInfo> {
   const validatedPath = validatePath(userPath)
   const responsePath = path.isAbsolute(userPath.trim()) ? path.relative(SHARED_WORKSPACE_BASE, validatedPath) : userPath
   logger.info(`Getting file for path: ${userPath} -> ${validatedPath}`)
@@ -117,7 +120,7 @@ export async function getFile(userPath: string): Promise<FileInfo> {
     
     if (stats.isDirectory) {
       // It's a directory - list contents
-      const entries = await listDirectory(validatedPath)
+      const entries = await listDirectory(validatedPath, canReadEntry)
       const children: FileInfo[] = []
       
       for (const entry of entries) {
@@ -249,7 +252,11 @@ export async function deleteFileOrFolder(userPath: string): Promise<void> {
   await deletePath(validatedPath)
 }
 
-export async function renameOrMoveFile(userPath: string, body: { newPath: string }): Promise<FileInfo> {
+export async function renameOrMoveFile(
+  userPath: string,
+  body: { newPath: string },
+  canReadTarget?: () => Promise<boolean>,
+): Promise<FileInfo> {
   const oldValidatedPath = validatePath(userPath)
   const newValidatedPath = validatePath(body.newPath)
   
@@ -260,7 +267,10 @@ export async function renameOrMoveFile(userPath: string, body: { newPath: string
   await fs.rename(oldValidatedPath, newValidatedPath)
   
   // Get stats of new file
-  const stats = await getFileStats(newValidatedPath)
+  const entry = canReadTarget && !(await canReadTarget()) ? await fs.lstat(newValidatedPath) : undefined
+  const stats = entry
+    ? { size: entry.size, lastModified: entry.mtime, isDirectory: entry.isDirectory() }
+    : await getFileStats(newValidatedPath)
   
   return {
     name: path.basename(newValidatedPath),

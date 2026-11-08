@@ -22,10 +22,21 @@ vi.mock('../../src/utils/logger', () => ({
 
 vi.mock('@opencode-manager/shared/config/env', () => ({
   getReposPath: vi.fn(() => '/test/repos'),
+  getWorkspacePath: vi.fn(() => '/test'),
   FILE_LIMITS: {
     MAX_SIZE_BYTES: 1024 * 1024,
     MAX_UPLOAD_SIZE_BYTES: 10 * 1024 * 1024,
   },
+}))
+
+vi.mock('../../src/services/file-access', () => ({
+  createFileAccessPolicy: vi.fn(() => ({
+    reposPath: '/test/repos',
+    resolve: vi.fn(async (path: string) => path),
+    resolveArchive: vi.fn(async (path: string) => path),
+    canRead: vi.fn(async () => true),
+    archiveFilter: vi.fn(async () => async () => true),
+  })),
 }))
 
 vi.mock('../../src/services/files', () => ({
@@ -87,6 +98,7 @@ describe('File Routes', () => {
       expect(createDirectoryArchive).toHaveBeenCalledWith('test-repo/src', undefined, {
         includeGit: false,
         includePaths: undefined,
+        canReadPath: expect.any(Function),
       })
       expect(getArchiveSize).toHaveBeenCalledWith('/tmp/test-repo-123.zip')
       expect(getArchiveStream).toHaveBeenCalledWith('/tmp/test-repo-123.zip')
@@ -157,7 +169,7 @@ describe('File Routes', () => {
       expect(body).toHaveProperty('isDirectory', true)
       expect(body).toHaveProperty('children')
       expect(Array.isArray(body.children)).toBe(true)
-      expect(getFile).toHaveBeenCalledWith('test-repo/src')
+      expect(getFile).toHaveBeenCalledWith('test-repo/src', expect.any(Function))
     })
 
     it('should return file info when no query params', async () => {
@@ -169,7 +181,7 @@ describe('File Routes', () => {
       expect(response.status).toBe(200)
       expect(body).toHaveProperty('isDirectory', false)
       expect(body).toHaveProperty('content')
-      expect(getFile).toHaveBeenCalledWith('test-repo/test.txt')
+      expect(getFile).toHaveBeenCalledWith('test-repo/test.txt', expect.any(Function))
     })
 
     it('should serve raw content inside a CSP sandbox', async () => {
@@ -265,7 +277,7 @@ describe('File Routes', () => {
 
       expect(response.status).toBe(200)
       expect(body).toHaveProperty('isDirectory', true)
-      expect(getFile).toHaveBeenCalledWith('test-repo/src')
+      expect(getFile).toHaveBeenCalledWith('test-repo/src', expect.any(Function))
       expect(getRawFileContent).not.toHaveBeenCalled()
     })
 
@@ -574,9 +586,11 @@ describe('File Routes', () => {
         expect(response.status).toBe(200)
         expect(body).toHaveProperty('name', 'renamed.ts')
         expect(body).toHaveProperty('path', 'test-repo/renamed.ts')
-        expect(renameOrMoveFile).toHaveBeenCalledWith('test-repo/old.ts', {
-          newPath: 'test-repo/renamed.ts',
-        })
+        expect(renameOrMoveFile).toHaveBeenCalledWith(
+          'test-repo/old.ts',
+          { newPath: 'test-repo/renamed.ts' },
+          expect.any(Function),
+        )
       })
 
       it('should return error when rename fails', async () => {
