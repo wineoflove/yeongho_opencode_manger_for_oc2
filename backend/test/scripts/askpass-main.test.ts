@@ -148,6 +148,7 @@ describe('askpass-main', () => {
 
     expect(result.status).toBe(0)
     expect(readOutput()).toBe('secret-token\n')
+    expect(result.stderr).not.toContain('secret-token')
     expect(received?.askpassType).toBe('ssh')
     expect(received?.cwd).toBe('/tmp/repo')
     expect(received?.repoId).toBe(42)
@@ -179,7 +180,7 @@ describe('askpass-main', () => {
 
     expect(result.status).toBe(1)
     expect(readOutput()).toBe('\n')
-    expect(result.stderr).toContain('IPC error response')
+    expect(result.stderr).toBe('')
   })
 
   it('writes a newline and exits 1 when the response body is not JSON', async () => {
@@ -194,7 +195,8 @@ describe('askpass-main', () => {
 
     expect(result.status).toBe(1)
     expect(readOutput()).toBe('\n')
-    expect(result.stderr).toContain('JSON parse error')
+    expect(result.stderr).toContain('Invalid IPC response')
+    expect(result.stderr).not.toContain('not-json')
   })
 
   it('writes a newline and exits 1 when the IPC connection fails', async () => {

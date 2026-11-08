@@ -1,4 +1,5 @@
 import * as path from 'path'
+import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import type { IPCServer, IPCHandler } from './ipcServer'
 import { CredentialProvider } from '../services/credential-provider'
@@ -6,6 +7,15 @@ import { logger } from '../utils/logger'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+/** Locates the askpass scripts from either the source tree (`src/ipc`) or the bundled backend (`dist`). */
+export function resolveAskpassScriptsDir(moduleDir: string): string {
+  const sourceLayout = path.join(moduleDir, '../../scripts')
+  const bundleLayout = path.join(moduleDir, '../scripts')
+  return existsSync(path.join(sourceLayout, 'askpass.sh')) || !existsSync(path.join(bundleLayout, 'askpass.sh'))
+    ? sourceLayout
+    : bundleLayout
+}
 
 interface Credentials {
   username: string
@@ -27,7 +37,7 @@ export class AskpassHandler implements IPCHandler {
     private ipcServer: IPCServer | undefined,
     private credentialProvider: CredentialProvider
   ) {
-    const scriptsDir = path.join(__dirname, '../../scripts')
+    const scriptsDir = resolveAskpassScriptsDir(__dirname)
 
     this.env = {
       GIT_ASKPASS: path.join(scriptsDir, this.ipcServer ? 'askpass.sh' : 'askpass-empty.sh'),

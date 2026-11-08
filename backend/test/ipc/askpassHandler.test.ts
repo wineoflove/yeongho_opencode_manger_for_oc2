@@ -1,10 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { Database } from 'bun:sqlite'
 import { migrate } from '../../src/db/migration-runner'
 import { allMigrations } from '../../src/db/migrations'
 import { SettingsService } from '../../src/services/settings'
 import { CredentialProvider } from '../../src/services/credential-provider'
-import { AskpassHandler } from '../../src/ipc/askpassHandler'
+import { AskpassHandler, resolveAskpassScriptsDir } from '../../src/ipc/askpassHandler'
 import { createRepo, setRepoGitCredentialId } from '../../src/db/queries'
 import type { GitCredential } from '@opencode-manager/shared'
 
@@ -18,6 +21,31 @@ function createGitHubPatCredential(token: string = 'ghp_test_token', id?: string
     token,
   } as GitCredential
 }
+
+describe('resolveAskpassScriptsDir', () => {
+  const roots: string[] = []
+  afterEach(() => {
+    roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true }))
+  })
+
+  function packageWithScripts(): string {
+    const root = mkdtempSync(path.join(tmpdir(), 'askpass-layout-'))
+    roots.push(root)
+    mkdirSync(path.join(root, 'backend', 'scripts'), { recursive: true })
+    writeFileSync(path.join(root, 'backend', 'scripts', 'askpass.sh'), '')
+    return root
+  }
+
+  it('finds scripts next to the source tree', () => {
+    const root = packageWithScripts()
+    expect(resolveAskpassScriptsDir(path.join(root, 'backend', 'src', 'ipc'))).toBe(path.join(root, 'backend', 'scripts'))
+  })
+
+  it('finds scripts next to the bundled dist directory', () => {
+    const root = packageWithScripts()
+    expect(resolveAskpassScriptsDir(path.join(root, 'backend', 'dist'))).toBe(path.join(root, 'backend', 'scripts'))
+  })
+})
 
 describe('AskpassHandler', () => {
   let db: Database

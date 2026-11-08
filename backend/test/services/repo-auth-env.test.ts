@@ -89,7 +89,7 @@ describe('repoService.cloneRepo auth env', () => {
     await cloneRepo(database, mockGitAuthService, repoUrl)
 
     expect(executeCommand).toHaveBeenLastCalledWith(
-      ['git', 'clone', 'https://github.com/acme/forge', 'forge'],
+      ['git', 'clone', '--', 'https://github.com/acme/forge', 'forge'],
       expect.objectContaining({ cwd: getReposPath(), env: mockEnv })
     )
 

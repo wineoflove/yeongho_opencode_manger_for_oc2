@@ -7,7 +7,13 @@ import { updateScheduleJobsBranch } from '../../db/schedules'
 import { isSSHUrl, getBranchNameError } from '@opencode-manager/shared/utils'
 import { GitOperationError, isNoUpstreamError, parseGitError } from '../../utils/git-errors'
 import { listGitWorktrees, resolveMainCheckoutPath } from '../repo'
-import { MAX_COMMIT_PROMPT_DIFF_CHARS, type CommitMessageContext } from './commit-message-prompt'
+import {
+  capFilePatch,
+  MAX_COMMIT_PROMPT_DIFF_CHARS,
+  MAX_COMMIT_PROMPT_FILE_CHARS,
+  selectCommitDiffPaths,
+  type CommitMessageContext,
+} from './commit-message-prompt'
 import type { Database } from 'bun:sqlite'
 import type { DeleteBranchResult, GitOperationKind, GitOperationState, GitStashEntry, IntegrateBranchRequest, IntegrateBranchResult, StashPushRequest } from '@opencode-manager/shared'
 import type { GitBranch, GitCommit, FileDiffResponse, GitDiffOptions, GitStatusResponse, GitFileStatus, GitFileStatusType, CommitDetails, CommitFile } from '../../types/git'
@@ -182,10 +188,11 @@ export class GitService {
         '-C',
         repoPath,
         'log',
-        revision,
         `-n`,
         String(limit),
-        '--format=%H|%an|%ae|%at|%s'
+        '--format=%H|%an|%ae|%at|%s',
+        '--end-of-options',
+        revision,
       ]
       const logEnv = this.gitAuthService.getGitEnvironment(true)
       const output = await executeCommand(logArgs, { env: logEnv })
@@ -236,9 +243,10 @@ export class GitService {
         '-C',
         repoPath,
         'log',
+        '-1',
         '--format=%H|%an|%ae|%at|%s',
+        '--end-of-options',
         hash,
-        '-1'
       ]
       const env = this.gitAuthService.getGitEnvironment(true)
 
@@ -319,11 +327,29 @@ export class GitService {
     }
 
     const [stagedDiff, recentSubjects] = await Promise.all([
-      executeCommand(['git', '-C', repoPath, 'diff', '--cached'], { env, maxOutputChars: MAX_COMMIT_PROMPT_DIFF_CHARS + 1 }),
+      this.getStagedSourceDiff(repoPath, env),
       this.getRecentCommitSubjects(repoPath, env),
     ])
 
     return { stagedStat, stagedDiff, recentSubjects }
+  }
+
+  private async getStagedSourceDiff(repoPath: string, env: Record<string, string>): Promise<string> {
+    const diff = ['git', '--literal-pathspecs', '-C', repoPath, 'diff', '--cached', '--no-ext-diff', '--no-textconv', '--no-renames']
+    const numstat = await executeCommand([...diff, '--numstat', '-z'], { env })
+    const patches: string[] = []
+    let length = 0
+    for (const filePath of selectCommitDiffPaths(numstat)) {
+      if (length > MAX_COMMIT_PROMPT_DIFF_CHARS) break
+      const patch = await executeCommand([...diff, '--patch', '--', filePath], {
+        env,
+        maxOutputChars: MAX_COMMIT_PROMPT_FILE_CHARS + 1,
+      })
+      const capped = capFilePatch(patch)
+      patches.push(capped)
+      length += capped.length + 1
+    }
+    return patches.join('\n')
   }
 
   private async getRecentCommitSubjects(repoPath: string, env: Record<string, string>): Promise<string[]> {
@@ -557,7 +583,7 @@ export class GitService {
       const env = this.gitAuthService.getGitEnvironment(true)
 
       const commitOutput = await executeCommand(
-        ['git', '-C', repoPath, 'log', '-1', '--format=%H%x00%an%x00%ae%x00%at%x00%B', hash],
+        ['git', '-C', repoPath, 'log', '-1', '--format=%H%x00%an%x00%ae%x00%at%x00%B', '--end-of-options', hash],
         { env }
       )
 
@@ -573,12 +599,12 @@ export class GitService {
       }
 
       const filesOutput = await executeCommand(
-        ['git', '-C', repoPath, 'show', '-M', '--name-status', '--format=', hash],
+        ['git', '-C', repoPath, 'show', '-M', '--name-status', '--format=', '--end-of-options', hash],
         { env }
       )
 
       const numstatOutput = await executeCommand(
-        ['git', '-C', repoPath, 'show', '-M', '--numstat', '--format=', hash],
+        ['git', '-C', repoPath, 'show', '-M', '--numstat', '--format=', '--end-of-options', hash],
         { env }
       )
 
@@ -611,7 +637,7 @@ export class GitService {
       const env = this.gitAuthService.getGitEnvironment(true)
 
       const diff = await executeCommand(
-        ['git', '-C', repoPath, 'show', '--format=', hash, '--', filePath],
+        ['git', '-C', repoPath, 'show', '--format=', '--end-of-options', hash, '--', filePath],
         { env }
       )
 
@@ -688,6 +714,10 @@ export class GitService {
 
       const repoPath = repo.fullPath
       const env = this.gitAuthService.getGitEnvironment()
+
+      if (commitHash.startsWith('-')) {
+        throw new Error('Invalid commit reference')
+      }
 
       const args = ['git', '-C', repoPath, 'reset', '--hard', commitHash]
       const result = await executeCommand(args, { env })
@@ -1525,11 +1555,11 @@ export class GitService {
 
   private async getUnpushedCommitHashes(repoPath: string, revision: string, env: Record<string, string>, limit?: number): Promise<Set<string>> {
     try {
-      const args = ['git', '-C', repoPath, 'log', revision, '--not', '--remotes']
+      const args = ['git', '-C', repoPath, 'log', '--format=%H']
       if (limit !== undefined) {
         args.push('-n', String(limit))
       }
-      args.push('--format=%H')
+      args.push('--not', '--remotes', '--not', '--end-of-options', revision)
       const output = await executeCommand(args, { env, silent: true })
       const hashes = output.trim().split('\n').filter(Boolean)
       return new Set(hashes)

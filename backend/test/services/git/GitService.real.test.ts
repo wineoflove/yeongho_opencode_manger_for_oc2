@@ -175,6 +175,62 @@ describe('GitService real git', () => {
     })
   })
 
+  describe('option-shaped revisions', () => {
+    function localRepo(): Repo {
+      const repoPath = path.join(reposPath, uniqueName('option-revision'))
+      createCommittedRepo(repoPath)
+      return createRepo(db, {
+        isLocal: true,
+        localPath: path.basename(repoPath),
+        sourcePath: repoPath,
+        branch: 'main',
+        defaultBranch: 'main',
+        cloneStatus: 'ready',
+        clonedAt: Date.now(),
+      })
+    }
+
+    it('rejects option-shaped revisions without letting git write files or move HEAD', async () => {
+      const repo = localRepo()
+      const head = git(['rev-parse', 'HEAD'], repo.fullPath)
+      const targets = ['log', 'commit', 'details', 'diff', 'reset'].map((name) =>
+        path.join(workspaceRoot, uniqueName(`${name}-written`)),
+      )
+
+      const outcomes = await Promise.allSettled([
+        service.getLog(repo.id, db, 10, `--output=${targets[0]}`),
+        service.getCommit(repo.id, `--output=${targets[1]}`, db),
+        service.getCommitDetails(repo.id, `--output=${targets[2]}`, db),
+        service.getCommitDiff(repo.id, `--output=${targets[3]}`, 'a.txt', db),
+        service.resetToCommit(repo.id, `--output=${targets[4]}`, db),
+      ])
+
+      expect(outcomes.map((outcome) => outcome.status)).toEqual(Array(targets.length).fill('rejected'))
+      expect(targets.filter((target) => existsSync(target))).toEqual([])
+      expect(git(['rev-parse', 'HEAD'], repo.fullPath)).toBe(head)
+    })
+
+    it('keeps ordinary commit lookups working after the end-of-options separator', async () => {
+      const repo = localRepo()
+      writeFileSync(path.join(repo.fullPath, 'a.txt'), 'a\n')
+      git(['add', 'a.txt'], repo.fullPath)
+      git(['commit', '-m', 'add a'], repo.fullPath)
+      const head = git(['rev-parse', 'HEAD'], repo.fullPath)
+
+      const [commit, details, diff] = await Promise.all([
+        service.getCommit(repo.id, head, db),
+        service.getCommitDetails(repo.id, head, db),
+        service.getCommitDiff(repo.id, head, 'a.txt', db),
+      ])
+
+      expect([commit?.message, details?.files.map((file) => file.path), diff.status]).toEqual([
+        'add a',
+        ['a.txt'],
+        'added',
+      ])
+    })
+  })
+
   describe('getBranchStatus', () => {
     it('returns zeros without logging when the branch has no upstream', async () => {
       const repoPath = path.join(reposPath, uniqueName('status-no-upstream'))

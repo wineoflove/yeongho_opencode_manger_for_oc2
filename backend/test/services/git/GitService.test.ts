@@ -419,10 +419,11 @@ describe('GitService', () => {
         '-C',
         '/path/to/repo',
         'log',
-        'HEAD',
         '-n',
         '10',
-        '--format=%H|%an|%ae|%at|%s'
+        '--format=%H|%an|%ae|%at|%s',
+        '--end-of-options',
+        'HEAD',
       ], { env: {} })
       expect(result).toHaveLength(2)
       expect(result[0]).toEqual({
@@ -471,10 +472,11 @@ describe('GitService', () => {
         '-C',
         '/path/to/repo',
         'log',
-        'feature/test',
         '-n',
         '10',
-        '--format=%H|%an|%ae|%at|%s'
+        '--format=%H|%an|%ae|%at|%s',
+        '--end-of-options',
+        'feature/test',
       ], { env: {} })
     })
 
@@ -493,10 +495,11 @@ describe('GitService', () => {
         '-C',
         '/path/to/repo',
         'log',
-        'HEAD',
         '-n',
         '10',
-        '--format=%H|%an|%ae|%at|%s'
+        '--format=%H|%an|%ae|%at|%s',
+        '--end-of-options',
+        'HEAD',
       ], { env: {} })
     })
   })
@@ -1211,7 +1214,7 @@ index abc123..def456 100644
 
       expect(getRepoByIdMock).toHaveBeenCalledWith(database, 1)
       expect(executeCommandMock).toHaveBeenCalledWith(
-        ['git', '-C', expect.stringContaining('/path/to/repo'), 'show', '--format=', 'abc123', '--', 'file.ts'],
+        ['git', '-C', expect.stringContaining('/path/to/repo'), 'show', '--format=', '--end-of-options', 'abc123', '--', 'file.ts'],
         { env: expect.any(Object) }
       )
       expect(result.path).toBe('file.ts')
