@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { onServiceWorkerUpdate, offServiceWorkerUpdate } from '@/lib/serviceWorker'
+import { t } from '@/i18n/translate'
 
 export function PwaUpdatePrompt() {
   const [visible, setVisible] = useState(false)
@@ -22,7 +23,7 @@ export function PwaUpdatePrompt() {
       <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-2">
         <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="text-sm font-medium">
-          A new version of OpenCode Manager is available.
+          {t('A new version of OpenCode Manager is available.')}
         </span>
         <Button
           type="button"
@@ -30,7 +31,7 @@ export function PwaUpdatePrompt() {
           size="sm"
           onClick={() => window.location.reload()}
         >
-          Reload
+          {t('Reload')}
         </Button>
       </div>
     </div>
