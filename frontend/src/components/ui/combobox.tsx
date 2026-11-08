@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronDown, X } from 'lucide-react'
+import { t } from '@/i18n/translate'
+import { tr } from '@/i18n/rich'
 
 export interface ComboboxOption {
   value: string
@@ -33,7 +35,7 @@ export function Combobox({
   value,
   onChange,
   options,
-  placeholder = 'Select or type...',
+  placeholder = t('Select or type...'),
   disabled = false,
   className,
   allowCustomValue = true,
@@ -223,7 +225,7 @@ export function Combobox({
         {showClear && value && (
           <button
             type="button"
-            aria-label="Clear"
+            aria-label={t('Clear')}
             onClick={() => {
               if (!disabled) {
                 onChange('')
@@ -239,7 +241,7 @@ export function Combobox({
         )}
         <button
           type="button"
-          aria-label="Toggle options"
+          aria-label={t('Toggle options')}
           onClick={() => {
             if (!disabled) {
               setIsOpen(!isOpen)
@@ -305,7 +307,7 @@ export function Combobox({
       {isOpen && flatFilteredOptions.length === 0 && inputValue && allowCustomValue && (
         <div className="absolute z-[150] mt-1 w-full bg-popover border border-border rounded-md shadow-lg p-3">
           <div className="text-sm text-muted-foreground">
-            Press Enter to use "<span className="font-medium text-foreground">{inputValue}</span>"
+            {tr('Press Enter to use "{value}"', { value: <span className="font-medium text-foreground">{inputValue}</span> })}
           </div>
         </div>
       )}

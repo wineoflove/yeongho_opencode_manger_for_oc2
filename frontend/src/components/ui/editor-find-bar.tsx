@@ -2,6 +2,7 @@ import { Search, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 interface EditorFindBarProps {
   query: string
@@ -23,7 +24,7 @@ export function EditorFindBar({
   onPrev,
   onNext,
   inputName,
-  placeholder = 'Find in content...',
+  placeholder = t('Find in content...'),
   className,
 }: EditorFindBarProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -45,7 +46,7 @@ export function EditorFindBar({
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          aria-label="Find in content"
+          aria-label={t('Find in content')}
           autoComplete="off"
           name={inputName}
           className="pl-9 h-10 md:h-9 text-[16px] md:text-sm"
@@ -53,7 +54,7 @@ export function EditorFindBar({
       </div>
       {query && (
         <span data-testid="find-match-count" className="whitespace-nowrap text-xs text-muted-foreground">
-          {matchCount > 0 ? `${currentMatch} of ${matchCount}` : '0 matches'}
+          {matchCount > 0 ? t('{current} of {total}', { current: currentMatch, total: matchCount }) : t('0 matches')}
         </span>
       )}
       <Button
@@ -61,7 +62,7 @@ export function EditorFindBar({
         variant="ghost"
         size="icon-lg"
         className="md:size-8"
-        aria-label="Previous match"
+        aria-label={t('Previous match')}
         disabled={noMatches}
         onClick={onPrev}
       >
@@ -72,7 +73,7 @@ export function EditorFindBar({
         variant="ghost"
         size="icon-lg"
         className="md:size-8"
-        aria-label="Next match"
+        aria-label={t('Next match')}
         disabled={noMatches}
         onClick={onNext}
       >

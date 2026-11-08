@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { Check, ChevronDown, X } from 'lucide-react'
+import { t } from '@/i18n/translate'
 
 export interface MultiSelectOption {
   value: string
@@ -23,9 +24,9 @@ export function MultiSelect({
   value,
   onChange,
   options,
-  placeholder = 'Select...',
-  searchPlaceholder = 'Search...',
-  emptyMessage = 'No options found',
+  placeholder = t('Select...'),
+  searchPlaceholder = t('Search...'),
+  emptyMessage = t('No options found'),
   disabled = false,
   className,
 }: MultiSelectProps) {
@@ -149,7 +150,7 @@ export function MultiSelect({
                 onClick={(e) => handleRemove(v, e)}
                 disabled={disabled}
                 className="text-muted-foreground hover:text-foreground disabled:pointer-events-none"
-                aria-label={`Remove ${option?.label ?? v}`}
+                aria-label={t('Remove {name}', { name: option?.label ?? v })}
               >
                 <X className="h-3 w-3" />
               </button>

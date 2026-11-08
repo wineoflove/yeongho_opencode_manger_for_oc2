@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { copyTextToClipboard } from '@/lib/clipboard'
+import { t } from '@/i18n/translate'
 
 interface CopyButtonProps {
   content: string
@@ -14,7 +15,7 @@ interface CopyButtonProps {
 
 export function CopyButton({ 
   content, 
-  title = 'Copy', 
+  title = t('Copy'), 
   className = '', 
   iconSize = 'md',
   variant = 'default',
@@ -44,7 +45,7 @@ export function CopyButton({
     <button
       onClick={handleCopy}
       className={cn(variantClasses, className)}
-      title={copied ? 'Copied!' : title}
+      title={copied ? t('Copied!') : title}
     >
       {copied ? (
         <Check className={cn(sizeClasses, 'text-success')} />

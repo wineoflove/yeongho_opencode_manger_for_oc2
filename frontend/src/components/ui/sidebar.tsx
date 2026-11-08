@@ -7,6 +7,7 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from '@/hooks/useSidebarWidth'
 import { Tooltip, TooltipContent, TooltipTrigger, TOOLTIP_OPEN_DELAY_MS } from '@/components/ui/tooltip'
+import { t } from '@/i18n/translate'
 
 export interface SidebarProps {
   collapsed: boolean
@@ -33,7 +34,7 @@ export function Sidebar({
   collapsedWidthClass = 'w-14',
   className,
   children,
-  ariaLabel = 'Sidebar',
+  ariaLabel = t('Sidebar'),
   width,
   onWidthChange,
 }: SidebarProps) {
@@ -131,7 +132,7 @@ export function Sidebar({
         <div
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize sidebar"
+          aria-label={t('Resize sidebar')}
           tabIndex={0}
           aria-valuenow={width}
           aria-valuemin={SIDEBAR_MIN_WIDTH}
@@ -251,8 +252,8 @@ export function SidebarCollapseToggle({ collapsed, onToggle }: SidebarCollapseTo
         'hover:bg-accent hover:text-foreground',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
       )}
-      title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      title={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}
+      aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}
       aria-expanded={!collapsed}
     >
       <Chevron aria-hidden="true" className="h-4 w-4" />

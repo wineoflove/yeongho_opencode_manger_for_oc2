@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 export const RowActionsMenuContext = createContext(false)
 
@@ -63,7 +64,7 @@ export function SettingsList({
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="w-4 h-4 animate-spin text-primary" />
-        <span className="ml-2 text-sm text-muted-foreground">{loadingLabel ?? 'Loading...'}</span>
+        <span className="ml-2 text-sm text-muted-foreground">{loadingLabel ?? t('Loading...')}</span>
       </div>
     )
   }
@@ -72,7 +73,7 @@ export function SettingsList({
     return (
       <div className="text-center py-6 text-muted-foreground">
         <AlertCircle className="w-10 h-10 mx-auto mb-3 opacity-50 text-destructive" />
-        <p className="text-sm">{errorTitle ?? 'Failed to load'}</p>
+        <p className="text-sm">{errorTitle ?? t('Failed to load')}</p>
         <p className="text-xs mt-1">{error.message}</p>
       </div>
     )

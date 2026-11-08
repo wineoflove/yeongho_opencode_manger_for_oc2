@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { t } from "@/i18n/translate";
 
 interface BackButtonProps {
   to?: string;
@@ -16,7 +17,7 @@ export function BackButton({ to = "/", className = "" }: BackButtonProps) {
   return (
     <button
       onClick={handleBack}
-      aria-label="Go back"
+      aria-label={t("Go back")}
       className={`text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-105 text-sm md:text-md border border-border rounded-md px-3 py-1.5 hover ${className}`}
     >
       <ArrowLeft className="w-4 h-4" />

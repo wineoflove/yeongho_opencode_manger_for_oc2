@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { ActivitySpinner } from '@/components/ui/activity-spinner'
 import { useHasBackgroundActivity, useSessionStatusForSession } from '@/stores/sessionStatusStore'
+import { t } from '@/i18n/translate'
 
 interface SessionStatusIndicatorProps {
   sessionID: string
@@ -31,12 +32,12 @@ export const SessionStatusIndicator = memo(function SessionStatusIndicator({
         ? 'text-primary'
         : 'text-info'
   const label = backgroundOnly
-    ? 'Background tasks running'
+    ? t('Background tasks running')
     : status.type === 'retry'
-      ? 'Retrying'
+      ? t('Retrying')
       : status.type === 'compact'
-        ? 'Compacting'
-        : 'Running'
+        ? t('Compacting')
+        : t('Running')
 
   return (
     <span

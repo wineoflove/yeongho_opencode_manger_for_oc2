@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { MODAL_TRANSITION_MS } from '@/lib/utils'
 import { X } from 'lucide-react'
 import { useRestoreFocusOnClose } from '@/hooks/useRestoreFocusOnClose'
+import { t } from '@/i18n/translate'
 
 const openDrawerStack: symbol[] = []
 
@@ -121,7 +122,7 @@ export function SideDrawerHeader({ title, onClose, meta, actions }: SideDrawerHe
         type="button"
         onClick={onClose}
         className="order-2 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded-sm p-1 sm:order-3"
-        aria-label="Close"
+        aria-label={t('Close')}
       >
         <X className="w-5 h-5" />
       </button>

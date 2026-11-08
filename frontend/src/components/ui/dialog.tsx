@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { useSwipeBack } from '@/hooks/useMobile'
 import { useVisualViewport } from '@/hooks/useVisualViewport'
 import { useOverlayReturnFocus } from '@/hooks/useOverlayReturnFocus'
+import { t } from '@/i18n/translate'
 
 const DialogOpenContext = React.createContext<boolean>(true)
 const DialogCloseAutoFocusContext = React.createContext<((event: Event) => void) | null>(null)
@@ -144,7 +145,7 @@ const DialogContent = React.forwardRef<
           <DialogPrimitive.Close
             ref={closeTriggerRef}
             className="sr-only"
-            aria-label="Dismiss dialog"
+            aria-label={t('Dismiss dialog')}
             data-swipe-close-trigger
           />
         )}
@@ -156,7 +157,7 @@ const DialogContent = React.forwardRef<
             } : { top: '1rem' }}
           >
             <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t('Close')}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

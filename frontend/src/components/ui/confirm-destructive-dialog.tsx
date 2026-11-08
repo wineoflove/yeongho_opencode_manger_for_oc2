@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { t } from '@/i18n/translate'
 
 interface ConfirmDestructiveDialogProps {
   open: boolean
@@ -30,7 +31,7 @@ export function ConfirmDestructiveDialog({
   children,
   confirmLabel,
   pendingLabel,
-  cancelLabel = 'Cancel',
+  cancelLabel = t('Cancel'),
   isPending = false,
 }: ConfirmDestructiveDialogProps) {
   return (

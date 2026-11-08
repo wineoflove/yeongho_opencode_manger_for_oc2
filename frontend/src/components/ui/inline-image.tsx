@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { t } from '@/i18n/translate'
 
 /**
  * Renders an image as a bounded thumbnail that opens a full-size preview dialog when expandable.
@@ -47,7 +48,7 @@ export function InlineImage({
     <>
       <button
         type="button"
-        aria-label={alt ? `Expand image: ${alt}` : 'Expand image'}
+        aria-label={alt ? t('Expand image: {name}', { name: alt }) : t('Expand image')}
         onClick={() => setOpen(true)}
         className="inline-flex"
       >
@@ -55,7 +56,7 @@ export function InlineImage({
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-auto max-w-none p-2">
-          <DialogTitle className="sr-only">{alt ?? 'Image'}</DialogTitle>
+          <DialogTitle className="sr-only">{alt ?? t('Image')}</DialogTitle>
           <img src={src} alt={alt ?? ''} className="max-w-[95vw] max-h-[90vh] object-contain" />
         </DialogContent>
       </Dialog>

@@ -1,4 +1,5 @@
 import { ConfirmDestructiveDialog } from '@/components/ui/confirm-destructive-dialog'
+import { t } from '@/i18n/translate'
 
 interface DiscardDialogProps {
   open: boolean
@@ -25,11 +26,11 @@ export function DiscardDialog({
       onOpenChange={onOpenChange}
       onConfirm={onConfirm}
       onCancel={onCancel}
-      title="Discard Changes"
-      description={`Are you sure you want to discard changes to ${itemText}? This action cannot be undone.`}
-      warning={`This will permanently delete your uncommitted changes to ${itemText}. If these changes exist in the staging area, they will also be removed.`}
-      confirmLabel="Discard"
-      pendingLabel="Discarding..."
+      title={t('Discard Changes')}
+      description={t('Are you sure you want to discard changes to {items}? This action cannot be undone.', { items: itemText })}
+      warning={t('This will permanently delete your uncommitted changes to {items}. If these changes exist in the staging area, they will also be removed.', { items: itemText })}
+      confirmLabel={t('Discard')}
+      pendingLabel={t('Discarding...')}
       isPending={isDiscarding}
     />
   )

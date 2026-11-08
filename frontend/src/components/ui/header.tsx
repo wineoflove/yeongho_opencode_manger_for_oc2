@@ -6,6 +6,7 @@ import { useSettingsDialog } from "@/hooks/useSettingsDialog";
 import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { t } from "@/i18n/translate";
 
 interface HeaderProps {
   children: ReactNode;
@@ -64,7 +65,7 @@ function HeaderSettingsButton() {
       variant="ghost"
       size="icon"
       onClick={open}
-      aria-label="Settings"
+      aria-label={t("Settings")}
       className="text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 h-8 w-8"
     >
       <Settings className="w-4 h-4" />

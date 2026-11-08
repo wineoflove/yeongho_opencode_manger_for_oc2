@@ -3,27 +3,28 @@ import { AlertTriangle, RefreshCw, LogIn, WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NotFoundState } from '@/components/ui/not-found-state'
 import { parseNetworkError } from '@/lib/opencode-errors'
+import { t } from '@/i18n/translate'
 
 function getErrorDetails(error: unknown) {
   if (isRouteErrorResponse(error)) {
     if (error.status === 401 || error.status === 403) {
       return {
-        title: 'Authentication Required',
-        message: 'Please log in to access this page.',
+        title: t('Authentication Required'),
+        message: t('Please log in to access this page.'),
         isRetryable: false,
         statusCode: error.status,
       }
     }
     if (error.status === 404) {
       return {
-        title: 'Page Not Found',
-        message: 'The page you are looking for does not exist.',
+        title: t('Page Not Found'),
+        message: t('The page you are looking for does not exist.'),
         isRetryable: false,
         statusCode: error.status,
       }
     }
     return {
-      title: error.statusText || 'Error',
+      title: error.statusText || t('Error'),
       message: error.data?.message || error.status.toString(),
       isRetryable: true,
       statusCode: error.status,
@@ -35,7 +36,7 @@ function getErrorDetails(error: unknown) {
     if (networkParsed.title === 'Connection Failed') {
       return {
         ...networkParsed,
-        title: "You're offline",
+        title: t("You're offline"),
         message: '',
         isRetryable: false,
         variant: 'offline' as const,
@@ -45,8 +46,8 @@ function getErrorDetails(error: unknown) {
   }
 
   return {
-    title: 'Unexpected Error',
-    message: 'An unexpected error occurred. Please try refreshing the page.',
+    title: t('Unexpected Error'),
+    message: t('An unexpected error occurred. Please try refreshing the page.'),
     isRetryable: true,
   }
 }
@@ -59,7 +60,7 @@ export function RouteErrorBoundary() {
   const isAuthError = statusCode === 401 || statusCode === 403
 
   if (statusCode === 404) {
-    return <NotFoundState title={title} message={message} backTo="/" backLabel="Go home" />
+    return <NotFoundState title={title} message={message} backTo="/" backLabel={t('Go home')} />
   }
 
   if ('variant' in details && details.variant === 'offline') {
@@ -72,7 +73,7 @@ export function RouteErrorBoundary() {
         </div>
         <Button variant="outline" onClick={() => window.location.reload()} className="gap-2">
           <RefreshCw className="h-4 w-4" />
-          Reload
+          {t('Reload')}
         </Button>
       </div>
     )
@@ -89,13 +90,13 @@ export function RouteErrorBoundary() {
         {isAuthError && (
           <Button variant="default" onClick={() => (window.location.href = '/login')}>
             <LogIn className="w-4 h-4 mr-2" />
-            Log in
+            {t('Log in')}
           </Button>
         )}
         {isRetryable && (
           <Button variant="outline" onClick={() => window.location.reload()} className="gap-2">
             <RefreshCw className="w-4 h-4" />
-            Try again
+            {t('Try again')}
           </Button>
         )}
       </div>
