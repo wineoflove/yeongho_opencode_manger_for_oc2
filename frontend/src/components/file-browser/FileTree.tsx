@@ -5,24 +5,20 @@ import { Input } from '@/components/ui/input'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { getFileApiUrl } from '@/api/files'
 import { saveFileFromUrl } from '@/lib/download'
-import { 
-  File, 
-  Folder, 
-  FolderOpen, 
-  ChevronRight, 
+import {
+  File,
+  Folder,
+  FolderOpen,
+  ChevronRight,
   ChevronDown,
   MoreVertical,
   Trash2,
   Edit3,
-  Download
+  Download,
 } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { FileInfo } from '@/types/files'
+import { t } from '@/i18n/translate'
 
 interface FileTreeProps {
   files: FileInfo[]
@@ -103,26 +99,26 @@ function TreeNode({ file, level, onFileSelect, onDirectoryClick, selectedFile, o
     if (file.isDirectory) {
       return expanded ? <FolderOpen className="w-4 h-4" /> : <Folder className="w-4 h-4" />
     }
-    
+
     const ext = file.name.split('.').pop()?.toLowerCase()
     const iconMap: Record<string, string> = {
-      'js': '🟨',
-      'ts': '🔷',
-      'jsx': '🟨',
-      'tsx': '🔷',
-      'json': '📋',
-      'md': '📝',
-      'html': '🌐',
-      'css': '🎨',
-      'png': '🖼️',
-      'jpg': '🖼️',
-      'jpeg': '🖼️',
-      'gif': '🖼️',
-      'svg': '🖼️',
-      'pdf': '📄',
-      'zip': '📦',
+      js: '🟨',
+      ts: '🔷',
+      jsx: '🟨',
+      tsx: '🔷',
+      json: '📋',
+      md: '📝',
+      html: '🌐',
+      css: '🎨',
+      png: '🖼️',
+      jpg: '🖼️',
+      jpeg: '🖼️',
+      gif: '🖼️',
+      svg: '🖼️',
+      pdf: '📄',
+      zip: '📦',
     }
-    
+
     return (
       <span className="w-4 h-4 flex items-center justify-center text-xs">
         {iconMap[ext || ''] || <File className="w-4 h-4" />}
@@ -132,7 +128,7 @@ function TreeNode({ file, level, onFileSelect, onDirectoryClick, selectedFile, o
 
   return (
     <div>
-      <div 
+      <div
         className={`flex items-center gap-1 px-2 py-1 mb-4 hover:bg-muted rounded cursor-pointer group ${
           selectedFile?.path === file.path ? 'bg-muted' : ''
         }`}
@@ -154,10 +150,10 @@ function TreeNode({ file, level, onFileSelect, onDirectoryClick, selectedFile, o
             {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </Button>
         )}
-        
+
         <div className="flex items-center gap-1 flex-1 min-w-0" onClick={handleClick}>
           {getFileIcon()}
-          
+
           {editing ? (
             <Input
               value={editName}
@@ -175,13 +171,13 @@ function TreeNode({ file, level, onFileSelect, onDirectoryClick, selectedFile, o
             <span className="text-sm truncate">{file.name}</span>
           )}
         </div>
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              aria-label={`Actions for ${file.name}`}
+              aria-label={t('Actions for {name}', { name: file.name })}
               className={`w-6 h-6 p-0 ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
             >
               <MoreVertical className="w-3 h-3" />
@@ -191,21 +187,21 @@ function TreeNode({ file, level, onFileSelect, onDirectoryClick, selectedFile, o
             {!file.isDirectory && (
               <DropdownMenuItem onClick={handleDownload}>
                 <Download className="w-4 h-4 mr-2" />
-                Download
+                {t('Download')}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onClick={handleRename}>
               <Edit3 className="w-4 h-4 mr-2" />
-              Rename
+              {t('Rename')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleDelete} className="text-destructive">
               <Trash2 className="w-4 h-4 mr-2" />
-              Delete
+              {t('Delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      
+
       {file.isDirectory && expanded && file.children && (
         <div>
           {file.children.map((child) => (
@@ -228,15 +224,30 @@ function TreeNode({ file, level, onFileSelect, onDirectoryClick, selectedFile, o
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
-        title={`Delete ${file.isDirectory ? 'Folder' : 'File'}`}
-        description={`Are you sure you want to delete this ${file.isDirectory ? 'folder' : 'file'}?`}
+        title={file.isDirectory ? t('Delete Folder') : t('Delete File')}
+        description={
+          file.isDirectory
+            ? t('Are you sure you want to delete this folder?')
+            : t('Are you sure you want to delete this file?')
+        }
         itemName={file.name}
       />
     </div>
   )
 }
 
-export const FileTree = memo(function FileTree({ files, onFileSelect, onDirectoryClick, selectedFile, onDelete, onRename, currentPath = '', basePath = '', onNavigateUp, canNavigateUp }: FileTreeProps) {
+export const FileTree = memo(function FileTree({
+  files,
+  onFileSelect,
+  onDirectoryClick,
+  selectedFile,
+  onDelete,
+  onRename,
+  currentPath = '',
+  basePath = '',
+  onNavigateUp,
+  canNavigateUp,
+}: FileTreeProps) {
   const handleGoUp = () => {
     onNavigateUp?.()
   }
@@ -246,19 +257,14 @@ export const FileTree = memo(function FileTree({ files, onFileSelect, onDirector
   return (
     <div className="overflow-y-auto">
       {showGoUp && (
-        <div 
-          className="flex items-center gap-1 px-2 py-1 hover:bg-muted rounded cursor-pointer"
-          onClick={handleGoUp}
-        >
+        <div className="flex items-center gap-1 px-2 py-1 hover:bg-muted rounded cursor-pointer" onClick={handleGoUp}>
           <span className="w-4 h-4 flex items-center justify-center text-sm">↩️</span>
           <span className="text-sm text-muted-foreground">..</span>
         </div>
       )}
-      
+
       {files.length === 0 ? (
-        <div className="text-center text-muted-foreground py-8">
-          No files in this directory
-        </div>
+        <div className="text-center text-muted-foreground py-8">{t('No files in this directory')}</div>
       ) : (
         files.map((file) => (
           <TreeNode
@@ -270,7 +276,6 @@ export const FileTree = memo(function FileTree({ files, onFileSelect, onDirector
             selectedFile={selectedFile}
             onDelete={onDelete}
             onRename={onRename}
-            
           />
         ))
       )}

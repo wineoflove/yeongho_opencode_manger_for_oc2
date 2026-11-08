@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Upload, Plus, FolderPlus, FilePlus, File, Folder } from 'lucide-react'
 import { useMobile } from '@/hooks/useMobile'
+import { t } from '@/i18n/translate'
 
 interface FileOperationsProps {
   onUpload: (files: FileList) => void
@@ -16,7 +17,7 @@ export const FileOperations = memo(function FileOperations({ onUpload, onCreate 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [createType, setCreateType] = useState<'file' | 'folder'>('file')
   const [createName, setCreateName] = useState('')
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
   const isMobile = useMobile()
@@ -39,57 +40,59 @@ export const FileOperations = memo(function FileOperations({ onUpload, onCreate 
 
   return (
     <div className="flex items-center gap-2">
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={handleFileSelect}
-        multiple
-      />
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} multiple />
       <input
         ref={folderInputRef}
         type="file"
         className="hidden"
         onChange={handleFileSelect}
-        {...{ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>}
+        {...({
+          webkitdirectory: '',
+          directory: '',
+        } as React.InputHTMLAttributes<HTMLInputElement>)}
       />
-      
+
       {isMobile ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" aria-label="Upload files">
+            <Button variant="outline" size="sm" aria-label={t('Upload files')}>
               <Upload className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
               <File className="w-4 h-4 mr-2" />
-              Files
+              {t('Files')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => folderInputRef.current?.click()}>
               <Folder className="w-4 h-4 mr-2" />
-              Folder
+              {t('Folder')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <Button variant="outline" size="sm" aria-label="Upload files" onClick={() => fileInputRef.current?.click()}>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={t('Upload files')}
+          onClick={() => fileInputRef.current?.click()}
+        >
           <Upload className="w-4 h-4" />
-          <span className="hidden sm:inline ml-1">Upload</span>
+          <span className="hidden sm:inline ml-1">{t('Upload')}</span>
         </Button>
       )}
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" aria-label="Create file or folder">
+          <Button variant="outline" size="sm" aria-label={t('Create file or folder')}>
             <Plus className="w-4 h-4" />
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New</DialogTitle>
+            <DialogTitle>{t('Create New')}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <Select value={createType} onValueChange={(value: 'file' | 'folder') => setCreateType(value)}>
               <SelectTrigger>
@@ -99,33 +102,33 @@ export const FileOperations = memo(function FileOperations({ onUpload, onCreate 
                 <SelectItem value="file">
                   <div className="flex items-center gap-2">
                     <FilePlus className="w-4 h-4" />
-                    File
+                    {t('File')}
                   </div>
                 </SelectItem>
                 <SelectItem value="folder">
                   <div className="flex items-center gap-2">
                     <FolderPlus className="w-4 h-4" />
-                    Folder
+                    {t('Folder')}
                   </div>
                 </SelectItem>
               </SelectContent>
             </Select>
-            
+
             <Input
-              placeholder={`${createType === 'file' ? 'File' : 'Folder'} name`}
+              placeholder={createType === 'file' ? t('File name') : t('Folder name')}
               value={createName}
               onChange={(e) => setCreateName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreate()
               }}
             />
-            
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button onClick={handleCreate} disabled={!createName.trim()}>
-                Create
+                {t('Create')}
               </Button>
             </div>
           </div>

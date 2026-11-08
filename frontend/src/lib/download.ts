@@ -1,5 +1,6 @@
 import { fetchWrapperBlob } from '@/api/fetchWrapper'
 import { showToast } from './toast'
+import { t } from '@/i18n/translate'
 
 function isIosHomeScreenApp(): boolean {
   const isIos =
@@ -26,7 +27,7 @@ async function saveViaShareSheet(blob: Blob, filename: string): Promise<boolean>
   const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' })
 
   if (!navigator.canShare?.({ files: [file] })) {
-    showToast.error(`${filename} cannot be saved from this device`)
+    showToast.error(t('{filename} cannot be saved from this device', { filename }))
     return false
   }
 
@@ -37,12 +38,12 @@ async function saveViaShareSheet(blob: Blob, filename: string): Promise<boolean>
     const name = error instanceof DOMException ? error.name : ''
     if (name === 'AbortError') return false
     if (name === 'NotAllowedError') {
-      showToast.info(`Tap Save to finish saving ${filename}`, {
-        action: { label: 'Save', onClick: () => void saveViaShareSheet(blob, filename) },
+      showToast.info(t('Tap Save to finish saving {filename}', { filename }), {
+        action: { label: t('Save'), onClick: () => void saveViaShareSheet(blob, filename) },
       })
       return false
     }
-    showToast.error(`Failed to save ${filename}`)
+    showToast.error(t('Failed to save {filename}', { filename }))
     return false
   }
 }
@@ -63,7 +64,7 @@ export async function saveFileFromUrl(url: string, filename: string): Promise<bo
     try {
       return await saveFile(await fetchWrapperBlob(url), filename)
     } catch {
-      showToast.error(`Failed to save ${filename}`)
+      showToast.error(t('Failed to save {filename}', { filename }))
       return false
     }
   }

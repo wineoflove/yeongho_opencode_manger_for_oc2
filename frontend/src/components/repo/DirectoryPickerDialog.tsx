@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { FetchError } from '@/api/fetchWrapper'
 import { Folder, FolderGit2, ChevronUp, Loader2, FolderX } from 'lucide-react'
+import { t } from '@/i18n/translate'
+import { tr } from '@/i18n/rich'
 
 interface DirectoryPickerDialogProps {
   open: boolean
@@ -13,7 +15,7 @@ interface DirectoryPickerDialogProps {
   title?: string
 }
 
-export function DirectoryPickerDialog({ open, onOpenChange, onSelect, title = 'Select Folder' }: DirectoryPickerDialogProps) {
+export function DirectoryPickerDialog({ open, onOpenChange, onSelect, title = t('Select Folder') }: DirectoryPickerDialogProps) {
   const [currentPath, setCurrentPath] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export function DirectoryPickerDialog({ open, onOpenChange, onSelect, title = 'S
 
         <div className="px-4 sm:px-6 pb-2">
           <p className="truncate rounded bg-muted px-3 py-2 text-xs text-muted-foreground" title={data?.path}>
-            {data?.path ?? 'Loading...'}
+            {data?.path ?? t('Loading...')}
           </p>
         </div>
 
@@ -63,15 +65,14 @@ export function DirectoryPickerDialog({ open, onOpenChange, onSelect, title = 'S
           ) : isDisabled ? (
             <div className="flex h-[240px] flex-col items-center justify-center gap-3 px-6 text-center">
               <FolderX className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-foreground">Folder browsing is not enabled</p>
+              <p className="text-sm text-foreground">{t('Folder browsing is not enabled')}</p>
               <p className="text-xs text-muted-foreground">
-                Ask your administrator to set <code className="rounded bg-accent px-1 py-0.5 text-foreground">REPO_BROWSE_ROOT</code> in the
-                server environment, then enter the path manually for now.
+                {tr('Ask your administrator to set {variable} in the server environment, then enter the path manually for now.', { variable: <code className="rounded bg-accent px-1 py-0.5 text-foreground">REPO_BROWSE_ROOT</code> })}
               </p>
             </div>
           ) : isError ? (
             <div className="flex h-[240px] items-center justify-center px-4 text-center text-sm text-destructive">
-              {error instanceof Error ? error.message : 'Failed to load directory'}
+              {error instanceof Error ? error.message : t('Failed to load directory')}
             </div>
           ) : (
             <ul className="divide-y divide-border">
@@ -88,7 +89,7 @@ export function DirectoryPickerDialog({ open, onOpenChange, onSelect, title = 'S
                 </li>
               )}
               {data?.entries.length === 0 && (
-                <li className="px-3 py-4 text-center text-sm text-muted-foreground">No subfolders</li>
+                <li className="px-3 py-4 text-center text-sm text-muted-foreground">{t('No subfolders')}</li>
               )}
               {data?.entries.map((entry) => (
                 <li key={entry.path}>
@@ -113,10 +114,10 @@ export function DirectoryPickerDialog({ open, onOpenChange, onSelect, title = 'S
 
         <DialogFooter className="px-4 sm:px-6 pb-4 sm:pb-6 gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button type="button" onClick={handleSelect} disabled={!data?.path}>
-            Select This Folder
+            {t('Select This Folder')}
           </Button>
         </DialogFooter>
       </DialogContent>

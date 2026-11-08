@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import type { GitFileStatusType } from "@/types/git";
 import { GIT_STATUS_COLORS, GIT_STATUS_LABELS } from "@/lib/git-status-styles";
 import { DiffLines } from "./DiffLines";
+import { t } from "@/i18n/translate";
 
 interface FileDiffViewProps {
   repoId: number;
@@ -117,7 +118,7 @@ export function FileDiffContent({
             size="sm"
             onClick={onBack}
             className="h-7 w-7 p-0 mr-1"
-            aria-label="Back to file list"
+            aria-label={t("Back to file list")}
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
@@ -160,7 +161,7 @@ export function FileDiffContent({
               config.color,
             )}
           >
-            {config.label}
+            {t(config.label)}
           </span>
           {!isBinary && (
             <>
@@ -171,7 +172,7 @@ export function FileDiffContent({
           {diff && (
             <CopyButton
               content={diff}
-              title="Copy diff"
+              title={t("Copy diff")}
               iconSize="sm"
               variant="ghost"
               className="flex-shrink-0"
@@ -193,11 +194,11 @@ export function FileDiffContent({
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
         {isBinary ? (
           <div className="flex items-center justify-center h-full text-muted-foreground bg-muted/20">
-            <p className="text-sm">Binary file - cannot display diff</p>
+            <p className="text-sm">{t("Binary file - cannot display diff")}</p>
           </div>
         ) : !diff ? (
           <div className="flex items-center justify-center h-full text-muted-foreground bg-muted/20">
-            <p className="text-sm">No changes to display</p>
+            <p className="text-sm">{t("No changes to display")}</p>
           </div>
         ) : (
           <div className="border-t border-border/30">
@@ -243,12 +244,12 @@ export function FileDiffView({
     return (
       <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground">
         <FileText className="w-8 h-8 mb-2 opacity-50" />
-        <p className="text-sm">Failed to load diff</p>
+        <p className="text-sm">{t("Failed to load diff")}</p>
         <p className="text-xs mt-1">{error.message}</p>
         {onBack && (
           <Button variant="ghost" size="sm" onClick={onBack} className="mt-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+            {t("Back")}
           </Button>
         )}
       </div>

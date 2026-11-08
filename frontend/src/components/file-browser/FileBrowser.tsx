@@ -12,6 +12,7 @@ import { FolderOpen, Upload, RefreshCw, X } from 'lucide-react'
 import type { FileInfo } from '@/types/files'
 import { useMobile } from '@/hooks/useMobile'
 import { getFileApiUrl, useFile } from '@/api/files'
+import { t } from '@/i18n/translate'
 
 export interface FileBrowserHandle {
   goBack: () => void
@@ -165,7 +166,7 @@ useEffect(() => {
     try {
       const response = await fetch(getFileApiUrl(path))
       if (!response.ok) {
-        throw new Error(`Failed to load files: ${response.statusText}`)
+        throw new Error(t('Failed to load files: {status}', { status: response.statusText }))
       }
       
       const data = await response.json()
@@ -175,7 +176,7 @@ useEffect(() => {
       onDirectoryLoad?.({ workspaceRoot: data.workspaceRoot, currentPath: path })
     } catch (err) {
       if (request !== loadRequestRef.current) return
-      setError(err instanceof Error ? err.message : 'Failed to load files')
+      setError(err instanceof Error ? err.message : t('Failed to load files'))
     } finally {
       if (request === loadRequestRef.current) setLoading(false)
     }
@@ -243,7 +244,7 @@ useEffect(() => {
     try {
       const response = await fetch(getFileApiUrl(path))
       if (!response.ok) {
-        throw new Error(`Failed to load file: ${response.statusText}`)
+        throw new Error(t('Failed to load file: {status}', { status: response.statusText }))
       }
       
       const fullFileData: FileInfo = await response.json()
@@ -264,7 +265,7 @@ useEffect(() => {
         onPreviewStateChange?.(true)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load file')
+      setError(err instanceof Error ? err.message : t('Failed to load file'))
       setSelectedFile(null)
     } finally {
       setLoading(false)
@@ -307,12 +308,12 @@ useEffect(() => {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        return errorData.error || `Upload failed: ${response.statusText}`
+        return errorData.error || t('Upload failed: {status}', { status: response.statusText })
       }
       
       return null
     } catch (err) {
-      return err instanceof Error ? err.message : 'Upload failed'
+      return err instanceof Error ? err.message : t('Upload failed')
     }
   }, [currentPath])
 
@@ -377,12 +378,12 @@ useEffect(() => {
       })
       
       if (!response.ok) {
-        throw new Error(`Create failed: ${response.statusText}`)
+        throw new Error(t('Create failed: {status}', { status: response.statusText }))
       }
       
       await loadFiles(currentPath)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Create failed')
+      setError(err instanceof Error ? err.message : t('Create failed'))
     }
   }, [currentPath, loadFiles])
 
@@ -393,13 +394,13 @@ useEffect(() => {
       })
       
       if (!response.ok) {
-        throw new Error(`Delete failed: ${response.statusText}`)
+        throw new Error(t('Delete failed: {status}', { status: response.statusText }))
       }
       
       await loadFiles(currentPath)
       setSelectedFile(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed')
+      setError(err instanceof Error ? err.message : t('Delete failed'))
     }
   }, [currentPath, loadFiles])
 
@@ -412,12 +413,12 @@ useEffect(() => {
       })
       
       if (!response.ok) {
-        throw new Error(`Rename failed: ${response.statusText}`)
+        throw new Error(t('Rename failed: {status}', { status: response.statusText }))
       }
       
       await loadFiles(currentPath)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Rename failed')
+      setError(err instanceof Error ? err.message : t('Rename failed'))
     }
   }, [currentPath, loadFiles])
 
@@ -525,8 +526,8 @@ useEffect(() => {
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>
-              {uploadProgress?.cancelled ? 'Upload Cancelled' : 
-               isUploadComplete ? 'Upload Complete' : 'Uploading...'}
+              {uploadProgress?.cancelled ? t('Upload Cancelled') : 
+               isUploadComplete ? t('Upload Complete') : t('Uploading...')}
             </span>
             {uploadProgress && uploadProgress.current < uploadProgress.total && !uploadProgress.cancelled && (
               <Button variant="ghost" size="sm" onClick={cancelUpload}>
@@ -542,7 +543,7 @@ useEffect(() => {
               max={uploadProgress.total} 
             />
             <p className="text-sm text-muted-foreground">
-              {uploadProgress.current} / {uploadProgress.total} files
+              {t('{current} / {total} files', { current: uploadProgress.current, total: uploadProgress.total })}
             </p>
             {!isUploadComplete && (
               <p className="text-xs text-muted-foreground truncate">
@@ -552,7 +553,7 @@ useEffect(() => {
             {uploadProgress.errors.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium text-destructive">
-                  {uploadProgress.errors.length} file(s) failed:
+                  {t('{count} file(s) failed:', { count: uploadProgress.errors.length })}
                 </p>
                 <div className="max-h-32 overflow-y-auto rounded border border-destructive/20 bg-destructive/5 p-2">
                   {uploadProgress.errors.map((error, index) => (
@@ -570,7 +571,7 @@ useEffect(() => {
                 className="w-full mt-2"
                 onClick={() => setUploadProgress(null)}
               >
-                Close
+                {t('Close')}
               </Button>
             )}
           </div>
@@ -593,7 +594,7 @@ useEffect(() => {
           <div className="absolute inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center">
             <div className="text-center">
               <Upload className="w-12 h-12 mx-auto mb-2 text-primary" />
-              <p className="text-lg font-semibold text-primary">Drop files or folders here to upload</p>
+              <p className="text-lg font-semibold text-primary">{t('Drop files or folders here to upload')}</p>
             </div>
           </div>
         )}
@@ -610,12 +611,12 @@ useEffect(() => {
           <div className={`${stacked ? 'w-full' : 'w-[30%]'} border-r border-border px-1 md:px-4 flex flex-col min-h-0 h-full`}>
             <div className="flex items-center gap-2 mb-4 mt-4 flex-shrink-0">
               <Input
-                placeholder="Search"
+                placeholder={t('Search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1"
               />
-              <Button variant="outline" size="sm" aria-label="Refresh files" onClick={handleRefresh}>
+              <Button variant="outline" size="sm" aria-label={t('Refresh files')} onClick={handleRefresh}>
                 <RefreshCw className="w-4 h-4" />
               </Button>
               <FileOperations
@@ -661,7 +662,7 @@ useEffect(() => {
                 <FilePreview key={selectedFile.path} file={selectedFile} onOpenFile={openFilePath} />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  Select a file to preview
+                  {t('Select a file to preview')}
                 </div>
               )}
             </div>
@@ -694,7 +695,7 @@ useEffect(() => {
           <div className="absolute inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary rounded-lg flex items-center justify-center">
             <div className="text-center">
               <Upload className="w-12 h-12 mx-auto mb-2 text-primary" />
-              <p className="text-lg font-semibold text-primary">Drop files or folders here to upload</p>
+              <p className="text-lg font-semibold text-primary">{t('Drop files or folders here to upload')}</p>
             </div>
           </div>
         )}
@@ -703,9 +704,9 @@ useEffect(() => {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <FolderOpen className="w-5 h-5" />
-              File Browser
+              {t('File Browser')}
             </CardTitle>
-            <Button variant="outline" size="sm" aria-label="Refresh files" onClick={handleRefresh}>
+            <Button variant="outline" size="sm" aria-label={t('Refresh files')} onClick={handleRefresh}>
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
@@ -722,7 +723,7 @@ useEffect(() => {
           <div className={`${stacked ? 'w-full' : 'w-1/3'} border-r pr-4 flex flex-col min-h-0`}>
             <div className="flex items-center gap-2 mb-4 flex-shrink-0">
               <Input
-                placeholder="Search"
+                placeholder={t('Search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1"
@@ -763,7 +764,7 @@ useEffect(() => {
                 <FilePreview key={selectedFile.path} file={selectedFile} onOpenFile={openFilePath} />
               ) : (
                 <div className="flex items-center justify-center h-64 text-muted-foreground">
-                  Select a file to preview
+                  {t('Select a file to preview')}
                 </div>
               )}
             </div>

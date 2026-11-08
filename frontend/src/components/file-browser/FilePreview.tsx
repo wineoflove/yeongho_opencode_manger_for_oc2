@@ -7,12 +7,15 @@ import { saveFileFromUrl } from '@/lib/download'
 import { VirtualizedTextView, type VirtualizedTextViewHandle } from '@/components/ui/virtualized-text-view'
 import { SandboxedHtmlFrame } from '@/components/ui/sandboxed-html-frame'
 import { MarkdownRenderer } from './MarkdownRenderer'
-
+import { t } from '@/i18n/translate'
+import { intlLocale } from '@/i18n/format'
 
 const VIRTUALIZATION_THRESHOLD_BYTES = 50_000
 const MARKDOWN_PREVIEW_SIZE_LIMIT = 1_000_000
-const SUCCESS_TINT_BUTTON_CLASS = 'h-7 w-7 p-0 border border-success bg-success/10 text-success hover:bg-success/20 hover:text-success dark:hover:bg-success/20'
-const DESTRUCTIVE_TINT_BUTTON_CLASS = 'h-7 w-7 p-0 border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive dark:hover:bg-destructive/20'
+const SUCCESS_TINT_BUTTON_CLASS =
+  'h-7 w-7 p-0 border border-success bg-success/10 text-success hover:bg-success/20 hover:text-success dark:hover:bg-success/20'
+const DESTRUCTIVE_TINT_BUTTON_CLASS =
+  'h-7 w-7 p-0 border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive dark:hover:bg-destructive/20'
 
 interface FilePreviewProps {
   file: FileInfo
@@ -24,12 +27,23 @@ interface FilePreviewProps {
   onOpenFile?: (path: string) => void
 }
 
-export const FilePreview = memo(function FilePreview({ file, hideHeader = false, isMobileModal = false, onCloseModal, onFileSaved, initialLineNumber, onOpenFile }: FilePreviewProps) {
-  const isMarkdownFile = file.name.toLowerCase().endsWith('.md') || file.name.toLowerCase().endsWith('.mdx') || file.mimeType === 'text/markdown'
+export const FilePreview = memo(function FilePreview({
+  file,
+  hideHeader = false,
+  isMobileModal = false,
+  onCloseModal,
+  onFileSaved,
+  initialLineNumber,
+  onOpenFile,
+}: FilePreviewProps) {
+  const isMarkdownFile =
+    file.name.toLowerCase().endsWith('.md') ||
+    file.name.toLowerCase().endsWith('.mdx') ||
+    file.mimeType === 'text/markdown'
   const isHtmlFile = /\.html?$/i.test(file.name) || file.mimeType === 'text/html'
   const hasRenderedPreview = isMarkdownFile || isHtmlFile
   const previewLabel = isHtmlFile ? 'HTML' : 'markdown'
-  
+
   const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview')
   const [editContent, setEditContent] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -46,19 +60,19 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
   const isMobilePreview = isMobileModal || Boolean(onCloseModal)
   const [isFullscreen, setIsFullscreen] = useState(isMobilePreview)
   const isDesktopFullscreen = isFullscreen && !isMobilePreview
-  
+
   const shouldVirtualize = file.size > VIRTUALIZATION_THRESHOLD_BYTES && !file.mimeType?.startsWith('image/')
   const isMarkdownTooLarge = file.size > MARKDOWN_PREVIEW_SIZE_LIMIT
   const showHtmlPreview = isHtmlFile && renderedPreview && viewMode !== 'edit'
   const rawFileUrl = getFileApiUrl(file.path, { params: { raw: true } })
-  
+
   useEffect(() => {
     setFullContentLoaded(false)
     setRenderedPreview(hasRenderedPreview)
     setFullContent(null)
     setLocalMdContent(null)
   }, [file.path, hasRenderedPreview])
-  
+
   useEffect(() => {
     if (shouldVirtualize && isMarkdownFile && renderedPreview && !isMarkdownTooLarge && !fullContentLoaded) {
       const loadContent = async () => {
@@ -77,8 +91,6 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
       return () => clearTimeout(timer)
     }
   }, [shouldVirtualize, isMarkdownFile, renderedPreview, isMarkdownTooLarge, fullContentLoaded])
-  
-  
 
   useEffect(() => {
     if (initialLineNumber && contentRef.current && !shouldVirtualize) {
@@ -86,24 +98,27 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
       const scrollPosition = (initialLineNumber - 1) * lineHeight
       setHighlightedLine(initialLineNumber)
       setTimeout(() => {
-        contentRef.current?.scrollTo({ top: scrollPosition, behavior: 'smooth' })
+        contentRef.current?.scrollTo({
+          top: scrollPosition,
+          behavior: 'smooth',
+        })
       }, 100)
       setTimeout(() => {
         setHighlightedLine(undefined)
       }, 3000)
     }
   }, [initialLineNumber, shouldVirtualize, file.content])
-  
+
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
+    if (bytes === 0) return `0 ${t('Bytes')}`
     const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const sizes = [t('Bytes'), 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString()
+    return new Date(date).toLocaleString(intlLocale())
   }
 
   const handleDownload = () => {
@@ -119,40 +134,49 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
       }
       return new TextDecoder('utf-8').decode(bytes)
     } catch {
-      throw new Error('Failed to decode base64 content')
+      throw new Error(t('Failed to decode base64 content'))
     }
   }
 
-  const saveFileContent = useCallback(async (content: string) => {
-    const response = await fetch(getFileApiUrl(file.path), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'file', content }),
-    })
-    
-    if (!response.ok) {
-      throw new Error(`Save failed: ${response.statusText}`)
-    }
+  const saveFileContent = useCallback(
+    async (content: string) => {
+      const response = await fetch(getFileApiUrl(file.path), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'file', content }),
+      })
 
-    const event = new CustomEvent('fileSaved', { detail: { path: file.path, content } })
-    window.dispatchEvent(event)
-    onFileSaved?.()
-  }, [file.path, onFileSaved])
+      if (!response.ok) {
+        throw new Error(t('Save failed: {status}', { status: response.statusText }))
+      }
+
+      const event = new CustomEvent('fileSaved', {
+        detail: { path: file.path, content },
+      })
+      window.dispatchEvent(event)
+      onFileSaved?.()
+    },
+    [file.path, onFileSaved],
+  )
 
   const handleEdit = () => {
     if (shouldVirtualize) {
       setViewMode('edit')
-      const event = new CustomEvent('editModeChange', { detail: { isEditing: true } })
+      const event = new CustomEvent('editModeChange', {
+        detail: { isEditing: true },
+      })
       window.dispatchEvent(event)
       return
     }
-    
+
     try {
       const textContent = file.content ? decodeBase64(file.content) : ''
       const content = localMdContent ?? textContent
       setEditContent(content)
       setViewMode('edit')
-      const event = new CustomEvent('editModeChange', { detail: { isEditing: true } })
+      const event = new CustomEvent('editModeChange', {
+        detail: { isEditing: true },
+      })
       window.dispatchEvent(event)
     } catch (err) {
       console.error('Failed to load content for editing:', err)
@@ -167,7 +191,9 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
         setLocalMdContent(editContent)
       }
       setViewMode('preview')
-      const editEvent = new CustomEvent('editModeChange', { detail: { isEditing: false } })
+      const editEvent = new CustomEvent('editModeChange', {
+        detail: { isEditing: false },
+      })
       window.dispatchEvent(editEvent)
     } catch (err) {
       console.error('Failed to save file:', err)
@@ -180,7 +206,9 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
     setEditContent('')
     setViewMode('preview')
     setHasVirtualizedChanges(false)
-    const event = new CustomEvent('editModeChange', { detail: { isEditing: false } })
+    const event = new CustomEvent('editModeChange', {
+      detail: { isEditing: false },
+    })
     window.dispatchEvent(event)
   }
 
@@ -190,46 +218,54 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
 
   const handleVirtualizedSave = useCallback(() => {
     setViewMode('preview')
-    const editEvent = new CustomEvent('editModeChange', { detail: { isEditing: false } })
+    const editEvent = new CustomEvent('editModeChange', {
+      detail: { isEditing: false },
+    })
     window.dispatchEvent(editEvent)
     const event = new CustomEvent('fileSaved', { detail: { path: file.path } })
     window.dispatchEvent(event)
     onFileSaved?.()
   }, [file.path, onFileSaved])
 
-  const persistMarkdownContent = useCallback(async (content: string, setContent: (content: string) => void) => {
-    setContent(content)
-    setEditContent(content)
-    setIsSaving(true)
-    try {
-      await saveFileContent(content)
-    } catch (err) {
-      console.error('Failed to save markdown checkbox change:', err)
-    } finally {
-      setIsSaving(false)
-    }
-  }, [saveFileContent])
+  const persistMarkdownContent = useCallback(
+    async (content: string, setContent: (content: string) => void) => {
+      setContent(content)
+      setEditContent(content)
+      setIsSaving(true)
+      try {
+        await saveFileContent(content)
+      } catch (err) {
+        console.error('Failed to save markdown checkbox change:', err)
+      } finally {
+        setIsSaving(false)
+      }
+    },
+    [saveFileContent],
+  )
 
-  const handleFullMarkdownContentChange = useCallback((content: string) => {
-    void persistMarkdownContent(content, setFullContent)
-  }, [persistMarkdownContent])
+  const handleFullMarkdownContentChange = useCallback(
+    (content: string) => {
+      void persistMarkdownContent(content, setFullContent)
+    },
+    [persistMarkdownContent],
+  )
 
-  const handleLocalMarkdownContentChange = useCallback((content: string) => {
-    void persistMarkdownContent(content, setLocalMdContent)
-  }, [persistMarkdownContent])
+  const handleLocalMarkdownContentChange = useCallback(
+    (content: string) => {
+      void persistMarkdownContent(content, setLocalMdContent)
+    },
+    [persistMarkdownContent],
+  )
 
-  const isTextFile = file.mimeType?.startsWith('text/') || 
+  const isTextFile =
+    file.mimeType?.startsWith('text/') ||
     ['application/json', 'application/xml', 'text/javascript', 'text/typescript'].includes(file.mimeType || '')
 
   const renderContent = () => {
     if (file.mimeType?.startsWith('image/')) {
       return (
         <div className="flex justify-center p-4">
-          <img 
-            src={rawFileUrl}
-            alt={file.name}
-            className="max-w-full h-auto object-contain rounded"
-          />
+          <img src={rawFileUrl} alt={file.name} className="max-w-full h-auto object-contain rounded" />
         </div>
       )
     }
@@ -240,7 +276,7 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
 
     if (shouldVirtualize && isTextFile) {
       const showMarkdownPreview = isMarkdownFile && renderedPreview && viewMode !== 'edit'
-      
+
       return (
         <>
           <div className={showMarkdownPreview && fullContentLoaded ? 'hidden' : 'h-full'}>
@@ -261,9 +297,9 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
             <>
               {isMarkdownTooLarge ? (
                 <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
-                  <span>File too large for markdown preview (max 1MB)</span>
+                  <span>{t('File too large for markdown preview (max 1MB)')}</span>
                   <Button variant="outline" size="sm" onClick={() => setRenderedPreview(false)}>
-                    View raw
+                    {t('View raw')}
                   </Button>
                 </div>
               ) : isLoadingAllContent || !fullContentLoaded ? (
@@ -271,7 +307,12 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
                   <div className="w-6 h-6 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : fullContent ? (
-                <MarkdownRenderer content={fullContent} onContentChange={handleFullMarkdownContentChange} filePath={file.path} onOpenFile={onOpenFile} />
+                <MarkdownRenderer
+                  content={fullContent}
+                  onContentChange={handleFullMarkdownContentChange}
+                  filePath={file.path}
+                  onOpenFile={onOpenFile}
+                />
               ) : null}
             </>
           )}
@@ -291,38 +332,45 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
               lineWrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre overflow-x-auto'
             }`}
             style={{ minHeight: '95vh' }}
-            placeholder="Edit file content..."
+            placeholder={t('Edit file content...')}
             autoFocus
             data-file-editor="true"
           />
         )
       }
-      
+
       try {
         const textContent = decodeBase64(file.content)
-        const displayContent = isMarkdownFile ? localMdContent ?? textContent : textContent
+        const displayContent = isMarkdownFile ? (localMdContent ?? textContent) : textContent
         if (!displayContent) {
           return (
-            <div className="text-center text-muted-foreground py-8">
-              Empty file - click Edit to add content
-            </div>
+            <div className="text-center text-muted-foreground py-8">{t('Empty file - click Edit to add content')}</div>
           )
         }
-        
+
         if (isMarkdownFile && renderedPreview) {
-          return <MarkdownRenderer content={displayContent} onContentChange={handleLocalMarkdownContentChange} filePath={file.path} onOpenFile={onOpenFile} />
+          return (
+            <MarkdownRenderer
+              content={displayContent}
+              onContentChange={handleLocalMarkdownContentChange}
+              filePath={file.path}
+              onOpenFile={onOpenFile}
+            />
+          )
         }
-        
+
         const lines = displayContent.split('\n')
         return (
-          <div className={`pb-[200px] text-sm bg-muted text-foreground rounded font-mono ${
-            lineWrap ? 'overflow-x-hidden' : 'overflow-x-auto'
-          }`}>
+          <div
+            className={`pb-[200px] text-sm bg-muted text-foreground rounded font-mono ${
+              lineWrap ? 'overflow-x-hidden' : 'overflow-x-auto'
+            }`}
+          >
             {lines.map((line, index) => {
               const lineNum = index + 1
               const isHighlighted = highlightedLine === lineNum
               return (
-                <div 
+                <div
                   key={index}
                   className={`flex transition-colors duration-300 ${isHighlighted ? 'bg-warning/30' : ''}`}
                   style={{ minHeight: '20px', lineHeight: '20px' }}
@@ -330,9 +378,7 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
                   <span className="w-12 flex-shrink-0 text-right pr-3 text-muted-foreground select-none border-r border-border/50 text-xs">
                     {lineNum}
                   </span>
-                  <pre className={`flex-1 pl-3 ${
-                    lineWrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'
-                  }`}>
+                  <pre className={`flex-1 pl-3 ${lineWrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'}`}>
                     {line || ' '}
                   </pre>
                 </div>
@@ -343,17 +389,13 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
       } catch {
         return (
           <div className="text-center text-muted-foreground py-8">
-            Cannot preview this file - content may be corrupted
+            {t('Cannot preview this file - content may be corrupted')}
           </div>
         )
       }
     }
 
-    return (
-      <div className="text-center text-muted-foreground py-8">
-        Binary file - download to view content
-      </div>
-    )
+    return <div className="text-center text-muted-foreground py-8">{t('Binary file - download to view content')}</div>
   }
 
   const handleVirtualizedSaveClick = async () => {
@@ -374,32 +416,40 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
     <div className={`${isDesktopFullscreen ? 'fixed inset-0 z-50' : 'h-full'} relative flex flex-col bg-background`}>
       {!hideHeader && !isDesktopFullscreen && (
         <>
-          <div className={`relative z-10 flex items-start gap-2 px-3 py-2 border-b border-border flex-shrink-0 overflow-hidden ${isMobileModal ? 'pt-3' : ''}`}>
+          <div
+            className={`relative z-10 flex items-start gap-2 px-3 py-2 border-b border-border flex-shrink-0 overflow-hidden ${isMobileModal ? 'pt-3' : ''}`}
+          >
             <div className="flex-1 min-w-0 overflow-hidden">
-              <h3 className="text-foreground text-sm font-medium break-all leading-tight">
-                {file.name}
-              </h3>
+              <h3 className="text-foreground text-sm font-medium break-all leading-tight">{file.name}</h3>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
-                <span className="bg-muted px-1.5 py-0.5 rounded text-xs truncate max-w-[80px] flex-shrink-0">{file.mimeType || 'Unknown'}</span>
+                <span className="bg-muted px-1.5 py-0.5 rounded text-xs truncate max-w-[80px] flex-shrink-0">
+                  {file.mimeType || t('Unknown')}
+                </span>
                 <span className="truncate flex-shrink-0">{formatFileSize(file.size)}</span>
                 <span className="hidden sm:inline truncate flex-shrink-0">{formatDate(file.lastModified)}</span>
-                {shouldVirtualize && (
-                  <span className="text-xs text-info flex-shrink-0">Virtualized</span>
-                )}
+                {shouldVirtualize && <span className="text-xs text-info flex-shrink-0">{t('Virtualized')}</span>}
                 {hasVirtualizedChanges && (
-                  <span className="text-xs text-warning flex-shrink-0">Unsaved changes</span>
+                  <span className="text-xs text-warning flex-shrink-0">{t('Unsaved changes')}</span>
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center gap-1 flex-shrink-0 mt-1">
               {hasRenderedPreview && viewMode !== 'edit' && (
-                <Button 
+                <Button
                   variant={renderedPreview ? 'default' : 'outline'}
                   size="sm"
-                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); setRenderedPreview(!renderedPreview) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    setRenderedPreview(!renderedPreview)
+                  }}
                   className="h-7 w-7 p-0"
-                  title={renderedPreview ? `Show raw ${previewLabel}` : `Preview rendered ${previewLabel}`}
+                  title={
+                    renderedPreview
+                      ? t('Show raw {format}', { format: previewLabel })
+                      : t('Preview rendered {format}', { format: previewLabel })
+                  }
                 >
                   {renderedPreview ? <Code className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                 </Button>
@@ -407,56 +457,131 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
 
               {isHtmlFile && viewMode !== 'edit' && (
                 <Button variant="outline" size="sm" asChild className="h-7 w-7 p-0">
-                  <a href={rawFileUrl} target="_blank" rel="noopener noreferrer" title="Open HTML in new tab" onClick={(e) => e.stopPropagation()}>
+                  <a
+                    href={rawFileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={t('Open HTML in new tab')}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </Button>
               )}
-              
+
               {isTextFile && !renderedPreview && (
-                <Button 
+                <Button
                   variant={lineWrap ? 'default' : 'outline'}
                   size="sm"
-                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); setLineWrap(!lineWrap) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    setLineWrap(!lineWrap)
+                  }}
                   className="h-7 w-7 p-0"
-                  title={lineWrap ? "Disable line wrap" : "Enable line wrap"}
+                  title={lineWrap ? t('Disable line wrap') : t('Enable line wrap')}
                 >
                   <WrapText className="w-3 h-3" />
                 </Button>
               )}
-              
+
               {isTextFile && viewMode !== 'edit' && (
-                <Button variant="outline" size="sm" aria-label="Edit file" onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleEdit() }} className="h-7 w-7 p-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={t('Edit file')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    handleEdit()
+                  }}
+                  className="h-7 w-7 p-0"
+                >
                   <Edit3 className="w-3 h-3" />
                 </Button>
               )}
-              
+
               {showSaveButton && (
-                <Button variant="ghost" size="sm" aria-label="Save file" onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (shouldVirtualize) { handleVirtualizedSaveClick(); } else { handleSave(); } }} disabled={isSaving || (shouldVirtualize && !hasVirtualizedChanges)} className={SUCCESS_TINT_BUTTON_CLASS}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('Save file')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    if (shouldVirtualize) {
+                      handleVirtualizedSaveClick()
+                    } else {
+                      handleSave()
+                    }
+                  }}
+                  disabled={isSaving || (shouldVirtualize && !hasVirtualizedChanges)}
+                  className={SUCCESS_TINT_BUTTON_CLASS}
+                >
                   <Save className="w-3 h-3" />
                 </Button>
               )}
-              
+
               {showCancelButton && (
-                <Button variant="ghost" size="sm" aria-label="Cancel editing" onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleCancel() }} className={DESTRUCTIVE_TINT_BUTTON_CLASS}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('Cancel editing')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    handleCancel()
+                  }}
+                  className={DESTRUCTIVE_TINT_BUTTON_CLASS}
+                >
                   <XIcon className="w-3 h-3" />
                 </Button>
               )}
-              
+
               {viewMode !== 'edit' && (
-                <Button variant="outline" size="sm" aria-label="Download file" onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDownload() }} className="h-7 w-7 p-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={t('Download file')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    handleDownload()
+                  }}
+                  className="h-7 w-7 p-0"
+                >
                   <Download className="w-3 h-3" />
                 </Button>
               )}
-              
+
               {!isMobilePreview && !isFullscreen && viewMode !== 'edit' && (
-                <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIsFullscreen(true) }} className="h-7 w-7 p-0" title="Enter fullscreen">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    setIsFullscreen(true)
+                  }}
+                  className="h-7 w-7 p-0"
+                  title={t('Enter fullscreen')}
+                >
                   <Maximize2 className="w-3 h-3" />
                 </Button>
               )}
-              
+
               {viewMode !== 'edit' && isMobileModal && onCloseModal && (
-                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); e.preventDefault(); onCloseModal() }} className={DESTRUCTIVE_TINT_BUTTON_CLASS} title="Close preview">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onCloseModal()
+                  }}
+                  className={DESTRUCTIVE_TINT_BUTTON_CLASS}
+                  title={t('Close preview')}
+                >
                   <X className="w-3 h-3" />
                 </Button>
               )}
@@ -469,21 +594,27 @@ export const FilePreview = memo(function FilePreview({ file, hideHeader = false,
         <Button
           variant="ghost"
           size="sm"
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); if (isMobilePreview) { onCloseModal?.() } else { setIsFullscreen(false) } }}
+          onClick={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            if (isMobilePreview) {
+              onCloseModal?.()
+            } else {
+              setIsFullscreen(false)
+            }
+          }}
           className="absolute top-2 right-2 z-[60] h-6 w-6 p-0 rounded-full bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm hover:bg-muted hover:text-foreground"
-          title={isMobilePreview ? 'Close preview' : 'Exit fullscreen'}
+          title={isMobilePreview ? t('Close preview') : t('Exit fullscreen')}
         >
           <X className="w-3.5 h-3.5" />
         </Button>
       )}
-      
-      <div 
+
+      <div
         ref={contentRef}
         className={`flex-1 ${viewMode === 'edit' && !shouldVirtualize ? 'overflow-hidden' : shouldVirtualize || showHtmlPreview ? '' : 'overflow-y-auto overscroll-contain'} min-h-0 overflow-x-hidden`}
       >
-        <div className={`${shouldVirtualize || showHtmlPreview ? 'h-full' : 'p-2'} min-w-0`}>
-          {renderContent()}
-        </div>
+        <div className={`${shouldVirtualize || showHtmlPreview ? 'h-full' : 'p-2'} min-w-0`}>{renderContent()}</div>
       </div>
     </div>
   )

@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { t } from '@/i18n/translate'
 
 interface FileBrowserSheetProps {
   isOpen: boolean
@@ -153,11 +154,11 @@ export const FileBrowserSheet = memo(function FileBrowserSheet({ isOpen, onClose
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => handleOpenDownloadDialog('directory')}>
                       <Download className="w-4 h-4 mr-2" />
-                      Current Directory
+                      {t('Current Directory')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleOpenDownloadDialog('repository')}>
                       <Download className="w-4 h-4 mr-2" />
-                      Entire Repository
+                      {t('Entire Repository')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -194,11 +195,11 @@ export const FileBrowserSheet = memo(function FileBrowserSheet({ isOpen, onClose
         open={downloadDialog !== null}
         onOpenChange={(open) => !open && setDownloadDialog(null)}
         onDownload={downloadDialog?.type === 'directory' ? handleDownloadDirectory : handleDownloadRepo}
-        title={downloadDialog?.type === 'directory' ? 'Download Current Directory' : 'Download Repository'}
+        title={downloadDialog?.type === 'directory' ? t('Download Current Directory') : t('Download Repository')}
         description={downloadDialog?.type === 'directory'
-          ? 'This will create a ZIP archive of the current directory and all its contents.'
-          : 'This will create a ZIP archive of the entire repository.'}
-        itemName={downloadDialog?.type === 'directory' ? currentPath.split('/').pop() || 'Directory' : repoName || 'Repository'}
+          ? t('This will create a ZIP archive of the current directory and all its contents.')
+          : t('This will create a ZIP archive of the entire repository.')}
+        itemName={downloadDialog?.type === 'directory' ? currentPath.split('/').pop() || t('Directory') : repoName || t('Repository')}
         targetPath={downloadDialog?.type === 'directory' ? currentPath : basePath}
       />
     </div>,
