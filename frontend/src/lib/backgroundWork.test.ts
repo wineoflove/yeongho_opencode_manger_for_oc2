@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { setLocale } from '@/i18n/locale'
 import type { SessionMessageInfo } from '@opencode-manager/shared/opencode'
 import {
   applyShellExit,
@@ -16,6 +17,7 @@ import {
   subagentLifecycle,
   upsertShell,
   type ShellRecord,
+  lifecycleLabel,
 } from './backgroundWork'
 
 const shellNotice = (
@@ -382,5 +384,17 @@ describe('markShellDeleted', () => {
     const [result] = markShellDeleted([shell('a', 'exited', 0)], 'a')
 
     expect(result?.status).toBe('exited')
+  })
+})
+
+describe('lifecycleLabel', () => {
+  afterEach(() => setLocale('en'))
+
+  it('labels an unconfirmed task as checking and localizes every status', () => {
+    expect(lifecycleLabel('unknown')).toBe('checking')
+    setLocale('ko')
+    expect(
+      (['running', 'completed', 'failed', 'killed', 'interrupted', 'unavailable', 'unknown'] as const).map(lifecycleLabel),
+    ).toEqual(['실행 중', '완료', '실패', '강제 종료됨', '중단됨', '확인 불가', '확인 중'])
   })
 })

@@ -23,6 +23,8 @@ export interface SessionSnapshot {
 export interface TranscriptCache {
   transcript: SessionTranscript
   nextCursor?: string
+  /** Identifies the latest older-history page prepended into this cache; dropped when the newest page replaces it. */
+  olderPageCommit?: number
 }
 
 export interface SessionTranscriptBatch {
@@ -456,6 +458,7 @@ export function mergeNewestPage(
   return {
     transcript: { ...page, messages: [...older, ...page.messages] },
     nextCursor: current.nextCursor,
+    olderPageCommit: current.olderPageCommit,
   }
 }
 
@@ -789,7 +792,12 @@ function applyEventToDraft(draft: TranscriptDraft, event: V2Event): void {
         type: 'system',
         text: event.data.text,
         description: `Instructions updated: ${Object.keys(event.data.delta).join(', ')}`,
-        metadata: event.metadata,
+        metadata: {
+          ...event.metadata,
+          instructionSources: Array.isArray(event.metadata?.instructionSources)
+            ? event.metadata.instructionSources
+            : Object.keys(event.data.delta),
+        },
         time: { created: event.created },
       })
       return

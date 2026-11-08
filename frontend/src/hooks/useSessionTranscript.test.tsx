@@ -1,16 +1,18 @@
+import { useSendErrorStore } from '@/stores/sendErrorStore'
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query'
 import { act, render, renderHook, waitFor } from '@testing-library/react'
-import type { ReactNode } from 'react'
+import { useCallback, useRef, type ReactNode, type UIEvent } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   SessionInboxInfo,
   SessionMessageInfo,
   V2Event,
 } from '@opencode-manager/shared/opencode'
-import { useSessionTranscript } from './useSessionTranscript'
+import { useSessionTranscript, type FetchOlderOptions } from './useSessionTranscript'
+import { useOlderHistoryLoader } from './useOlderHistoryLoader'
 import { useContextUsage } from './useContextUsage'
 import { OpenCodeServerProvider } from '@/contexts/OpenCodeServerContext'
-import { applySessionEvent, emptySessionTranscript } from '@/lib/session-projection'
+import { applySessionEvent, emptySessionTranscript, mergeNewestPage } from '@/lib/session-projection'
 import type { TranscriptCache } from '@/lib/session-projection'
 import { sessionTranscriptQueryKey } from '@/lib/queryInvalidation'
 import {
@@ -133,11 +135,65 @@ function createRemoteWrapper(queryClient: QueryClient) {
   }
 }
 
+function createScrollRecorder() {
+  const element = document.createElement('div')
+  let scrollTop = 0
+  const writes: number[] = []
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, get: () => 1000 })
+  Object.defineProperty(element, 'scrollTop', {
+    configurable: true,
+    get: () => scrollTop,
+    set: (value: number) => {
+      writes.push(value)
+      scrollTop = value
+    },
+  })
+  return {
+    element,
+    writes,
+    place: (value: number) => {
+      scrollTop = value
+    },
+    event: () => ({ currentTarget: element }) as unknown as UIEvent<HTMLDivElement>,
+  }
+}
+
+function useTranscriptWithOlderHistory(
+  container: HTMLDivElement,
+  afterPrepareWrite: { current: (() => void) | null },
+) {
+  const containerRef = useRef(container)
+  const transcript = useSessionTranscript(SESSION_ID, DIRECTORY)
+  const { fetchOlder } = transcript
+  const fetchOlderThenInterleave = useCallback(
+    (options?: FetchOlderOptions) =>
+      fetchOlder({
+        onBeforePrepend: (olderPageCommit) => {
+          options?.onBeforePrepend?.(olderPageCommit)
+          const interleave = afterPrepareWrite.current
+          if (interleave) queueMicrotask(interleave)
+        },
+      }),
+    [afterPrepareWrite, fetchOlder],
+  )
+  const loader = useOlderHistoryLoader({
+    containerRef,
+    scopeKey: SESSION_ID,
+    firstMessageId: transcript.messages[0]?.id,
+    olderPageCommit: transcript.olderPageCommit,
+    hasOlder: transcript.hasOlder,
+    fetchOlder: fetchOlderThenInterleave,
+    thresholdPx: 200,
+  })
+  return { ...transcript, ...loader }
+}
+
 describe('useSessionTranscript', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     serverStatusMocks.useOpenCodeServerStatuses.mockReturnValue({ statusById: {} })
     mocks.readSessionSnapshot.mockReset()
+    mocks.listSessionMessages.mockReset()
     mocks.readSessionSnapshot.mockResolvedValue({
       messages: seededMessages,
       pending: [],
@@ -162,6 +218,22 @@ describe('useSessionTranscript', () => {
       if (assistant?.type !== 'assistant') throw new Error('expected an assistant message')
       expect(assistant.content).toEqual([{ type: 'text', text: 'Hello ' }])
     })
+  })
+
+  it('clears a stale network send error when the refreshed transcript shows the prompt was delivered', async () => {
+    useSendErrorStore.getState().setError({
+      sessionID: SESSION_ID,
+      title: 'Send failed',
+      message: 'offline',
+      failedPrompt: 'Run the tests',
+      kind: 'network',
+    })
+    const queryClient = createQueryClient()
+    const { result } = renderHook(() => useSessionTranscript(SESSION_ID, DIRECTORY), {
+      wrapper: createWrapper(queryClient),
+    })
+    await waitFor(() => expect(result.current.messages).toHaveLength(2))
+    expect(useSendErrorStore.getState().getError(SESSION_ID)).toBeNull()
   })
 
   it('ignores events for other sessions', async () => {
@@ -972,7 +1044,7 @@ describe('useSessionTranscript', () => {
 
     const olderPage = deferred<{ messages: SessionMessageInfo[]; nextCursor: string }>()
     mocks.listSessionMessages.mockReturnValue(olderPage.promise)
-    let older: Promise<void> | undefined
+    let older: Promise<boolean> | undefined
     act(() => {
       older = result.current.fetchOlder()
     })
@@ -1024,6 +1096,134 @@ describe('useSessionTranscript', () => {
     })
 
     expect(mocks.listSessionMessages).toHaveBeenLastCalledWith(SESSION_ID, { cursor: 'cursor_2' }, 'local')
+  })
+
+  it('discards an older-page response from a request the session left, even after returning to it', async () => {
+    mocks.readSessionSnapshot.mockResolvedValue({
+      messages: seededMessages,
+      pending: [],
+      status: 'idle',
+      nextCursor: 'cursor_1',
+    })
+    const queryClient = createQueryClient()
+    queryClient.setQueryData<TranscriptCache>(sessionTranscriptQueryKey(SECOND_SESSION_ID), {
+      transcript: { messages: seededMessages, pending: [], status: 'idle' },
+      nextCursor: 'cursor_1',
+    })
+    const { result, rerender } = renderHook(
+      ({ sessionID }: { sessionID: string }) => useSessionTranscript(sessionID, DIRECTORY),
+      { wrapper: createWrapper(queryClient), initialProps: { sessionID: SESSION_ID } },
+    )
+    await waitFor(() => expect(result.current.hasOlder).toBe(true))
+
+    const leftPage = deferred<{ messages: SessionMessageInfo[]; nextCursor: string }>()
+    mocks.listSessionMessages.mockReturnValueOnce(leftPage.promise)
+    const leftCommit = vi.fn()
+    let left: Promise<boolean> | undefined
+    act(() => {
+      left = result.current.fetchOlder({ onBeforePrepend: leftCommit })
+    })
+
+    rerender({ sessionID: SECOND_SESSION_ID })
+    await waitFor(() => expect(mocks.readSessionSnapshot).toHaveBeenLastCalledWith(SECOND_SESSION_ID, 'local'))
+    rerender({ sessionID: SESSION_ID })
+    await waitFor(() => expect(mocks.readSessionSnapshot).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(result.current.hasOlder).toBe(true))
+
+    const current: SessionMessageInfo = { id: messageID(0), type: 'synthetic', text: 'Current', time: { created: 800 } }
+    mocks.listSessionMessages.mockResolvedValueOnce({ messages: [current], nextCursor: 'cursor_current' })
+    await act(async () => {
+      await expect(result.current.fetchOlder()).resolves.toBe(true)
+    })
+
+    const stale: SessionMessageInfo = { id: messageID(400), type: 'synthetic', text: 'Stale', time: { created: 700 } }
+    await act(async () => {
+      leftPage.resolve({ messages: [stale], nextCursor: 'cursor_stale' })
+      await expect(left).resolves.toBe(false)
+    })
+
+    expect(leftCommit).not.toHaveBeenCalled()
+    const cache = queryClient.getQueryData<TranscriptCache>(sessionTranscriptQueryKey(SESSION_ID))
+    expect(cache?.nextCursor).toBe('cursor_current')
+    expect(cache?.transcript.messages[0]?.id).toBe(current.id)
+  })
+
+  it('restores the reading position for the commit that renders the prepended page', async () => {
+    mocks.readSessionSnapshot.mockResolvedValue({
+      messages: seededMessages,
+      pending: [],
+      status: 'idle',
+      nextCursor: 'cursor_1',
+    })
+    const scroller = createScrollRecorder()
+    const { result } = renderHook(() => useTranscriptWithOlderHistory(scroller.element, { current: null }), {
+      wrapper: createWrapper(createQueryClient()),
+    })
+    await waitFor(() => expect(result.current.hasOlder).toBe(true))
+
+    const olderMessage: SessionMessageInfo = { id: messageID(0), type: 'synthetic', text: 'Earlier', time: { created: 900 } }
+    mocks.listSessionMessages.mockResolvedValueOnce({ messages: [olderMessage] })
+    scroller.place(50)
+    await act(async () => {
+      result.current.handleScroll(scroller.event())
+    })
+
+    await waitFor(() => expect(result.current.messages[0]?.id).toBe(olderMessage.id))
+    expect(result.current.olderPageCommit).toBe(1)
+    expect(scroller.writes).toEqual([50])
+  })
+
+  it('drops the anchor when a newest-page replacement with the same head lands in the same render as the prepend', async () => {
+    mocks.readSessionSnapshot.mockResolvedValue({
+      messages: seededMessages,
+      pending: [],
+      status: 'idle',
+      nextCursor: 'cursor_1',
+    })
+    const queryClient = createQueryClient()
+    const key = sessionTranscriptQueryKey(SESSION_ID)
+    const scroller = createScrollRecorder()
+    const afterPrepareWrite: { current: (() => void) | null } = {
+      current: () =>
+        queryClient.setQueryData<TranscriptCache>(key, (current) =>
+          mergeNewestPage(current, { messages: seededMessages, pending: [], status: 'idle' }),
+        ),
+    }
+    const renders: (string | undefined)[] = []
+    const { result } = renderHook(
+      () => {
+        const value = useTranscriptWithOlderHistory(scroller.element, afterPrepareWrite)
+        renders.push(value.messages[0]?.id)
+        return value
+      },
+      { wrapper: createWrapper(queryClient) },
+    )
+    await waitFor(() => expect(result.current.hasOlder).toBe(true))
+
+    const olderMessage: SessionMessageInfo = { id: messageID(0), type: 'synthetic', text: 'Earlier', time: { created: 900 } }
+    mocks.listSessionMessages.mockResolvedValueOnce({ messages: [olderMessage], nextCursor: 'cursor_0' })
+    scroller.place(50)
+    await act(async () => {
+      result.current.handleScroll(scroller.event())
+    })
+
+    await waitFor(() => expect(result.current.hasOlder).toBe(false))
+    expect(renders).not.toContain(olderMessage.id)
+    expect(result.current.messages[0]?.id).toBe(USER_INBOX_ID)
+    expect(result.current.olderPageCommit).toBeUndefined()
+    expect(scroller.writes).toEqual([])
+
+    afterPrepareWrite.current = null
+    act(() => {
+      queryClient.setQueryData<TranscriptCache>(key, (current) => current && { ...current, nextCursor: 'cursor_9' })
+    })
+    await waitFor(() => expect(result.current.hasOlder).toBe(true))
+    mocks.listSessionMessages.mockResolvedValueOnce({ messages: [] })
+    await act(async () => {
+      result.current.handleScroll(scroller.event())
+    })
+    expect(mocks.listSessionMessages).toHaveBeenLastCalledWith(SESSION_ID, { cursor: 'cursor_9' }, 'local')
+    expect(scroller.writes).toEqual([])
   })
 
   it('loads older pages with fetchOlder until the cursor is exhausted', async () => {

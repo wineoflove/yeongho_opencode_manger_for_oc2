@@ -7,6 +7,7 @@ import type { ShellInfo } from '@/api/opencode'
 import { clearShellExitRecord, recordShellExit } from '@/lib/backgroundWork'
 import { useSessionStatus } from '@/stores/sessionStatusStore'
 import { BackgroundWorkBar } from './BackgroundWorkBar'
+import { getLocale, setLocale } from '@/i18n/locale'
 
 const api = vi.hoisted(() => ({
   backgroundSession: vi.fn(),
@@ -185,6 +186,24 @@ describe('BackgroundWorkBar', () => {
     clearShellExitRecord('/repo', 'dev')
   })
 
+  it('shows the shell output placeholders in Korean', async () => {
+    api.listShells.mockResolvedValue([shell('dev')])
+    api.readShellOutput.mockResolvedValue({ output: '', cursor: 0, size: 0, truncated: true })
+    renderBar([], false)
+    fireEvent.click(await screen.findByRole('button', { name: /1 background task$/ }))
+
+    const previous = getLocale()
+    setLocale('ko')
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Output' }))
+      expect(await screen.findByText('출력을 기다리는 중…')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByText(/\[이전 출력 생략\]/)).toBeInTheDocument())
+      expect(screen.queryByText(/earlier output omitted|Waiting for output/)).not.toBeInTheDocument()
+    } finally {
+      setLocale(previous)
+    }
+  })
+
   it('removes a shell row once it completes', async () => {
     api.listShells.mockResolvedValue([shell('dev')])
     const { queryClient } = renderBar([], false)
@@ -259,7 +278,7 @@ describe('BackgroundWorkBar', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /1 background task$/ }))
     expect(screen.getByText('Explore')).toBeInTheDocument()
-    expect(screen.getByText('running')).toBeInTheDocument()
+    expect(screen.getByText('checking')).toBeInTheDocument()
 
     act(() => {
       useSessionStatus.getState().setStatus('child-1', { type: 'busy' })
@@ -273,12 +292,13 @@ describe('BackgroundWorkBar', () => {
     await waitFor(() => expect(screen.queryByText('Explore')).not.toBeInTheDocument())
   })
 
-  it('treats an unknown child session as still running', async () => {
+  it('keeps an unknown child session listed as active work while labelling it checking', async () => {
     renderBar([backgroundSubagentTool('child-unknown')], false)
 
     fireEvent.click(await screen.findByRole('button', { name: /1 background task$/ }))
 
-    expect(screen.getByText('running')).toBeInTheDocument()
+    expect(screen.getByText('checking')).toBeInTheDocument()
+    expect(screen.queryByText('running')).not.toBeInTheDocument()
     expect(screen.queryByText('completed')).not.toBeInTheDocument()
   })
 
@@ -369,7 +389,7 @@ describe('BackgroundWorkBar', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /1 background task$/ }))
 
-    expect(screen.getByText('running')).toBeInTheDocument()
+    expect(screen.getByText('checking')).toBeInTheDocument()
     expect(screen.queryByText('unavailable')).not.toBeInTheDocument()
   })
 

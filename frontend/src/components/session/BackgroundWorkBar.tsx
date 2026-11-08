@@ -23,6 +23,7 @@ import {
   type BackgroundTaskLifecycle,
   type ShellRecord,
 } from '@/lib/backgroundWork'
+import { t, tn } from '@/i18n/translate'
 
 const SHELL_OUTPUT_LIMIT = 50_000
 const SHELL_OUTPUT_POLL_INTERVAL_MS = 1000
@@ -117,8 +118,8 @@ function ShellOutputView({ shell, directory, running }: { shell: ShellRecord; di
   return (
     <div className="max-h-[60vh] overflow-auto rounded bg-accent p-2">
       <pre className="whitespace-pre-wrap break-all text-xs">
-        {truncated && <span className="text-muted-foreground">[earlier output omitted]{'\n'}</span>}
-        {output || <span className="text-muted-foreground">{running ? 'Waiting for output…' : 'No output'}</span>}
+        {truncated && <span className="text-muted-foreground">{t('[earlier output omitted]')}{'\n'}</span>}
+        {output || <span className="text-muted-foreground">{running ? t('Waiting for output…') : t('No output')}</span>}
       </pre>
       <div ref={bottomRef} />
     </div>
@@ -157,7 +158,7 @@ function BackgroundTaskRow({
       </span>
       {task.kind === 'shell' && task.shell && (
         <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => onView(task.shell!)}>
-          Output
+          {t('Output')}
         </Button>
       )}
       {task.kind === 'shell' && task.status === 'running' && task.shell && (
@@ -167,10 +168,10 @@ function BackgroundTaskRow({
           className="h-6 gap-1 px-2 text-xs text-destructive hover:text-destructive"
           disabled={killShell.isPending && killShell.variables === task.shell.id}
           onClick={() => killShell.mutate(task.shell!.id)}
-          aria-label={`Kill ${task.label}`}
+          aria-label={t('Kill {name}', { name: task.label })}
         >
           <Square className="h-3 w-3" />
-          Kill
+          {t('Kill')}
         </Button>
       )}
       {task.kind === 'subagent' && task.childSessionID && onChildSessionClick && (
@@ -179,10 +180,10 @@ function BackgroundTaskRow({
           size="sm"
           className="h-6 gap-1 px-2 text-xs"
           onClick={() => onChildSessionClick(task.childSessionID!)}
-          aria-label={`View ${task.label}`}
+          aria-label={t('View {name}', { name: task.label })}
         >
           <ExternalLink className="h-3 w-3" />
-          View
+          {t('View')}
         </Button>
       )}
     </li>
@@ -249,10 +250,10 @@ export function BackgroundWorkBar({ sessionID, directory, messages, isSessionAct
             className="h-7 gap-1 text-xs"
             disabled={backgroundSession.isPending}
             onClick={() => backgroundSession.mutate(sessionID)}
-            title="Let running shell commands and subagents continue in the background"
+            title={t('Let running shell commands and subagents continue in the background')}
           >
             {backgroundSession.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <MoveDownRight className="h-3 w-3" />}
-            Move to background
+            {t('Move to background')}
           </Button>
         )}
         {tasks.length > 0 && (
@@ -265,7 +266,7 @@ export function BackgroundWorkBar({ sessionID, directory, messages, isSessionAct
             {hasRunningTask
               ? <Loader2 className="h-3 w-3 animate-spin text-warning" />
               : <Check className="h-3 w-3 text-success" />}
-            {tasks.length} background task{tasks.length === 1 ? '' : 's'}
+            {tn('{count} background task', '{count} background tasks', tasks.length)}
             {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
         )}
@@ -290,7 +291,7 @@ export function BackgroundWorkBar({ sessionID, directory, messages, isSessionAct
           <DialogHeader>
             <DialogTitle className="truncate font-mono text-sm">{viewingShell?.command ?? viewing?.command}</DialogTitle>
             <DialogDescription>
-              {viewingRunning ? 'Running in the background' : liveViewingShell === undefined ? 'Status unavailable' : 'Finished'}
+              {viewingRunning ? t('Running in the background') : liveViewingShell === undefined ? t('Status unavailable') : t('Finished')}
             </DialogDescription>
           </DialogHeader>
           {viewingShell && <ShellOutputView key={viewingShell.id} shell={viewingShell} directory={directory} running={viewingRunning} />}

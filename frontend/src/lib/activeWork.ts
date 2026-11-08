@@ -7,6 +7,7 @@ import { getServerSessionPath, getSessionPath } from '@/lib/navigation'
 import { getRepoBranchLabel } from '@/lib/utils'
 import { findRepoForDirectory, normalizeDirectory } from '@/components/navigation/sidebar-session-tree'
 import { isWorktreeSibling, type RepoSibling } from '@opencode-manager/shared/utils'
+import { msg, t, tn } from '@/i18n/translate'
 
 /**
  * The plain directory of a session-status directory value when it belongs to the local server,
@@ -26,16 +27,15 @@ export const MS_PER_MINUTE = 60_000
  */
 export function formatActivityWindow(minutes: number): string {
   if (minutes % 60 === 0) {
-    const hours = minutes / 60
-    return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
+    return tn('{count} hour', '{count} hours', minutes / 60)
   }
 
-  return `${minutes} minutes`
+  return tn('{count} minute', '{count} minutes', minutes)
 }
 
 /** Empty-state copy for the activity list naming the window it searched. */
 export function formatActivityEmptyMessage(minutes: number): string {
-  return `No active or recent sessions in the last ${formatActivityWindow(minutes)}`
+  return t('No active or recent sessions in the last {window}', { window: formatActivityWindow(minutes) })
 }
 
 export type ActiveWorkState = 'needs-input' | 'running' | 'recent'
@@ -64,9 +64,9 @@ export interface ActiveWorkGroups {
 }
 
 export const ACTIVE_WORK_GROUPS = [
-  { key: 'needsInput', heading: 'Needs input' },
-  { key: 'running', heading: 'Running' },
-  { key: 'recent', heading: 'Recent' },
+  { key: 'needsInput', heading: msg('Needs input') },
+  { key: 'running', heading: msg('Running') },
+  { key: 'recent', heading: msg('Recent') },
 ] as const satisfies ReadonlyArray<{ key: keyof ActiveWorkGroups; heading: string }>
 
 export function rootSessionID(

@@ -2,6 +2,7 @@ import { unwrapSandboxExecCommand } from '@opencode-manager/shared/utils'
 import type { SessionMessageAssistantTool, SessionMessageInfo } from '@opencode-manager/shared/opencode'
 import type { ShellInfo } from '@/api/opencode'
 import type { SessionStatusType } from '@/stores/sessionStatusStore'
+import { msg, t } from '@/i18n/translate'
 
 export const BACKGROUNDABLE_TOOLS = new Set(['shell', 'subagent'])
 
@@ -155,8 +156,19 @@ export function backgroundTaskStatusColor(status: BackgroundTaskLifecycle): stri
   return 'text-warning'
 }
 
+const LIFECYCLE_LABELS: Record<BackgroundTaskLifecycle, string> = {
+  running: msg('running'),
+  completed: msg('completed'),
+  failed: msg('failed'),
+  killed: msg('killed'),
+  interrupted: msg('interrupted'),
+  unavailable: msg('unavailable'),
+  unknown: msg('checking'),
+}
+
+/** Localized status word for a background task; an unconfirmed status reads as checking rather than running. */
 export function lifecycleLabel(status: BackgroundTaskLifecycle): string {
-  return status === 'unknown' ? 'running' : status
+  return t(LIFECYCLE_LABELS[status])
 }
 
 function applyShellExitRecord(shell: ShellRecord, record: ShellExitRecord): ShellRecord {
@@ -289,9 +301,9 @@ function shellNoticeFromMessage(message: SessionMessageInfo): { shellID: string;
 }
 
 function shellLabel(part: SessionMessageAssistantTool): string {
-  if (part.state.status === 'streaming') return 'Shell command'
+  if (part.state.status === 'streaming') return t('Shell command')
   const command = part.state.input.command
-  if (typeof command !== 'string' || !command) return 'Shell command'
+  if (typeof command !== 'string' || !command) return t('Shell command')
   return unwrapSandboxExecCommand(command)
 }
 
@@ -300,7 +312,7 @@ function subagentLabel(part: SessionMessageAssistantTool): string {
     const description = part.state.input.description
     if (typeof description === 'string' && description) return description
   }
-  return 'Sub-agent task'
+  return t('Sub-agent task')
 }
 
 export function collectBackgroundParts(messages: SessionMessageInfo[]): CollectedBackgroundParts {

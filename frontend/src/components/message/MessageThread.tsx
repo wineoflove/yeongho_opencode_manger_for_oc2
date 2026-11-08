@@ -31,6 +31,8 @@ import { ExplorationGroup } from './ExplorationGroup'
 import { ShellPreview, ToolDetails, useToolDetailsState } from './ToolDetails'
 import { cn, formatDuration } from '@/lib/utils'
 import { getAgentStyleVars } from '@/lib/agent-colors'
+import { t, msg } from '@/i18n/translate'
+import { intlLocale } from '@/i18n/format'
 
 function getMessageText(message: SessionMessageInfo): string {
   switch (message.type) {
@@ -49,23 +51,15 @@ function getMessageText(message: SessionMessageInfo): string {
   }
 }
 
-function isSubagentTool(
-  part: SessionMessageAssistant['content'][number],
-): part is SessionMessageAssistantTool {
+function isSubagentTool(part: SessionMessageAssistant['content'][number]): part is SessionMessageAssistantTool {
   return part.type === 'tool' && part.name === 'subagent'
 }
 
-function isArtifactTool(
-  part: SessionMessageAssistant['content'][number],
-): part is SessionMessageAssistantTool {
+function isArtifactTool(part: SessionMessageAssistant['content'][number]): part is SessionMessageAssistantTool {
   return part.type === 'tool' && readShowArtifactCall(part) !== undefined
 }
 
-function hasRenderableContent(
-  message: SessionMessageInfo,
-  simpleChatMode: boolean,
-  showReasoning: boolean,
-): boolean {
+function hasRenderableContent(message: SessionMessageInfo, simpleChatMode: boolean, showReasoning: boolean): boolean {
   switch (message.type) {
     case 'user':
       return message.text.trim().length > 0 || (message.files?.length ?? 0) > 0
@@ -114,7 +108,7 @@ function attachmentLabel(attachment: PromptFileAttachment): string {
     const segments = attachment.source.uri.split('/')
     return segments[segments.length - 1] || attachment.source.uri
   }
-  return 'File'
+  return t('File')
 }
 
 interface UserAttachmentsProps {
@@ -123,7 +117,11 @@ interface UserAttachmentsProps {
   skills?: PromptSkillAttachment[]
 }
 
-function UserAttachments({ files: attachedFiles, agents: attachedAgents, skills: attachedSkills }: UserAttachmentsProps) {
+function UserAttachments({
+  files: attachedFiles,
+  agents: attachedAgents,
+  skills: attachedSkills,
+}: UserAttachmentsProps) {
   const files = attachedFiles ?? []
   const agents = attachedAgents ?? []
   const skills = attachedSkills ?? []
@@ -155,7 +153,7 @@ function UserAttachments({ files: attachedFiles, agents: attachedAgents, skills:
           key={`agent-${index}`}
           className="inline-flex items-center px-2 py-1 rounded bg-primary/10 border border-primary/30 text-xs text-primary"
         >
-          agent: {agent.name}
+          {t('agent: {name}', { name: agent.name })}
         </span>
       ))}
       {skills.map((skill, index) => (
@@ -163,7 +161,7 @@ function UserAttachments({ files: attachedFiles, agents: attachedAgents, skills:
           key={`skill-${index}`}
           className="inline-flex items-center px-2 py-1 rounded bg-info/10 border border-info/30 text-xs text-info"
         >
-          skill: {skill.name}
+          {t('skill: {name}', { name: skill.name })}
         </span>
       ))}
     </div>
@@ -196,21 +194,36 @@ function noticeMetadataString(message: SessionNoticeMessage, key: string): strin
   return typeof value === 'string' ? value : undefined
 }
 
+/** OpenCode's instruction-update notice, localized and naming the instruction sources it recorded. */
+function instructionsNotice(message: SessionNoticeMessage): string {
+  const recorded = message.metadata?.instructionSources
+  const sources = Array.isArray(recorded) ? recorded.filter((value): value is string => typeof value === 'string') : []
+  return sources.length > 0 ? t('Instructions updated: {sources}', { sources: sources.join(', ') }) : t('Instructions updated')
+}
+
 function sessionNoticeContent(message: SessionNoticeMessage): SessionNoticeContent {
   const source = noticeMetadataString(message, 'source')
-  const text = message.type === 'system'
-    ? message.description ?? 'Instructions updated'
-    : message.description ?? (source === 'shell' || source === 'subagent' ? '' : message.text)
+  const text =
+    message.type === 'system'
+      ? instructionsNotice(message)
+      : (message.description ?? (source === 'shell' || source === 'subagent' ? '' : message.text))
   if (source !== 'shell' && source !== 'subagent') return { text }
 
   const state = noticeMetadataString(message, 'state')
   const agent = noticeMetadataString(message, 'agent')
-  const actor = source === 'shell' ? 'Shell' : agent ? agent.charAt(0).toUpperCase() + agent.slice(1) : 'Subagent'
-  const status = state === 'error' ? 'failed' : state === 'completed' || state === undefined ? 'finished' : state
+  const actor = source === 'shell' ? t('Shell') : agent ? agent.charAt(0).toUpperCase() + agent.slice(1) : t('Subagent')
+  const outcome =
+    state === 'error'
+      ? t('{actor} failed', { actor })
+      : state === 'completed' || state === undefined
+        ? t('{actor} finished', { actor })
+        : state === 'cancelled'
+          ? t('{actor} cancelled', { actor })
+          : `${actor} ${state}`
   return {
     text: source === 'shell' ? text.replace(/\s+/g, ' ').trim() : text,
     completion: {
-      heading: `${state === 'completed' ? '↳' : '!'} ${actor} ${status}`,
+      heading: `${state === 'completed' ? '↳' : '!'} ${outcome}`,
       state,
       childID: source === 'subagent' ? noticeMetadataString(message, 'childID') : undefined,
     },
@@ -230,11 +243,8 @@ function SessionNotice({
     return <div className="my-2 px-3 py-1 text-xs text-muted-foreground truncate">◈ {text}</div>
   }
 
-  const tone = completion.state === 'error'
-    ? 'text-destructive'
-    : completion.state === 'cancelled'
-      ? 'text-warning'
-      : 'text-info'
+  const tone =
+    completion.state === 'error' ? 'text-destructive' : completion.state === 'cancelled' ? 'text-warning' : 'text-info'
   const content = (
     <>
       <span className={tone}>{completion.heading}</span>
@@ -256,17 +266,27 @@ function SessionNotice({
     )
   }
 
-  return <div aria-live="polite" className="my-2 px-3 py-1 text-xs truncate">{content}</div>
+  return (
+    <div aria-live="polite" className="my-2 px-3 py-1 text-xs truncate">
+      {content}
+    </div>
+  )
+}
+
+const SHELL_STATUS_LABELS: Record<SessionMessageShell['status'], string> = {
+  running: msg('running'),
+  exited: msg('exited'),
+  timeout: msg('timed out'),
+  killed: msg('killed'),
 }
 
 function ShellMessage({ message }: { message: SessionMessageShell }) {
   const [detailsOpen, setDetailsOpen] = useToolDetailsState(false)
   const output = message.output?.output ?? ''
-  const statusLabel = message.status === 'running'
-    ? 'running'
-    : message.exit === undefined
-      ? message.status
-      : `${message.status} (exit ${message.exit})`
+  const statusLabel =
+    message.status === 'running' || message.exit === undefined
+      ? t(SHELL_STATUS_LABELS[message.status])
+      : t('{status} (exit {code})', { status: t(SHELL_STATUS_LABELS[message.status]), code: String(message.exit) })
 
   return (
     <>
@@ -277,14 +297,10 @@ function ShellMessage({ message }: { message: SessionMessageShell }) {
         status={<span className="ml-auto shrink-0 text-xs text-muted-foreground">{statusLabel}</span>}
       />
       {output && (
-        <ToolDetails
-          open={detailsOpen}
-          onOpenChange={setDetailsOpen}
-          title={`$ ${message.command}`}
-        >
+        <ToolDetails open={detailsOpen} onOpenChange={setDetailsOpen} title={`$ ${message.command}`}>
           <div className="relative">
             <pre className="bg-accent p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap">{output}</pre>
-            <CopyButton content={output} title="Copy output" className="absolute top-1 right-1" iconSize="sm" />
+            <CopyButton content={output} title={t('Copy output')} className="absolute top-1 right-1" iconSize="sm" />
           </div>
         </ToolDetails>
       )}
@@ -297,7 +313,7 @@ function CompactionBanner({ message }: { message: SessionMessageCompaction }) {
     return (
       <div className="flex items-center gap-2 my-2 text-xs text-muted-foreground">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        <span>Compacting session...</span>
+        <span>{t('Compacting session...')}</span>
       </div>
     )
   }
@@ -305,18 +321,16 @@ function CompactionBanner({ message }: { message: SessionMessageCompaction }) {
   if (message.status === 'failed') {
     return (
       <div className="my-2 border-l-2 border-destructive pl-2 text-xs text-destructive">
-        ✗ Compaction failed: {message.error.message}
+        {t('✗ Compaction failed: {error}', { error: message.error.message })}
       </div>
     )
   }
 
   return (
     <>
-      <MessageDivider label="Session compacted" />
+      <MessageDivider label={t('Session compacted')} />
       {message.summary && (
-        <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-wrap text-center">
-          {message.summary}
-        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-wrap text-center">{message.summary}</p>
       )}
     </>
   )
@@ -327,15 +341,11 @@ function QueuedPromptRow({ item }: { item: SessionInboxUser }) {
     <div className="py-2">
       <div className="border-l-[3px] border-dashed border-muted-foreground bg-muted/60 px-4 py-3 text-muted-foreground">
         <ClickableUserMessage content={item.payload.text} onClick={() => {}} isEditable={false} />
-        <UserAttachments
-          files={item.payload.files}
-          agents={item.payload.agents}
-          skills={item.payload.skills}
-        />
+        <UserAttachments files={item.payload.files} agents={item.payload.agents} skills={item.payload.skills} />
         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{new Date(item.time.created).toLocaleTimeString()}</span>
+          <span>{new Date(item.time.created).toLocaleTimeString(intlLocale())}</span>
           <span className="font-mono text-[11px] font-semibold tracking-wider text-warning">
-            {item.delivery === 'queue' ? 'QUEUED' : 'STEERING'}
+            {item.delivery === 'queue' ? t('QUEUED') : t('STEERING')}
           </span>
         </div>
       </div>
@@ -400,15 +410,9 @@ const MessageRow = memo(function MessageRow({
     if (!hasRenderableContent(message, simpleChatMode, showReasoning)) return null
 
     return (
-      <div
-        className="group py-2"
-        data-message-id={message.id}
-      >
+      <div className="group py-2" data-message-id={message.id}>
         <div
-          className={cn(
-            'border-l-[3px] bg-muted px-4 py-3',
-            isEditingThisMessage ? 'border-info' : 'border-primary',
-          )}
+          className={cn('border-l-[3px] bg-muted px-4 py-3', isEditingThisMessage ? 'border-info' : 'border-primary')}
         >
           <div className="text-foreground">
             {isEditingThisMessage && nextAssistantMessageId ? (
@@ -421,11 +425,7 @@ const MessageRow = memo(function MessageRow({
                 model={model}
               />
             ) : simpleChatMode ? (
-              <ClickableUserMessage
-                content={messageTextContent}
-                onClick={() => {}}
-                isEditable={false}
-              />
+              <ClickableUserMessage content={messageTextContent} onClick={() => {}} isEditable={false} />
             ) : (
               <ClickableUserMessage
                 content={messageTextContent}
@@ -435,21 +435,17 @@ const MessageRow = memo(function MessageRow({
             )}
           </div>
 
-          <UserAttachments
-            files={message.files}
-            agents={message.agents}
-            skills={message.skills}
-          />
+          <UserAttachments files={message.files} agents={message.agents} skills={message.skills} />
 
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{new Date(message.time.created).toLocaleTimeString()}</span>
-            {((canEditUserMessage && nextAssistantMessageId) || canUndoUserMessage) ? (
+            <span>{new Date(message.time.created).toLocaleTimeString(intlLocale())}</span>
+            {(canEditUserMessage && nextAssistantMessageId) || canUndoUserMessage ? (
               <span className="flex items-center gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
                 {canEditUserMessage && nextAssistantMessageId && (
                   <button
                     onClick={() => handleStartEditUserMessage(message.id, nextAssistantMessageId)}
                     className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                    title="Edit message"
+                    title={t('Edit message')}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -504,25 +500,26 @@ const MessageRow = memo(function MessageRow({
       )
     }
 
-    const contentItems: AssistantContentItem[] = groupToolCalls && !simpleChatMode
-      ? groupExplorationParts(message.content, showReasoning)
-      : message.content.map((part) => ({ type: 'part', part }))
+    const contentItems: AssistantContentItem[] =
+      groupToolCalls && !simpleChatMode
+        ? groupExplorationParts(message.content, showReasoning)
+        : message.content.map((part) => ({ type: 'part', part }))
     const isFree = (message.cost ?? 0) === 0
     const totalTokens = message.tokens
       ? message.tokens.input + message.tokens.output + message.tokens.reasoning + message.tokens.cache.read
       : 0
 
     return (
-      <div
-        className="group py-2"
-        data-message-id={message.id}
-      >
+      <div className="group py-2" data-message-id={message.id}>
         <div className="space-y-2">
           {contentItems.map((item, itemIndex) => (
-            <div key={`${message.id}-${item.type === 'exploration' ? `exploration-${item.parts[0].id}` : `${item.part.type}-${itemIndex}`}`}>
+            <div
+              key={`${message.id}-${item.type === 'exploration' ? `exploration-${item.parts[0].id}` : `${item.part.type}-${itemIndex}`}`}
+            >
               {item.type === 'exploration' ? (
                 <ExplorationGroup
                   parts={item.parts}
+                  shellOutcomeFor={shellOutcomeFor}
                   messageID={message.id}
                   directory={directory}
                   repoFullPath={repoFullPath}
@@ -547,11 +544,7 @@ const MessageRow = memo(function MessageRow({
             </div>
           ))}
           {!simpleChatMode && message.snapshot?.files && (
-            <StepFileChanges
-              files={message.snapshot.files}
-              snapshot={message.snapshot.end}
-              onFileClick={onFileClick}
-            />
+            <StepFileChanges files={message.snapshot.files} snapshot={message.snapshot.end} onFileClick={onFileClick} />
           )}
           {message.retry && <RetryPart retry={message.retry} />}
           {message.error && <MessageError error={message.error} />}
@@ -575,17 +568,19 @@ const MessageRow = memo(function MessageRow({
           ) : streaming ? (
             <>
               <span aria-hidden="true">·</span>
-              <span className="animate-pulse-subtle text-info">streaming</span>
+              <span className="animate-pulse-subtle text-info">{t('streaming')}</span>
             </>
           ) : null}
-          {!(isFree) && (
+          {!isFree && (
             <>
               <span aria-hidden="true">·</span>
-              <span>${(message.cost ?? 0).toFixed(4)} • {totalTokens} tokens</span>
+              <span>
+                ${(message.cost ?? 0).toFixed(4)} • {t('{tokens} tokens', { tokens: totalTokens })}
+              </span>
             </>
           )}
           <span className="flex items-center gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
-            <CopyButton content={messageTextContent} title="Copy message" />
+            <CopyButton content={messageTextContent} title={t('Copy message')} />
             {messageTextContent && <TTSButton messageId={message.id} content={messageTextContent} />}
           </span>
         </div>
@@ -602,21 +597,33 @@ const MessageRow = memo(function MessageRow({
   }
 
   if (message.type === 'agent-switched') {
-    return <MessageDivider label={`Agent: ${message.agent}`} />
+    return <MessageDivider label={t('Agent: {agent}', { agent: message.agent })} />
   }
 
   if (message.type === 'model-switched') {
-    return <MessageDivider label={`Model: ${formatOpenCodeModelRef(message.model)}`} />
+    return (
+      <MessageDivider
+        label={t('Model: {model}', {
+          model: formatOpenCodeModelRef(message.model),
+        })}
+      />
+    )
   }
 
   if (message.type === 'location-switched') {
-    return <MessageDivider label={`Location: ${message.location.directory}`} />
+    return (
+      <MessageDivider
+        label={t('Location: {directory}', {
+          directory: message.location.directory,
+        })}
+      />
+    )
   }
 
   if (message.type === 'skill') {
     return (
       <div className="my-2 text-xs text-muted-foreground">
-        ◈ Skill loaded: <span className="font-medium text-foreground">{message.name}</span>
+        {t('◈ Skill loaded:')} <span className="font-medium text-foreground">{message.name}</span>
       </div>
     )
   }
@@ -670,7 +677,12 @@ export const MessageThread = memo(function MessageThread({
     [messages],
   )
   const shellOutcomes = useMemo(
-    () => new Map(shellOutcomesKey ? shellOutcomesKey.split(',').map((entry) => entry.split('=') as [string, ShellNoticeOutcome]) : []),
+    () =>
+      new Map(
+        shellOutcomesKey
+          ? shellOutcomesKey.split(',').map((entry) => entry.split('=') as [string, ShellNoticeOutcome])
+          : [],
+      ),
     [shellOutcomesKey],
   )
 
@@ -698,7 +710,7 @@ export const MessageThread = memo(function MessageThread({
   if (messages.length === 0 && pending.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        No messages yet. Start a conversation below.
+        {t('No messages yet. Start a conversation below.')}
       </div>
     )
   }
@@ -730,11 +742,7 @@ export const MessageThread = memo(function MessageThread({
           shellOutcomes={shellOutcomes}
         />
       ))}
-      {pending.map((item) => (
-        item.type === 'user'
-          ? <QueuedPromptRow key={item.id} item={item} />
-          : null
-      ))}
+      {pending.map((item) => (item.type === 'user' ? <QueuedPromptRow key={item.id} item={item} /> : null))}
     </div>
   )
 })

@@ -18,6 +18,8 @@ interface UseAutoScrollOptions {
 interface UseAutoScrollReturn {
   scrollToBottom: () => void
   scrollByUser: (delta: number) => void
+  /** Stops following the bottom and cancels queued bottom scrolls, as an upward user scroll does. */
+  disengage: () => void
 }
 
 export function useAutoScroll({
@@ -252,5 +254,5 @@ export function useAutoScroll({
     scrollToBottom()
   }, [messages, container, isContentReady, scrollToBottom, contentVersion])
 
-  return { scrollToBottom, scrollByUser }
+  return { scrollToBottom, scrollByUser, disengage: markDisengaged }
 }

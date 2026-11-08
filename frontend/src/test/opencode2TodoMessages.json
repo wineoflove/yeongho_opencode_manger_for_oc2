@@ -1,0 +1,215 @@
+[
+  {
+    "id": "msg_1b696cb250015VrP40Ba1bRxi6",
+    "time": {
+      "created": 1794064698354
+    },
+    "text": "plan and track the work",
+    "type": "user"
+  },
+  {
+    "id": "msg_1b696cbf9001LO2pigwmgS4uLl",
+    "time": {
+      "created": 1794064698362,
+      "streamed": 1794064698368,
+      "completed": 1794064698372
+    },
+    "type": "assistant",
+    "agent": "build",
+    "model": {
+      "id": "fixture",
+      "providerID": "mock",
+      "variant": "default"
+    },
+    "content": [
+      {
+        "type": "tool",
+        "id": "call_1",
+        "name": "todowrite",
+        "executed": false,
+        "state": {
+          "status": "completed",
+          "input": {
+            "todos": [
+              {
+                "content": "Read the failing test",
+                "status": "completed"
+              },
+              {
+                "content": "Fix the parser",
+                "status": "in_progress"
+              },
+              {
+                "content": "Run the suite",
+                "status": "pending"
+              }
+            ]
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Todos updated: 1/3 completed, 1 in progress, 1 pending. In progress: \"Fix the parser\""
+            }
+          ],
+          "metadata": {
+            "todos": [
+              {
+                "content": "Read the failing test",
+                "status": "completed"
+              },
+              {
+                "content": "Fix the parser",
+                "status": "in_progress"
+              },
+              {
+                "content": "Run the suite",
+                "status": "pending"
+              }
+            ],
+            "truncated": false
+          }
+        },
+        "time": {
+          "created": 1794064698366,
+          "ran": 1794064698368,
+          "completed": 1794064698371
+        }
+      }
+    ],
+    "finish": "tool-calls",
+    "rawFinish": "tool_calls",
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    }
+  },
+  {
+    "id": "msg_1b696cc06001czTtINZUdAVmcO",
+    "time": {
+      "created": 1794064698375,
+      "streamed": 1794064698379,
+      "completed": 1794064698381
+    },
+    "type": "assistant",
+    "agent": "build",
+    "model": {
+      "id": "fixture",
+      "providerID": "mock",
+      "variant": "default"
+    },
+    "content": [
+      {
+        "type": "tool",
+        "id": "call_2",
+        "name": "todowrite",
+        "executed": false,
+        "state": {
+          "status": "completed",
+          "input": {
+            "todos": [
+              {
+                "content": "Read the failing test",
+                "status": "completed"
+              },
+              {
+                "content": "Fix the parser",
+                "status": "completed"
+              },
+              {
+                "content": "Run the suite",
+                "status": "in_progress"
+              },
+              {
+                "content": "Drop the workaround",
+                "status": "cancelled"
+              }
+            ]
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Todos updated: 2/4 completed, 1 in progress, 1 cancelled. In progress: \"Run the suite\""
+            }
+          ],
+          "metadata": {
+            "todos": [
+              {
+                "content": "Read the failing test",
+                "status": "completed"
+              },
+              {
+                "content": "Fix the parser",
+                "status": "completed"
+              },
+              {
+                "content": "Run the suite",
+                "status": "in_progress"
+              },
+              {
+                "content": "Drop the workaround",
+                "status": "cancelled"
+              }
+            ],
+            "truncated": false
+          }
+        },
+        "time": {
+          "created": 1794064698378,
+          "ran": 1794064698379,
+          "completed": 1794064698380
+        }
+      }
+    ],
+    "finish": "tool-calls",
+    "rawFinish": "tool_calls",
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    }
+  },
+  {
+    "id": "msg_1b696cc0f001R32usDK3I3brIR",
+    "time": {
+      "created": 1794064698384,
+      "streamed": 1794064698388,
+      "completed": 1794064698388
+    },
+    "type": "assistant",
+    "agent": "build",
+    "model": {
+      "id": "fixture",
+      "providerID": "mock",
+      "variant": "default"
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "Done."
+      }
+    ],
+    "finish": "stop",
+    "rawFinish": "stop",
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    }
+  }
+]

@@ -521,6 +521,7 @@ describe('applySessionEvent', () => {
         type: 'system',
         text: 'Instructions changed.',
         description: 'Instructions updated: AGENTS.md',
+        metadata: { instructionSources: ['AGENTS.md'] },
         time: { created: 11000 },
       },
     ])

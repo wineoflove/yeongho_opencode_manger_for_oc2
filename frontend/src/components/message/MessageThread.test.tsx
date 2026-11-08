@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { MessageThread } from './MessageThread'
 import { useUIState } from '@/stores/uiStateStore'
+import { getLocale, setLocale } from '@/i18n/locale'
 import { applySessionEvent, emptySessionTranscript } from '@/lib/session-projection'
 import {
   SESSION_ID,
@@ -158,7 +159,7 @@ describe('MessageThread', () => {
     useUIState.getState().setIsEditingMessage(false)
   })
 
-  it('collapses consecutive exploration tools into one expandable summary', () => {
+  it('collapses consecutive exploration and command tools into one expandable summary', () => {
     setupSettings({ simpleChatMode: false, showReasoning: false })
     const messages = [
       assistantMessage('1', [readTool('r1', '/repo/a.ts'), readTool('r2', '/repo/b.ts'), shellTool('pnpm test')]),
@@ -166,15 +167,26 @@ describe('MessageThread', () => {
 
     render(<MessageThread sessionID="test-session" messages={messages} pending={[]} />)
 
-    const summary = screen.getByRole('button', { name: /Explored: 2 reads/ })
+    const summary = screen.getByRole('button', { name: /Worked: 2 reads, 1 command/ })
     expect(screen.queryByText('/repo/a.ts')).not.toBeInTheDocument()
-    expect(screen.getByText('pnpm test')).toBeInTheDocument()
+    expect(screen.queryByText('pnpm test')).not.toBeInTheDocument()
 
     fireEvent.click(summary)
 
     expect(summary).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('/repo/a.ts')).toBeInTheDocument()
     expect(screen.getByText('/repo/b.ts')).toBeInTheDocument()
+    expect(screen.getByText('pnpm test')).toBeInTheDocument()
+  })
+
+  it('keeps a lone command inline outside any group', () => {
+    setupSettings({ simpleChatMode: false, showReasoning: false })
+    render(
+      <MessageThread sessionID="test-session" messages={[assistantMessage('1', [shellTool('pnpm lint')])]} pending={[]} />,
+    )
+
+    expect(screen.getByText('pnpm lint')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Worked|Explored/ })).not.toBeInTheDocument()
   })
 
   it('renders exploration tools individually when grouping is disabled', () => {
@@ -197,6 +209,7 @@ describe('MessageThread', () => {
         type: 'system',
         text: 'agents body',
         description: 'Instructions updated: AGENTS.md',
+        metadata: { notice: 'instructions', instructionSources: ['AGENTS.md'] },
         time: { created: Date.now() },
       },
     ]
@@ -207,6 +220,39 @@ describe('MessageThread', () => {
     expect(screen.getByText(/Instructions updated: AGENTS\.md/)).toBeInTheDocument()
     expect(screen.queryByText(/full instruction body/)).not.toBeInTheDocument()
     expect(screen.queryByText(/agents body/)).not.toBeInTheDocument()
+  })
+
+  it('localizes instruction update notices and names the recorded instruction sources', () => {
+    setupSettings({ simpleChatMode: false, showReasoning: false })
+    const previous = getLocale()
+    setLocale('ko')
+    try {
+      const messages: SessionMessageInfo[] = [
+        {
+          id: 'sys-1',
+          type: 'system',
+          text: 'code mode body',
+          description: 'Instructions updated: core/codemode, core/mcp-guidance',
+          metadata: { notice: 'instructions', instructionSources: ['core/codemode', 'core/mcp-guidance'] },
+          time: { created: Date.now() },
+        },
+        {
+          id: 'sys-2',
+          type: 'system',
+          text: 'agents body',
+          description: 'Instructions updated: AGENTS.md',
+          time: { created: Date.now() },
+        },
+      ]
+
+      render(<MessageThread sessionID="test-session" messages={messages} pending={[]} />)
+
+      expect(screen.getByText(/지침이 업데이트됨: core\/codemode, core\/mcp-guidance/)).toBeInTheDocument()
+      expect(screen.getByText(/지침이 업데이트됨$/)).toBeInTheDocument()
+      expect(screen.queryByText(/Instructions updated/)).not.toBeInTheDocument()
+    } finally {
+      setLocale(previous)
+    }
   })
 
   it('renders background completion notices as status lines instead of raw payloads', () => {
@@ -248,6 +294,49 @@ describe('MessageThread', () => {
 
     fireEvent.click(screen.getByText('↳ Explore finished'))
     expect(onChildSessionClick).toHaveBeenCalledWith('child-1')
+  })
+
+  it('localizes background completion notices', () => {
+    setupSettings({ simpleChatMode: false, showReasoning: false })
+    const previous = getLocale()
+    setLocale('ko')
+    try {
+      const messages: SessionMessageInfo[] = [
+        {
+          id: 'syn-shell',
+          type: 'synthetic',
+          text: '<shell id="job-1" state="error" command="pnpm test">\nboom\n</shell>',
+          description: 'pnpm test',
+          metadata: { source: 'shell', state: 'error' },
+          time: { created: Date.now() },
+        },
+        {
+          id: 'syn-subagent',
+          type: 'synthetic',
+          text: '<subagent sessionID="child-1" state="completed" description="Explore">\ndone\n</subagent>',
+          description: 'Explore',
+          metadata: { source: 'subagent', state: 'completed', childID: 'child-1', agent: 'explore' },
+          time: { created: Date.now() },
+        },
+        {
+          id: 'syn-cancelled',
+          type: 'synthetic',
+          text: '<subagent sessionID="child-2" state="cancelled" description="Review">\nstopped\n</subagent>',
+          description: 'Review',
+          metadata: { source: 'subagent', state: 'cancelled', childID: 'child-2' },
+          time: { created: Date.now() },
+        },
+      ]
+
+      render(<MessageThread sessionID="test-session" messages={messages} pending={[]} />)
+
+      expect(screen.getByText('! 셸 실패')).toBeInTheDocument()
+      expect(screen.getByText('↳ Explore 완료')).toBeInTheDocument()
+      expect(screen.getByText(/취소됨$/)).toBeInTheDocument()
+      expect(screen.queryByText(/finished|failed|cancelled/)).not.toBeInTheDocument()
+    } finally {
+      setLocale(previous)
+    }
   })
 
   it('resolves a background shell tool from its completion notice', () => {

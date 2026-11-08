@@ -1,3 +1,4 @@
+import { reconcileConfirmedPrompt } from '@/lib/sendErrorReconcile'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FetchError } from '@opencode-manager/shared'
@@ -25,6 +26,11 @@ interface NewestPageRead {
 
 const TRANSCRIPT_FALLBACK_POLL_INTERVAL_MS = 5000
 
+export interface FetchOlderOptions {
+  /** Called synchronously with the page's `olderPageCommit` just before an older page is prepended to the cache. */
+  onBeforePrepend?: (olderPageCommit: number) => void
+}
+
 export function useSessionTranscript(sessionID: string, directory: string) {
   const serverId = useOpenCodeServerId()
   const isRemoteServer = !isLocalOpenCodeServer(serverId)
@@ -36,7 +42,8 @@ export function useSessionTranscript(sessionID: string, directory: string) {
   const queuedEventsRef = useRef<V2Event[]>([])
   const frameRef = useRef<number | null>(null)
   const connectedRef = useRef<boolean | null>(null)
-  const fetchingOlderRef = useRef(false)
+  const fetchingOlderRef = useRef<object | null>(null)
+  const olderPageCommitRef = useRef(0)
   const newestReadRef = useRef<NewestPageRead | null>(null)
   const newestReadGenerationRef = useRef(0)
   const cursorGenerationRef = useRef(0)
@@ -80,6 +87,7 @@ export function useSessionTranscript(sessionID: string, directory: string) {
     }
     if (next.nextCursor !== current?.nextCursor) cursorGenerationRef.current += 1
     queryClient.setQueryData<TranscriptCache>(queryKey, next)
+    reconcileConfirmedPrompt(sessionID, next.transcript)
     return next
   }, [queryClient, queryKey, sessionID, serverId])
 
@@ -101,30 +109,38 @@ export function useSessionTranscript(sessionID: string, directory: string) {
       && failureCount < 3,
   })
 
-  const fetchOlder = useCallback(async () => {
-    const cursor = queryClient.getQueryData<TranscriptCache>(queryKey)?.nextCursor
-    if (!cursor || fetchingOlderRef.current) return
-    fetchingOlderRef.current = true
-    const generation = cursorGenerationRef.current
-    try {
-      const page = await listSessionMessages(sessionID, { cursor }, serverId)
-      if (cursorGenerationRef.current !== generation) return
-      queryClient.setQueryData<TranscriptCache>(queryKey, (current) => {
-        if (!current) return current
+  const fetchOlder = useCallback(
+    async ({ onBeforePrepend }: FetchOlderOptions = {}): Promise<boolean> => {
+      const cursor = queryClient.getQueryData<TranscriptCache>(queryKey)?.nextCursor
+      if (!cursor || fetchingOlderRef.current) return false
+      const token = {}
+      fetchingOlderRef.current = token
+      const generation = cursorGenerationRef.current
+      try {
+        const page = await listSessionMessages(sessionID, { cursor }, serverId)
+        if (fetchingOlderRef.current !== token || cursorGenerationRef.current !== generation) return false
+        const current = queryClient.getQueryData<TranscriptCache>(queryKey)
+        if (!current) return false
         const known = new Set(current.transcript.messages.map((message) => message.id))
         const older = page.messages.filter((message) => !known.has(message.id))
-        return {
-          transcript: {
-            ...current.transcript,
-            messages: [...older, ...current.transcript.messages],
-          },
-          nextCursor: page.nextCursor,
+        if (older.length === 0) {
+          queryClient.setQueryData<TranscriptCache>(queryKey, { ...current, nextCursor: page.nextCursor })
+          return false
         }
-      })
-    } finally {
-      fetchingOlderRef.current = false
-    }
-  }, [queryClient, queryKey, sessionID, serverId])
+        const olderPageCommit = (olderPageCommitRef.current += 1)
+        onBeforePrepend?.(olderPageCommit)
+        queryClient.setQueryData<TranscriptCache>(queryKey, {
+          transcript: { ...current.transcript, messages: [...older, ...current.transcript.messages] },
+          nextCursor: page.nextCursor,
+          olderPageCommit,
+        })
+        return true
+      } finally {
+        if (fetchingOlderRef.current === token) fetchingOlderRef.current = null
+      }
+    },
+    [queryClient, queryKey, sessionID, serverId],
+  )
 
   useEffect(() => {
     if (!sessionID || !directory) return
@@ -187,6 +203,7 @@ export function useSessionTranscript(sessionID: string, directory: string) {
       connectedRef.current = null
       queuedEventsRef.current = []
       newestReadRef.current = null
+      fetchingOlderRef.current = null
       subscription.dispose()
     }
   }, [directory, queryClient, queryKey, readNewestPage, sessionID, serverId])
@@ -198,5 +215,6 @@ export function useSessionTranscript(sessionID: string, directory: string) {
     isLoading: query.isPending,
     fetchOlder,
     hasOlder: Boolean(query.data?.nextCursor),
+    olderPageCommit: query.data?.olderPageCommit,
   }
 }
