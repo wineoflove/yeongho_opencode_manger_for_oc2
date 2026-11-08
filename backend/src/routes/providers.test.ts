@@ -52,7 +52,12 @@ function integrationFixture(overrides: Partial<IntegrationInfo> = {}): Integrati
 }
 
 function credentialConnection(id: string) {
-  return { type: 'credential' as const, id, label: 'Anthropic', method: 'key' as const }
+  return {
+    type: 'credential' as const,
+    id,
+    label: 'Anthropic',
+    method: 'key' as const,
+  }
 }
 
 function taggedError(tag: string, message: string): Error {
@@ -70,6 +75,291 @@ function createCredentialApp(client: OpenCodeClient): Hono {
   app.route('/providers', createProvidersRoutes(client))
   return app
 }
+
+describe('provider account summaries', () => {
+  it.each(['removed', 'unchanged', 'sibling-lost'] as const)(
+    'confirms only the selected account deletion: %s',
+    async (result) => {
+      const client = createStubOpenCodeClient()
+      const selected = {
+        id: 'selected',
+        integrationID: 'anthropic',
+        label: 'Selected',
+        active: false,
+        value: { type: 'key' as const, key: 'private-key' },
+      }
+      const sibling = { ...selected, id: 'sibling', active: true }
+      vi.mocked(client.api.credential.list)
+        .mockResolvedValueOnce([selected, sibling])
+        .mockResolvedValueOnce(result === 'removed' ? [sibling] : result === 'unchanged' ? [selected, sibling] : [])
+      const response = await createCredentialApp(client).request('/providers/anthropic/accounts/selected', {
+        method: 'DELETE',
+      })
+      expect(client.api.credential.remove).toHaveBeenCalledExactlyOnceWith({
+        credentialID: 'selected',
+      })
+      expect(client.api.credential.activate).not.toHaveBeenCalled()
+      expect(response.status).toBe(result === 'removed' ? 200 : 409)
+      expect(await response.json()).toEqual(
+        result === 'removed'
+          ? { success: true, deletedAccountId: 'selected' }
+          : {
+              error: 'Account deletion could not be confirmed',
+              code: 'ACCOUNT_DELETION_UNCONFIRMED',
+            },
+      )
+    },
+  )
+
+  it('does not delete an account belonging to another integration', async () => {
+    const client = createStubOpenCodeClient()
+    vi.mocked(client.api.credential.list).mockResolvedValue([
+      {
+        id: 'selected',
+        integrationID: 'openai',
+        label: 'Other',
+        active: true,
+        value: { type: 'key', key: 'private-key' },
+      },
+    ])
+    const response = await createCredentialApp(client).request('/providers/anthropic/accounts/selected', {
+      method: 'DELETE',
+    })
+    expect(response.status).toBe(404)
+    expect(client.api.credential.remove).not.toHaveBeenCalled()
+  })
+
+  it('does not rename an account belonging to another integration', async () => {
+    const client = createStubOpenCodeClient()
+    vi.mocked(client.api.credential.list).mockResolvedValue([
+      {
+        id: 'selected',
+        integrationID: 'openai',
+        label: 'Other',
+        active: true,
+        value: { type: 'key', key: 'private-key' },
+      },
+    ])
+    const response = await createCredentialApp(client).request('/providers/anthropic/accounts/selected', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ label: 'New' }),
+    })
+    expect(response.status).toBe(404)
+    expect(client.api.credential.update).not.toHaveBeenCalled()
+  })
+
+  it.each([{ label: ' ' }, { label: 'New', active: true }, { label: 'New', value: { key: 'secret' } }])(
+    'rejects invalid or overbroad account rename input: %j',
+    async (body) => {
+      const client = createStubOpenCodeClient()
+      const response = await createCredentialApp(client).request('/providers/anthropic/accounts/selected', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      expect(response.status).toBe(400)
+      expect(client.api.credential.update).not.toHaveBeenCalled()
+      expect(client.api.credential.activate).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([true, false])('confirms an account rename by observing its label: %s', async (updated) => {
+    const client = createStubOpenCodeClient()
+    const entry = {
+      id: 'selected',
+      integrationID: 'anthropic',
+      label: 'Old',
+      active: true,
+      value: { type: 'key' as const, key: 'private-key' },
+    }
+    vi.mocked(client.api.credential.list)
+      .mockResolvedValueOnce([entry])
+      .mockResolvedValueOnce([{ ...entry, label: updated ? 'New' : 'Old' }])
+    const response = await createCredentialApp(client).request('/providers/anthropic/accounts/selected', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ label: ' New ' }),
+    })
+    expect(client.api.credential.update).toHaveBeenCalledExactlyOnceWith({
+      credentialID: 'selected',
+      label: 'New',
+    })
+    expect(client.api.credential.activate).not.toHaveBeenCalled()
+    expect(response.status).toBe(updated ? 200 : 409)
+    expect(await response.json()).toEqual(
+      updated
+        ? { success: true, accountId: 'selected', label: 'New' }
+        : {
+            error: 'Account rename could not be confirmed',
+            code: 'ACCOUNT_RENAME_UNCONFIRMED',
+          },
+    )
+  })
+
+  it.each(['sibling-active', 'other-integration-changed'] as const)(
+    'does not report successful activation when %s',
+    async (failure) => {
+      const client = createStubOpenCodeClient()
+      const selected = {
+        id: 'selected',
+        integrationID: 'anthropic',
+        label: 'Selected',
+        active: false,
+        value: { type: 'key' as const, key: 'private-key' },
+      }
+      const other = {
+        ...selected,
+        id: 'other',
+        integrationID: 'openai',
+        active: true,
+      }
+      vi.mocked(client.api.credential.list)
+        .mockResolvedValueOnce([selected, other])
+        .mockResolvedValueOnce([
+          { ...selected, active: true },
+          { ...other, active: failure !== 'other-integration-changed' },
+          ...(failure === 'sibling-active' ? [{ ...selected, id: 'sibling', active: true }] : []),
+        ])
+      const response = await createCredentialApp(client).request('/providers/anthropic/accounts/selected/activate', {
+        method: 'POST',
+      })
+      expect(response.status).toBe(409)
+      expect(await response.json()).toEqual({
+        error: 'Account activation could not be confirmed',
+        code: 'ACCOUNT_ACTIVATION_UNCONFIRMED',
+      })
+      expect(client.api.credential.remove).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['missing', 'other-integration'] as const)('refuses activation of an account that is %s', async (kind) => {
+    const client = createStubOpenCodeClient()
+    vi.mocked(client.api.credential.list).mockResolvedValue(
+      kind === 'missing'
+        ? []
+        : [
+            {
+              id: 'selected',
+              integrationID: 'openai',
+              label: 'Other',
+              active: false,
+              value: { type: 'key', key: 'private-key' },
+            },
+          ],
+    )
+    const response = await createCredentialApp(client).request('/providers/anthropic/accounts/selected/activate', {
+      method: 'POST',
+    })
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({
+      error: 'Account not found',
+      code: 'ACCOUNT_NOT_FOUND',
+    })
+    expect(client.api.credential.activate).not.toHaveBeenCalled()
+  })
+
+  it.each([true, false])(
+    'requires observed activation rather than trusting the mutation response: %s',
+    async (activated) => {
+      const client = createStubOpenCodeClient()
+      const selected = {
+        id: 'selected',
+        integrationID: 'anthropic',
+        label: 'Backup',
+        active: false,
+        value: { type: 'key' as const, key: 'private-key' },
+      }
+      vi.mocked(client.api.credential.list)
+        .mockResolvedValueOnce([selected])
+        .mockResolvedValueOnce([{ ...selected, active: activated }])
+      const response = await createCredentialApp(client).request('/providers/anthropic/accounts/selected/activate', {
+        method: 'POST',
+      })
+      expect(client.api.credential.activate).toHaveBeenCalledExactlyOnceWith({
+        credentialID: 'selected',
+      })
+      expect(client.api.credential.list).toHaveBeenCalledTimes(2)
+      expect(response.status).toBe(activated ? 200 : 409)
+      expect(await response.json()).toEqual(
+        activated
+          ? { success: true, activeAccountId: 'selected' }
+          : {
+              error: 'Account activation could not be confirmed',
+              code: 'ACCOUNT_ACTIVATION_UNCONFIRMED',
+            },
+      )
+    },
+  )
+
+  it('returns only public fields for the requested integration and never credential values', async () => {
+    const client = createStubOpenCodeClient()
+    vi.mocked(client.api.credential.list).mockResolvedValue([
+      {
+        id: 'cred-oauth',
+        integrationID: 'anthropic',
+        label: 'Primary',
+        active: true,
+        value: {
+          type: 'oauth',
+          methodID: 'oauth',
+          refresh: 'secret-refresh',
+          access: 'secret-access',
+          expires: 123,
+          metadata: { private: 'secret-metadata' },
+        },
+      },
+      {
+        id: 'cred-key',
+        integrationID: 'anthropic',
+        label: 'Backup',
+        active: false,
+        value: { type: 'key', key: 'secret-key' },
+      },
+      {
+        id: 'cred-other',
+        integrationID: 'openai',
+        label: 'Other',
+        active: true,
+        value: { type: 'key', key: 'other-secret' },
+      },
+    ])
+    const response = await createCredentialApp(client).request('/providers/anthropic/accounts')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      accounts: [
+        {
+          id: 'cred-oauth',
+          integrationID: 'anthropic',
+          label: 'Primary',
+          active: true,
+          type: 'oauth',
+          methodID: 'oauth',
+        },
+        {
+          id: 'cred-key',
+          integrationID: 'anthropic',
+          label: 'Backup',
+          active: false,
+          type: 'key',
+          methodID: null,
+        },
+      ],
+    })
+    expect(client.api.credential.remove).not.toHaveBeenCalled()
+  })
+
+  it('does not expose upstream credential failure details', async () => {
+    const client = createStubOpenCodeClient()
+    vi.mocked(client.api.credential.list).mockRejectedValue(new Error('access=private-token'))
+    const response = await createCredentialApp(client).request('/providers/anthropic/accounts')
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      error: 'Could not load provider accounts',
+      code: 'ACCOUNTS_UNAVAILABLE',
+    })
+  })
+})
 
 describe('providers routes', () => {
   let app: Hono
@@ -92,7 +382,11 @@ describe('providers routes', () => {
     it('returns the state owned by the service', async () => {
       const res = await app.request('/providers/model-state')
       expect(res.status).toBe(200)
-      const data = (await res.json()) as { recent: unknown[]; favorite: unknown[]; variant: Record<string, unknown> }
+      const data = (await res.json()) as {
+        recent: unknown[]
+        favorite: unknown[]
+        variant: Record<string, unknown>
+      }
       expect(data).toEqual({ recent: [], favorite: [], variant: {} })
       expect(modelStateMock.readOpenCodeModelState).toHaveBeenCalledTimes(1)
     })
@@ -103,12 +397,19 @@ describe('providers routes', () => {
       const res = await app.request('/providers/model-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recent: { providerID: 'anthropic', modelID: 'claude' } }),
+        body: JSON.stringify({
+          recent: { providerID: 'anthropic', modelID: 'claude' },
+        }),
       })
       expect(res.status).toBe(200)
-      const data = (await res.json()) as { recent: Array<{ providerID: string; modelID: string }> }
+      const data = (await res.json()) as {
+        recent: Array<{ providerID: string; modelID: string }>
+      }
       expect(data.recent).toHaveLength(1)
-      expect(data.recent[0]).toEqual({ providerID: 'anthropic', modelID: 'claude' })
+      expect(data.recent[0]).toEqual({
+        providerID: 'anthropic',
+        modelID: 'claude',
+      })
     })
 
     it('with removeRecent removes the model', async () => {
@@ -121,11 +422,15 @@ describe('providers routes', () => {
       const res = await app.request('/providers/model-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ removeRecent: { providerID: 'openai', modelID: 'gpt-4' } }),
+        body: JSON.stringify({
+          removeRecent: { providerID: 'openai', modelID: 'gpt-4' },
+        }),
       })
 
       expect(res.status).toBe(200)
-      const data = (await res.json()) as { recent: Array<{ providerID: string; modelID: string }> }
+      const data = (await res.json()) as {
+        recent: Array<{ providerID: string; modelID: string }>
+      }
       expect(data.recent).toHaveLength(0)
     })
 
@@ -138,7 +443,9 @@ describe('providers routes', () => {
         body: JSON.stringify(body),
       })
       expect(res1.status).toBe(200)
-      const data1 = (await res1.json()) as { favorite: Array<{ providerID: string; modelID: string }> }
+      const data1 = (await res1.json()) as {
+        favorite: Array<{ providerID: string; modelID: string }>
+      }
       expect(data1.favorite).toHaveLength(1)
 
       const res2 = await app.request('/providers/model-state', {
@@ -147,7 +454,9 @@ describe('providers routes', () => {
         body: JSON.stringify(body),
       })
       expect(res2.status).toBe(200)
-      const data2 = (await res2.json()) as { favorite: Array<{ providerID: string; modelID: string }> }
+      const data2 = (await res2.json()) as {
+        favorite: Array<{ providerID: string; modelID: string }>
+      }
       expect(data2.favorite).toHaveLength(0)
     })
 
@@ -156,12 +465,17 @@ describe('providers routes', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          variant: { model: { providerID: 'anthropic', modelID: 'claude' }, value: 'high' },
+          variant: {
+            model: { providerID: 'anthropic', modelID: 'claude' },
+            value: 'high',
+          },
         }),
       })
 
       expect(res.status).toBe(200)
-      const data = (await res.json()) as { variant: Record<string, string | undefined> }
+      const data = (await res.json()) as {
+        variant: Record<string, string | undefined>
+      }
       expect(data.variant).toEqual({ 'anthropic/claude': 'high' })
     })
 
@@ -174,7 +488,13 @@ describe('providers routes', () => {
         body: JSON.stringify({ variant: { model } }),
       })
       expect(omitted.status).toBe(200)
-      expect(((await omitted.json()) as { variant: Record<string, string | undefined> }).variant).toEqual({
+      expect(
+        (
+          (await omitted.json()) as {
+            variant: Record<string, string | undefined>
+          }
+        ).variant,
+      ).toEqual({
         'anthropic/claude': 'default',
       })
 
@@ -184,7 +504,13 @@ describe('providers routes', () => {
         body: JSON.stringify({ variant: { model, value: null } }),
       })
       expect(explicitNull.status).toBe(200)
-      expect(((await explicitNull.json()) as { variant: Record<string, string | undefined> }).variant).toEqual({
+      expect(
+        (
+          (await explicitNull.json()) as {
+            variant: Record<string, string | undefined>
+          }
+        ).variant,
+      ).toEqual({
         'anthropic/claude': 'default',
       })
     })
@@ -207,7 +533,9 @@ describe('providers routes', () => {
       const res = await app.request('/providers/model-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recent: { providerID: 'test', modelID: 'test' } }),
+        body: JSON.stringify({
+          recent: { providerID: 'test', modelID: 'test' },
+        }),
       })
 
       expect(res.status).toBe(500)
@@ -225,11 +553,7 @@ describe('providers routes', () => {
       const actual = modelStateMock.actual as typeof import('../services/opencode-model-state')
       modelStateMock.readOpenCodeModelState.mockImplementation(actual.readOpenCodeModelState)
       modelStateMock.updateOpenCodeModelState.mockImplementation(actual.updateOpenCodeModelState)
-      await writeFile(
-        modelStatePaths.file,
-        JSON.stringify({ recent: [], favorite: [], variant: {}, extra: 1 }),
-        'utf8',
-      )
+      await writeFile(modelStatePaths.file, JSON.stringify({ recent: [], favorite: [], variant: {}, extra: 1 }), 'utf8')
     })
 
     afterEach(async () => {
@@ -249,7 +573,9 @@ describe('providers routes', () => {
       const res = await app.request('/providers/model-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recent: { providerID: 'anthropic', modelID: 'claude' } }),
+        body: JSON.stringify({
+          recent: { providerID: 'anthropic', modelID: 'claude' },
+        }),
       })
 
       expect(res.status).toBe(200)
@@ -261,7 +587,9 @@ describe('providers routes', () => {
       })
       expect(data).not.toHaveProperty('extra')
 
-      const file = JSON.parse(await readFile(modelStatePaths.file, 'utf8')) as { extra: unknown }
+      const file = JSON.parse(await readFile(modelStatePaths.file, 'utf8')) as {
+        extra: unknown
+      }
       expect(file.extra).toBe(1)
     })
   })
@@ -272,8 +600,14 @@ describe('providers routes', () => {
       vi.mocked(client.api.integration.list).mockResolvedValueOnce({
         location: LOCATION,
         data: [
-          integrationFixture({ id: 'anthropic', connections: [credentialConnection('cred_1')] }),
-          integrationFixture({ id: 'openai', connections: [{ type: 'env', name: 'OPENAI_API_KEY' }] }),
+          integrationFixture({
+            id: 'anthropic',
+            connections: [credentialConnection('cred_1')],
+          }),
+          integrationFixture({
+            id: 'openai',
+            connections: [{ type: 'env', name: 'OPENAI_API_KEY' }],
+          }),
         ],
       })
 
@@ -285,9 +619,7 @@ describe('providers routes', () => {
 
     it('maps a declared upstream error to 502 with the upstream message', async () => {
       const client = createStubOpenCodeClient()
-      vi.mocked(client.api.integration.list).mockRejectedValueOnce(
-        taggedError('UnknownError', 'upstream exploded'),
-      )
+      vi.mocked(client.api.integration.list).mockRejectedValueOnce(taggedError('UnknownError', 'upstream exploded'))
 
       const res = await createCredentialApp(client).request('/providers/credentials')
 
@@ -302,7 +634,10 @@ describe('providers routes', () => {
       const res = await createCredentialApp(client).request('/providers/credentials')
 
       expect(res.status).toBe(502)
-      expect(await res.json()).toEqual({ error: 'Failed to list provider credentials', code: 'ClientError' })
+      expect(await res.json()).toEqual({
+        error: 'Failed to list provider credentials',
+        code: 'ClientError',
+      })
     })
   })
 
@@ -311,7 +646,9 @@ describe('providers routes', () => {
       const client = createStubOpenCodeClient()
       vi.mocked(client.api.integration.get).mockResolvedValueOnce({
         location: LOCATION,
-        data: integrationFixture({ connections: [credentialConnection('cred_1')] }),
+        data: integrationFixture({
+          connections: [credentialConnection('cred_1')],
+        }),
       })
 
       const res = await createCredentialApp(client).request('/providers/anthropic/credentials/status')
@@ -324,7 +661,9 @@ describe('providers routes', () => {
       const client = createStubOpenCodeClient()
       vi.mocked(client.api.integration.get).mockResolvedValueOnce({
         location: LOCATION,
-        data: integrationFixture({ connections: [{ type: 'env', name: 'ANTHROPIC_API_KEY' }] }),
+        data: integrationFixture({
+          connections: [{ type: 'env', name: 'ANTHROPIC_API_KEY' }],
+        }),
       })
 
       const res = await createCredentialApp(client).request('/providers/anthropic/credentials/status')
@@ -339,7 +678,9 @@ describe('providers routes', () => {
       get.mockRejectedValueOnce(taggedError('IntegrationNotFoundError', 'Integration not found: anthropic'))
       get.mockResolvedValue({
         location: LOCATION,
-        data: integrationFixture({ connections: [credentialConnection('cred_1')] }),
+        data: integrationFixture({
+          connections: [credentialConnection('cred_1')],
+        }),
       })
 
       const res = await createCredentialApp(client).request('/providers/anthropic/credentials/status')
@@ -389,7 +730,10 @@ describe('providers routes', () => {
 
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ success: true })
-      expect(connectKey).toHaveBeenCalledWith({ integrationID: 'anthropic', key: 'sk-test' })
+      expect(connectKey).toHaveBeenCalledWith({
+        integrationID: 'anthropic',
+        key: 'sk-test',
+      })
     })
 
     it('forwards the form answer for key methods that declare required fields', async () => {
@@ -429,7 +773,9 @@ describe('providers routes', () => {
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ success: true })
       expect(connectKey).toHaveBeenCalledTimes(2)
-      expect(vi.mocked(client.api.integration.get)).toHaveBeenCalledWith({ integrationID: 'anthropic' })
+      expect(vi.mocked(client.api.integration.get)).toHaveBeenCalledWith({
+        integrationID: 'anthropic',
+      })
     })
 
     it('returns 404 for a missing integration', async () => {
@@ -495,7 +841,9 @@ describe('providers routes', () => {
       const client = createStubOpenCodeClient()
       vi.mocked(client.api.integration.get).mockResolvedValueOnce({
         location: LOCATION,
-        data: integrationFixture({ connections: [{ type: 'env', name: 'ANTHROPIC_API_KEY' }] }),
+        data: integrationFixture({
+          connections: [{ type: 'env', name: 'ANTHROPIC_API_KEY' }],
+        }),
       })
 
       const res = await createCredentialApp(client).request('/providers/anthropic/credentials', { method: 'DELETE' })
@@ -510,14 +858,18 @@ describe('providers routes', () => {
       get.mockRejectedValueOnce(taggedError('IntegrationNotFoundError', 'Integration not found: anthropic'))
       get.mockResolvedValue({
         location: LOCATION,
-        data: integrationFixture({ connections: [credentialConnection('cred_1')] }),
+        data: integrationFixture({
+          connections: [credentialConnection('cred_1')],
+        }),
       })
 
       const res = await createCredentialApp(client).request('/providers/anthropic/credentials', { method: 'DELETE' })
 
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ success: true })
-      expect(vi.mocked(client.api.credential.remove)).toHaveBeenCalledWith({ credentialID: 'cred_1' })
+      expect(vi.mocked(client.api.credential.remove)).toHaveBeenCalledWith({
+        credentialID: 'cred_1',
+      })
       expect(get).toHaveBeenCalledTimes(3)
     })
 
@@ -548,6 +900,90 @@ describe('providers routes', () => {
 const openCodeBinary = resolveOpenCode2Binary()
 
 describe.skipIf(!openCodeBinary)('providers routes against a real OpenCode 2 server', () => {
+  it.each([false, true])(
+    'manages isolated native accounts without exposing values, deleteActive=%s',
+    async (deleteActive) => {
+      const serve = await startOpenCodeServe({
+        env: { OPENCODE_DISABLE_CLAUDE_CODE: '1' },
+      })
+      try {
+        const client = new FetchOpenCodeClient({
+          baseUrl: serve.baseUrl,
+          basicAuth: buildOpenCodeBasicAuth(serve.password),
+          defaultDirectory: false,
+        })
+        const app = createCredentialApp(client)
+        const first = await client.api.credential.create({
+          integrationID: 'anthropic',
+          label: 'First',
+          value: { type: 'key', key: 'fixture-key-first' },
+          activate: true,
+        })
+        const second = await client.api.credential.create({
+          integrationID: 'anthropic',
+          label: 'Second',
+          value: { type: 'key', key: 'fixture-key-second' },
+          activate: false,
+        })
+        const other = await client.api.credential.create({
+          integrationID: 'openai',
+          label: 'Other',
+          value: { type: 'key', key: 'fixture-key-other' },
+          activate: true,
+        })
+        const summary = await app.request('/providers/anthropic/accounts')
+        expect(summary.status).toBe(200)
+        const body = await summary.text()
+        expect(body).not.toContain('fixture-key-')
+        expect(JSON.parse(body)).toEqual({
+          accounts: expect.arrayContaining([
+            {
+              id: first.id,
+              integrationID: 'anthropic',
+              label: 'First',
+              active: true,
+              type: 'key',
+              methodID: null,
+            },
+            {
+              id: second.id,
+              integrationID: 'anthropic',
+              label: 'Second',
+              active: false,
+              type: 'key',
+              methodID: null,
+            },
+          ]),
+        })
+        const activated = await app.request(`/providers/anthropic/accounts/${second.id}/activate`, { method: 'POST' })
+        expect(activated.status).toBe(200)
+        const renamed = await app.request(`/providers/anthropic/accounts/${second.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ label: 'Renamed' }),
+        })
+        expect(renamed.status).toBe(200)
+        const deletedId = deleteActive ? second.id : first.id
+        const remainingId = deleteActive ? first.id : second.id
+        const deleted = await app.request(`/providers/anthropic/accounts/${deletedId}`, { method: 'DELETE' })
+        expect(deleted.status).toBe(200)
+        const remaining = await client.api.credential.list()
+        expect(remaining.map((entry) => entry.id).sort()).toEqual([remainingId, other.id].sort())
+        expect(remaining.find((entry) => entry.id === remainingId)).toMatchObject({
+          label: deleteActive ? 'First' : 'Renamed',
+          active: true,
+        })
+        expect(remaining.find((entry) => entry.id === other.id)).toMatchObject({
+          label: 'Other',
+          active: true,
+        })
+      } finally {
+        await serve.stop()
+      }
+    },
+    120000,
+  )
+
   it('connects an anthropic key and reports the credential', async () => {
     const serve = await startOpenCodeServe()
     try {
@@ -573,7 +1009,9 @@ describe.skipIf(!openCodeBinary)('providers routes against a real OpenCode 2 ser
 
       const listResponse = await app.request('/providers/credentials')
       expect(listResponse.status).toBe(200)
-      const { providers } = (await listResponse.json()) as { providers: string[] }
+      const { providers } = (await listResponse.json()) as {
+        providers: string[]
+      }
       expect(providers).toContain('anthropic')
     } finally {
       await serve.stop()
@@ -606,7 +1044,10 @@ describe.skipIf(!openCodeBinary)('providers routes against a real OpenCode 2 ser
       const connectResponse = await app.request('/providers/azure/credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: 'az-binary-test', answer: { resourceName: 'my-models' } }),
+        body: JSON.stringify({
+          apiKey: 'az-binary-test',
+          answer: { resourceName: 'my-models' },
+        }),
       })
       expect(connectResponse.status).toBe(200)
 
