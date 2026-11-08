@@ -55,6 +55,8 @@ export interface SessionGoalServiceOptions {
   quietMs?: number
   onOutcome?: (goal: SessionGoal) => void
   resolveSessionLock?: (sessionId: string, serverId: string) => Promise<SessionLockReason | null>
+  /** Lock resolution that throws when the session's ancestry cannot be verified. */
+  resolveSessionLockStrict?: (sessionId: string, serverId: string) => Promise<SessionLockReason | null>
 }
 
 export class SessionGoalError extends Error {
@@ -122,6 +124,7 @@ export class SessionGoalService {
   private readonly quietMs: number
   private readonly onOutcome: (goal: SessionGoal) => void
   private readonly resolveSessionLock: (sessionId: string, serverId: string) => Promise<SessionLockReason | null>
+  private readonly resolveSessionLockStrict?: (sessionId: string, serverId: string) => Promise<SessionLockReason | null>
 
   constructor(
     private readonly db: Database,
@@ -133,6 +136,7 @@ export class SessionGoalService {
     this.quietMs = options.quietMs ?? DEFAULT_QUIET_MS
     this.onOutcome = options.onOutcome ?? (() => {})
     this.resolveSessionLock = options.resolveSessionLock ?? (async () => null)
+    this.resolveSessionLockStrict = options.resolveSessionLockStrict
   }
 
   loadOpenGoals(): void {
@@ -236,6 +240,40 @@ export class SessionGoalService {
   async start(input: StartSessionGoalRequest): Promise<SessionGoal> {
     const serverId = input.serverId ?? LOCAL_OPENCODE_SERVER_ID
     await this.assertSessionCanStartGoal(input.sessionId, serverId)
+    return this.insertGoal(input, serverId, 'waiting')
+  }
+
+  /**
+   * Starts a goal requested by the agent from inside its own running turn. The turn that called the
+   * tool is already executing, so the goal starts as running and is audited when that turn ends.
+   * Eligibility fails closed: a session whose ancestry cannot be verified is refused.
+   */
+  async startFromRunningTurn(input: StartSessionGoalRequest): Promise<SessionGoal> {
+    const serverId = input.serverId ?? LOCAL_OPENCODE_SERVER_ID
+    let lock: SessionLockReason | null
+    try {
+      if (!this.resolveSessionLockStrict) throw new Error('Strict session lock resolution is not configured')
+      lock = await this.resolveSessionLockStrict(input.sessionId, serverId)
+    } catch (error) {
+      logger.error(`Could not verify goal eligibility for ${input.sessionId}:`, error)
+      throw new SessionGoalError('Could not verify that this session can run a goal; try again later', 503)
+    }
+    if (lock === 'schedule') {
+      throw new SessionGoalError('Scheduled runs cannot run goals', 409)
+    }
+    if (lock === 'child') {
+      throw new SessionGoalError('Goals can only be started on top-level sessions', 400)
+    }
+    const goal = await this.insertGoal(input, serverId, 'running')
+    void this.scheduleAuditWhenIdle(goal)
+    return goal
+  }
+
+  private async insertGoal(
+    input: StartSessionGoalRequest,
+    serverId: string,
+    turnState: 'waiting' | 'running',
+  ): Promise<SessionGoal> {
 
     const defaults = this.settingsService.getSettings().preferences.sessionDefaults
     const maxContinuations =
@@ -251,6 +289,7 @@ export class SessionGoalService {
       maxContinuations,
       tokenBudget,
       tokensAtStart,
+      turnState,
     })
 
     if (!record) {

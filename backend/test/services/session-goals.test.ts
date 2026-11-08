@@ -1253,4 +1253,86 @@ describe('SessionGoalService remote servers', () => {
     expect(local.auditorCalls).toHaveLength(0)
     expect(remote.auditorCalls).toHaveLength(0)
   })
+
+  describe('goals started by the agent inside its running turn', () => {
+    function createAgentService(
+      fakeOptions: FakeSessionGoalClientOptions,
+      resolveSessionLockStrict: SessionGoalServiceOptions['resolveSessionLockStrict'] = async () => null,
+    ) {
+      const fake = createFakeSessionGoalClient(fakeOptions)
+      const service = new SessionGoalService(db, fake.client, new SettingsService(db), {
+        quietMs: 0,
+        resolveSessionLockStrict,
+      })
+      return { fake, service }
+    }
+
+    it('audits exactly once when the turn that created the goal ends, and not while it runs', async () => {
+      const { fake, service } = createAgentService({ busySessions: ['ses_1'] })
+      fake.setMessages('ses_1', [fakeAssistantMessage('Done.')])
+      fake.setAuditorReplies(['{"verdict":"done","reason":"finished"}'])
+      await service.handleEvent(DIRECTORY, executionStarted('ses_1'))
+
+      const goal = await service.startFromRunningTurn({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+      await vi.runAllTimersAsync()
+
+      expect(goal).toMatchObject({ status: 'active', turnState: 'running' })
+      expect(fake.auditorCalls).toHaveLength(0)
+
+      fake.setBusy('ses_1', false)
+      await service.handleEvent(DIRECTORY, executionSucceeded('ses_1'))
+      await service.handleEvent(DIRECTORY, sessionIdle('ses_1'))
+      await vi.runAllTimersAsync()
+
+      expect(fake.auditorCalls).toHaveLength(1)
+      expect(service.getLatest('ses_1')?.status).toBe('completed')
+    })
+
+    it('audits a goal whose turn already went idle before the goal was indexed', async () => {
+      const { fake, service } = createAgentService({})
+      fake.setMessages('ses_1', [fakeAssistantMessage('Done.')])
+      fake.setAuditorReplies(['{"verdict":"done","reason":"finished"}'])
+
+      await service.startFromRunningTurn({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+      await vi.runAllTimersAsync()
+
+      expect(fake.auditorCalls).toHaveLength(1)
+      expect(service.getLatest('ses_1')?.status).toBe('completed')
+    })
+
+    it('recovers a running agent goal after a restart', async () => {
+      const first = createAgentService({ busySessions: ['ses_1'] })
+      await first.service.startFromRunningTurn({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+      await vi.runAllTimersAsync()
+      expect(first.fake.auditorCalls).toHaveLength(0)
+
+      const second = createAgentService({})
+      second.fake.setMessages('ses_1', [fakeAssistantMessage('Done.')])
+      second.fake.setAuditorReplies(['{"verdict":"done","reason":"finished"}'])
+      second.service.loadOpenGoals()
+      await second.service.recoverOpenGoals()
+      await vi.runAllTimersAsync()
+
+      expect(second.fake.auditorCalls).toHaveLength(1)
+    })
+
+    it.each([
+      ['an ancestry lookup failure', async () => Promise.reject(new Error('parent lookup failed')), 503],
+      ['a missing strict resolver', undefined, 503],
+      ['a scheduled run', async () => 'schedule' as const, 409],
+      ['a child session', async () => 'child' as const, 400],
+    ])('refuses %s without inserting a goal', async (_label, resolver, status) => {
+      const fake = createFakeSessionGoalClient({})
+      const service = new SessionGoalService(db, fake.client, new SettingsService(db), {
+        resolveSessionLock: async () => null,
+        ...(resolver ? { resolveSessionLockStrict: resolver } : {}),
+      })
+
+      await expect(
+        service.startFromRunningTurn({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' }),
+      ).rejects.toMatchObject({ status })
+      expect(listOpenSessionGoals(db)).toEqual([])
+    })
+  })
 })
+

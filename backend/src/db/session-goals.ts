@@ -37,6 +37,7 @@ export interface InsertSessionGoalInput {
   maxContinuations: number
   tokenBudget: number | null
   tokensAtStart: number
+  turnState?: SessionGoalTurnState
 }
 
 export interface SessionGoalPatch {
@@ -130,7 +131,7 @@ export function insertSessionGoal(db: Database, input: InsertSessionGoalInput): 
       input.objective,
       'active',
       null,
-      'waiting',
+      input.turnState ?? 'waiting',
       0,
       input.maxContinuations,
       input.tokenBudget,
