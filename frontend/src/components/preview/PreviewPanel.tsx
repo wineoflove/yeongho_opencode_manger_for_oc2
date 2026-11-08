@@ -11,6 +11,7 @@ import { useUrlParams } from '@/hooks/useUrlParams'
 import { getOpenCodeApiErrorMessage } from '@/lib/opencode-errors'
 import { buildPreviewStartUrl, getPreviewOrigin, isSameOriginAsManager, parsePort } from '@/lib/preview-url'
 import { cn, shortenPath } from '@/lib/utils'
+import { msg, t, tn } from '@/i18n/translate'
 
 interface PreviewPanelProps {
   isOpen: boolean
@@ -32,10 +33,14 @@ const VIEWPORT_WIDTHS: Record<ViewportPreset, number | null> = {
   full: null,
 }
 
-const VIEWPORT_PRESETS: Array<{ preset: ViewportPreset; label: string; icon: typeof Monitor }> = [
-  { preset: 'mobile', label: 'Mobile viewport', icon: Smartphone },
-  { preset: 'tablet', label: 'Tablet viewport', icon: Tablet },
-  { preset: 'full', label: 'Full width viewport', icon: Monitor },
+const VIEWPORT_PRESETS: Array<{
+  preset: ViewportPreset
+  label: string
+  icon: typeof Monitor
+}> = [
+  { preset: 'mobile', label: msg('Mobile viewport'), icon: Smartphone },
+  { preset: 'tablet', label: msg('Tablet viewport'), icon: Tablet },
+  { preset: 'full', label: msg('Full width viewport'), icon: Monitor },
 ]
 
 const PORT_WAIT_TIMEOUT_MS = 60_000
@@ -50,12 +55,8 @@ function toPortOptions(ports: PreviewPort[]): ComboboxOption[] {
     value: String(entry.port),
     label: formatPortLabel(entry),
     description: entry.cwd ? shortenPath(entry.cwd) : undefined,
-    group: hasRepoPorts ? (entry.inDirectory ? 'This repo' : 'Other ports') : undefined,
+    group: hasRepoPorts ? (entry.inDirectory ? t('This repo') : t('Other ports')) : undefined,
   }))
-}
-
-function describeListeningPorts(count: number, qualifier = ''): string {
-  return count === 1 ? `1 ${qualifier}port is listening` : `${count} ${qualifier}ports are listening`
 }
 
 interface ActiveSession {
@@ -144,7 +145,7 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
         if (requestIdRef.current !== requestId) return
         sessionPortRef.current = null
         activePathRef.current = null
-        setSessionError(getOpenCodeApiErrorMessage(error, 'Failed to start preview'))
+        setSessionError(getOpenCodeApiErrorMessage(error, t('Failed to start preview')))
       })
   }, [])
 
@@ -154,17 +155,23 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
     void startSession(requestedPort, requestedPath)
   }, [isOpen, requestedPort, requestedPath, enabled, portListed, startSession])
 
-  const selectPort = useCallback((port: number) => {
-    updateParams((params) => {
-      params.set('previewPort', String(port))
-      params.delete('previewPath')
-    }, 'replace')
-  }, [updateParams])
+  const selectPort = useCallback(
+    (port: number) => {
+      updateParams((params) => {
+        params.set('previewPort', String(port))
+        params.delete('previewPath')
+      }, 'replace')
+    },
+    [updateParams],
+  )
 
-  const handlePortChange = useCallback((value: string) => {
-    const port = parsePort(value)
-    if (port) selectPort(port)
-  }, [selectPort])
+  const handlePortChange = useCallback(
+    (value: string) => {
+      const port = parsePort(value)
+      if (port) selectPort(port)
+    },
+    [selectPort],
+  )
 
   const reload = useCallback(() => {
     if (!requestedPort) return
@@ -188,7 +195,7 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
         window.open(buildPreviewStartUrl(data, requestedPath), '_blank', 'noopener,noreferrer')
       })
       .catch((error: unknown) => {
-        setSessionError(getOpenCodeApiErrorMessage(error, 'Failed to open preview'))
+        setSessionError(getOpenCodeApiErrorMessage(error, t('Failed to open preview')))
       })
   }, [requestedPort, requestedPath])
 
@@ -213,7 +220,7 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
       </div>
       {options.retry && (
         <Button size="sm" variant="outline" onClick={retry}>
-          Retry
+          {t('Retry')}
         </Button>
       )}
     </div>
@@ -223,16 +230,22 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
     if (ports.length === 0) {
       return renderMessage(
         <div className="space-y-1">
-          <p className="font-medium text-foreground">No dev server is listening</p>
-          <p>Start one in the Terminal or from Actions. It appears here automatically.</p>
+          <p className="font-medium text-foreground">{t('No dev server is listening')}</p>
+          <p>{t('Start one in the Terminal or from Actions. It appears here automatically.')}</p>
         </div>,
       )
     }
     if (repoPorts.length === 0) {
       return renderMessage(
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Select a port to preview</p>
-          <p>{describeListeningPorts(ports.length)}. Choose one from the port menu above.</p>
+          <p className="font-medium text-foreground">{t('Select a port to preview')}</p>
+          <p>
+            {tn(
+              '{count} port is listening. Choose one from the port menu above.',
+              '{count} ports are listening. Choose one from the port menu above.',
+              ports.length,
+            )}
+          </p>
         </div>,
       )
     }
@@ -240,7 +253,7 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
     return (
       <div className="flex h-full flex-col items-center justify-center p-6">
         <div className="w-full max-w-lg space-y-3">
-          <h3 className="text-sm font-medium text-foreground">Dev servers in this repo</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('Dev servers in this repo')}</h3>
           <ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
             {repoPorts.map((entry) => (
               <li key={entry.port}>
@@ -263,7 +276,11 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
           </ul>
           {otherPortCount > 0 && (
             <p className="text-xs text-muted-foreground">
-              {describeListeningPorts(otherPortCount, 'other ')} elsewhere. Choose one from the port menu above.
+              {tn(
+                '{count} other port is listening elsewhere. Choose one from the port menu above.',
+                '{count} other ports are listening elsewhere. Choose one from the port menu above.',
+                otherPortCount,
+              )}
             </p>
           )}
         </div>
@@ -273,19 +290,22 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
 
   const body = () => {
     if (!enabled) {
-      return renderMessage('Preview is unavailable')
+      return renderMessage(t('Preview is unavailable'))
     }
     if (!requestedPort) {
       return renderPortChooser()
     }
     if (!portListed) {
       if (waitExpired) {
-        return renderMessage(`Port ${requestedPort} is not listening`, { retry: true, alert: true })
+        return renderMessage(t('Port {port} is not listening', { port: requestedPort }), {
+          retry: true,
+          alert: true,
+        })
       }
       return renderMessage(
         <>
           <Loader2 className="h-4 w-4 animate-spin" />
-          Waiting for port {requestedPort}…
+          {t('Waiting for port {port}…', { port: requestedPort })}
         </>,
       )
     }
@@ -294,13 +314,13 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
     }
     if (activeSession) {
       if (sameOrigin) {
-        return renderMessage('Preview must run on a different origin than OpenCode Manager.', { alert: true })
+        return renderMessage(t('Preview must run on a different origin than OpenCode Manager.'), { alert: true })
       }
       return (
         <div className="flex h-full justify-center overflow-hidden">
           <iframe
             key={activeSession.renderKey}
-            title="Preview"
+            title={t('Preview')}
             src={buildPreviewStartUrl(activeSession.data, activeSession.path)}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
             className="h-full border-0 bg-white"
@@ -312,7 +332,7 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
     return renderMessage(
       <>
         <Loader2 className="h-4 w-4 animate-spin" />
-        Starting preview…
+        {t('Starting preview…')}
       </>,
     )
   }
@@ -329,31 +349,35 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
           value={requestedPort ? String(requestedPort) : ''}
           onChange={handlePortChange}
           options={portOptions}
-          placeholder="Select port"
+          placeholder={t('Select port')}
           disabled={!enabled}
           allowCustomValue={false}
-          ariaLabel="Preview port"
-          onOpen={() => { void portsQuery.refetch() }}
+          ariaLabel={t('Preview port')}
+          onOpen={() => {
+            void portsQuery.refetch()
+          }}
           className={compact ? 'w-full' : 'sm:w-72 sm:flex-shrink-0'}
         />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Input
-            aria-label="Preview path"
+            aria-label={t('Preview path')}
             value={pathDraft}
             onChange={(event) => setPathDraft(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') handleGo() }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') handleGo()
+            }}
             className="h-9 min-w-0 flex-1 bg-transparent px-3 py-1"
             placeholder="/"
           />
           <Button size="sm" variant="outline" onClick={handleGo} disabled={!requestedPort} className="h-9">
-            Go
+            {t('Go')}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={reload}
             disabled={!requestedPort}
-            aria-label="Reload preview"
+            aria-label={t('Reload preview')}
             className="h-9 w-9 p-0"
           >
             <RefreshCw className="h-4 w-4" />
@@ -363,7 +387,7 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
             variant="ghost"
             onClick={handleOpenInNewTab}
             disabled={!requestedPort}
-            aria-label="Open preview in new tab"
+            aria-label={t('Open preview in new tab')}
             className="h-9 w-9 p-0"
           >
             <ExternalLink className="h-4 w-4" />
@@ -376,7 +400,7 @@ export function PreviewWorkspace({ isOpen, directory, compact }: PreviewWorkspac
                   size="sm"
                   variant={viewport === preset ? 'secondary' : 'ghost'}
                   onClick={() => setViewport(preset)}
-                  aria-label={label}
+                  aria-label={t(label)}
                   aria-pressed={viewport === preset}
                   className="h-9 w-9 p-0"
                 >
@@ -398,7 +422,12 @@ export function PreviewPanel({ isOpen, onClose, directory }: PreviewPanelProps) 
   const contentRef = useRef<HTMLDivElement>(null)
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
       <DialogContent
         ref={contentRef}
         mobileFullscreen
@@ -415,14 +444,14 @@ export function PreviewPanel({ isOpen, onClose, directory }: PreviewPanelProps) 
         <DialogHeader className={cn('px-4 py-2 border-b border-border flex-shrink-0', isMobile && 'relative')}>
           <DialogTitle className="flex items-center gap-2">
             <Globe className="w-5 h-5" />
-            Preview
+            {t('Preview')}
           </DialogTitle>
           {isMobile && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
-              aria-label="Close preview panel"
+              aria-label={t('Close preview panel')}
               className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
             >
               <X className="h-6 w-6" />
