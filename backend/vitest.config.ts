@@ -12,6 +12,10 @@ export default defineConfig({
       '**/dist/**',
       'test/routes/internal-sandbox.test.ts',
       'src/routes/repos.test.ts',
+      'test/integration/http-server.bun.test.ts',
+      'test/integration/message-search.bun.test.ts',
+      'test/integration/token-stats.bun.test.ts',
+      'test/integration/workflow-stats.bun.test.ts',
     ],
     coverage: {
       provider: 'v8',
