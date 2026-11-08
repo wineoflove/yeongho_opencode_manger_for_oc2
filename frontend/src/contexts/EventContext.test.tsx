@@ -9,7 +9,14 @@ import { FetchError } from '@opencode-manager/shared'
 import { showToast } from '@/lib/toast'
 import { useSessionStatus, hasBackgroundActivity } from '@/stores/sessionStatusStore'
 import { changeWalkthroughQueryKey } from '@/hooks/useChangeWalkthrough'
-import { EventProvider, selectActiveSessionDirectoriesKey, useEventContext, useForms, usePermissions, useSSEHealth } from './EventContext'
+import {
+  EventProvider,
+  selectActiveSessionDirectoriesKey,
+  useEventContext,
+  useForms,
+  usePermissions,
+  useSSEHealth,
+} from './EventContext'
 
 const mocks = vi.hoisted(() => ({
   listRepos: vi.fn(),
@@ -50,7 +57,10 @@ vi.mock('@/hooks/useAuth', () => ({
 }))
 
 vi.mock('@/hooks/useOpenCodeServers', () => ({
-  useOpenCodeServers: () => ({ servers: mocks.servers, isSuccess: mocks.serversLoaded }),
+  useOpenCodeServers: () => ({
+    servers: mocks.servers,
+    isSuccess: mocks.serversLoaded,
+  }),
 }))
 
 vi.mock('@/lib/opencode-event-stream', () => ({
@@ -72,7 +82,12 @@ const pendingForm: FormInfo = {
   sessionID: 'session-1',
   title: 'Continue?',
   fields: [
-    { key: 'q0', title: 'Confirm', type: 'string', options: [{ value: 'Yes', label: 'Yes' }] },
+    {
+      key: 'q0',
+      title: 'Confirm',
+      type: 'string',
+      options: [{ value: 'Yes', label: 'Yes' }],
+    },
   ],
 }
 
@@ -81,7 +96,12 @@ const secondPendingForm: FormInfo = {
   sessionID: 'session-2',
   title: 'Deploy?',
   fields: [
-    { key: 'q0', title: 'Deploy', type: 'string', options: [{ value: 'Yes', label: 'Yes' }] },
+    {
+      key: 'q0',
+      title: 'Deploy',
+      type: 'string',
+      options: [{ value: 'Yes', label: 'Yes' }],
+    },
   ],
 }
 
@@ -139,7 +159,12 @@ const viewedSessionForm: FormInfo = {
   sessionID: 'session-view',
   title: 'Continue view',
   fields: [
-    { key: 'q0', title: 'Confirm', type: 'string', options: [{ value: 'Yes', label: 'Yes' }] },
+    {
+      key: 'q0',
+      title: 'Confirm',
+      type: 'string',
+      options: [{ value: 'Yes', label: 'Yes' }],
+    },
   ],
 }
 
@@ -148,7 +173,12 @@ const otherSessionForm: FormInfo = {
   sessionID: 'session-other',
   title: 'Continue other',
   fields: [
-    { key: 'q0', title: 'Confirm', type: 'string', options: [{ value: 'Yes', label: 'Yes' }] },
+    {
+      key: 'q0',
+      title: 'Confirm',
+      type: 'string',
+      options: [{ value: 'Yes', label: 'Yes' }],
+    },
   ],
 }
 
@@ -157,7 +187,12 @@ const childSessionForm: FormInfo = {
   sessionID: 'child-1',
   title: 'Continue child',
   fields: [
-    { key: 'q0', title: 'Confirm', type: 'string', options: [{ value: 'Yes', label: 'Yes' }] },
+    {
+      key: 'q0',
+      title: 'Confirm',
+      type: 'string',
+      options: [{ value: 'Yes', label: 'Yes' }],
+    },
   ],
 }
 
@@ -167,7 +202,7 @@ function Harness() {
   const location = useLocation()
   const [rejection, setRejection] = useState('none')
   const recordRejection = (action: Promise<void>) => {
-    action.catch((error: unknown) => setRejection(error instanceof FetchError ? error.code ?? 'unknown' : 'unknown'))
+    action.catch((error: unknown) => setRejection(error instanceof FetchError ? (error.code ?? 'unknown') : 'unknown'))
   }
 
   return (
@@ -198,8 +233,22 @@ function Harness() {
       <button onClick={permissions.navigateToCurrent}>Navigate Permission</button>
       <button onClick={() => current && recordRejection(cancel(current.id))}>Dismiss</button>
       <button onClick={() => current && recordRejection(reply(current.id, { q0: 'Yes' }))}>Reply</button>
-      <button onClick={() => permissions.current && recordRejection(permissions.respond(permissions.current.id, permissions.current.sessionID, 'reject'))}>Reject Permission</button>
-      <button onClick={() => permissions.current && permissions.respond(permissions.current.id, permissions.current.sessionID, 'reject', 'not allowed')}>Reject Permission With Reason</button>
+      <button
+        onClick={() =>
+          permissions.current &&
+          recordRejection(permissions.respond(permissions.current.id, permissions.current.sessionID, 'reject'))
+        }
+      >
+        Reject Permission
+      </button>
+      <button
+        onClick={() =>
+          permissions.current &&
+          permissions.respond(permissions.current.id, permissions.current.sessionID, 'reject', 'not allowed')
+        }
+      >
+        Reject Permission With Reason
+      </button>
     </div>
   )
 }
@@ -256,8 +305,26 @@ describe('EventProvider permissions and forms', () => {
     mocks.replyPermission.mockResolvedValue(undefined)
     mocks.replyForm.mockResolvedValue(undefined)
     mocks.cancelForm.mockResolvedValue(undefined)
-    mocks.getHealth.mockReturnValue({ isConnected: false, isHealthy: false, lastEventAt: null, isStalled: false })
-    useSessionStatus.setState({ statuses: new Map(), statusCache: new Map(), statusRevisions: new Map(), knownSessions: new Set(), outcomes: new Map(), parents: new Map(), directories: new Map(), sessionServers: new Map(), runningShells: new Map(), shellRevisions: new Map(), shellRevision: 0, revision: 0 })
+    mocks.getHealth.mockReturnValue({
+      isConnected: false,
+      isHealthy: false,
+      lastEventAt: null,
+      isStalled: false,
+    })
+    useSessionStatus.setState({
+      statuses: new Map(),
+      statusCache: new Map(),
+      statusRevisions: new Map(),
+      knownSessions: new Set(),
+      outcomes: new Map(),
+      parents: new Map(),
+      directories: new Map(),
+      sessionServers: new Map(),
+      runningShells: new Map(),
+      shellRevisions: new Map(),
+      shellRevision: 0,
+      revision: 0,
+    })
     mocks.subscribeGlobalMonitor.mockReturnValue({
       dispose: vi.fn(),
       updateDirectories: vi.fn(),
@@ -314,9 +381,7 @@ describe('EventProvider permissions and forms', () => {
   })
 
   it('clears stale pending permissions for a session', async () => {
-    mocks.listPendingPermissions
-      .mockResolvedValueOnce([pendingPermission])
-      .mockResolvedValueOnce([])
+    mocks.listPendingPermissions.mockResolvedValueOnce([pendingPermission]).mockResolvedValueOnce([])
 
     render(<Harness />, { wrapper: createWrapper() })
 
@@ -358,7 +423,9 @@ describe('EventProvider permissions and forms', () => {
 
   it('removes a permission the server no longer knows about when replying', async () => {
     mocks.listPendingPermissions.mockResolvedValue([pendingPermission])
-    mocks.replyPermission.mockRejectedValue(new FetchError('Permission request not found', 404, 'PermissionNotFoundError'))
+    mocks.replyPermission.mockRejectedValue(
+      new FetchError('Permission request not found', 404, 'PermissionNotFoundError'),
+    )
 
     render(<Harness />, { wrapper: createWrapper() })
 
@@ -455,9 +522,7 @@ describe('EventProvider permissions and forms', () => {
   })
 
   it('clears stale pending forms for a session', async () => {
-    mocks.listPendingForms
-      .mockResolvedValueOnce([pendingForm])
-      .mockResolvedValueOnce([])
+    mocks.listPendingForms.mockResolvedValueOnce([pendingForm]).mockResolvedValueOnce([])
 
     render(<Harness />, { wrapper: createWrapper() })
 
@@ -476,9 +541,7 @@ describe('EventProvider permissions and forms', () => {
   })
 
   it('reconciles pending forms for the whole directory', async () => {
-    mocks.listPendingForms
-      .mockResolvedValueOnce([pendingForm, secondPendingForm])
-      .mockResolvedValueOnce([pendingForm])
+    mocks.listPendingForms.mockResolvedValueOnce([pendingForm, secondPendingForm]).mockResolvedValueOnce([pendingForm])
 
     render(<Harness />, { wrapper: createWrapper() })
 
@@ -515,9 +578,7 @@ describe('EventProvider permissions and forms', () => {
 
   it('reconciles stale pending forms after reconnect', async () => {
     mocks.listRepos.mockResolvedValue([{ id: 123, fullPath: '/repo' }])
-    mocks.listPendingForms
-      .mockResolvedValueOnce([pendingForm])
-      .mockResolvedValueOnce([])
+    mocks.listPendingForms.mockResolvedValueOnce([pendingForm]).mockResolvedValueOnce([])
 
     render(<Harness />, { wrapper: createWrapper() })
 
@@ -525,7 +586,8 @@ describe('EventProvider permissions and forms', () => {
       expect(screen.getByTestId('count')).toHaveTextContent('1')
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
     handleStatusChange(true)
 
@@ -543,12 +605,18 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: pendingForm }, directory: '/srv/app', serverId: 'srv_remote' })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        directory: '/srv/app',
+        serverId: 'srv_remote',
+      })
     })
 
     await waitFor(() => {
@@ -575,7 +643,8 @@ describe('EventProvider permissions and forms', () => {
     const { rerender } = render(<Harness />, { wrapper: createWrapper() })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -588,10 +657,11 @@ describe('EventProvider permissions and forms', () => {
     rerender(<Harness />)
 
     await waitFor(() => {
-      expect(useSessionStatus.getState().statuses.get(busySessionID)).toEqual({ type: 'busy' })
+      expect(useSessionStatus.getState().statuses.get(busySessionID)).toEqual({
+        type: 'busy',
+      })
     })
-    const remoteFetches = () =>
-      mocks.listActiveSessions.mock.calls.filter(([serverId]) => serverId === 'srv_remote')
+    const remoteFetches = () => mocks.listActiveSessions.mock.calls.filter(([serverId]) => serverId === 'srv_remote')
     expect(remoteFetches()).toHaveLength(1)
 
     await userEvent.click(screen.getByRole('button', { name: 'Sync' }))
@@ -616,13 +686,22 @@ describe('EventProvider permissions and forms', () => {
       await Promise.resolve()
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const onResync = lastSubscribeCall[0].onResync as ((directories: string[]) => void) | undefined
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/repo' })
-      onEvent({ type: 'form.created', data: { form: pendingForm }, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -651,13 +730,22 @@ describe('EventProvider permissions and forms', () => {
       expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled()
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const onResync = lastSubscribeCall[0].onResync as ((directories: string[]) => void) | undefined
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/repo' })
-      onEvent({ type: 'form.created', data: { form: pendingForm }, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -690,12 +778,17 @@ describe('EventProvider permissions and forms', () => {
       await Promise.resolve()
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const onResync = lastSubscribeCall[0].onResync as ((directories: string[]) => void) | undefined
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/worktrees/wt-1' })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/worktrees/wt-1',
+      })
     })
 
     await waitFor(() => {
@@ -738,11 +831,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.listPendingPermissions).toHaveBeenCalledWith('/assistant', 'local'))
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/assistant' })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/assistant',
+      })
     })
 
     await waitFor(() => {
@@ -764,11 +862,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.listPendingPermissions).toHaveBeenCalledWith('/repo', 'local'))
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -786,11 +889,17 @@ describe('EventProvider permissions and forms', () => {
   it('navigates a linked-server permission without a Manager repo for its directory', async () => {
     render(<Harness />, { wrapper: createWrapper() })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/srv/app', serverId: 'srv_kitchen' })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/srv/app',
+        serverId: 'srv_kitchen',
+      })
     })
 
     await waitFor(() => {
@@ -808,11 +917,17 @@ describe('EventProvider permissions and forms', () => {
   it('navigates a linked-server form to its server session route', async () => {
     render(<Harness />, { wrapper: createWrapper() })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: pendingForm }, directory: '/srv/app', serverId: 'srv_kitchen' })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        directory: '/srv/app',
+        serverId: 'srv_kitchen',
+      })
     })
 
     await waitFor(() => {
@@ -836,11 +951,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.listPendingPermissions).toHaveBeenCalledWith('/repo', 'local'))
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -924,7 +1044,8 @@ describe('EventProvider permissions and forms', () => {
       expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled()
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -950,7 +1071,8 @@ describe('EventProvider permissions and forms', () => {
       expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled()
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -969,7 +1091,11 @@ describe('EventProvider permissions and forms', () => {
     act(() => {
       onEvent({
         type: 'permission.replied',
-        data: { sessionID: 'session-1', requestID: 'permission-1', reply: 'reject' },
+        data: {
+          sessionID: 'session-1',
+          requestID: 'permission-1',
+          reply: 'reject',
+        },
         directory: '/repo',
       })
     })
@@ -988,7 +1114,8 @@ describe('EventProvider permissions and forms', () => {
       expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled()
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -1016,7 +1143,8 @@ describe('EventProvider permissions and forms', () => {
       expect(screen.getByTestId('count')).toHaveTextContent('1')
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -1038,12 +1166,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: pendingForm }, directory: '/repo' })
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/repo' })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1052,7 +1189,11 @@ describe('EventProvider permissions and forms', () => {
     })
 
     act(() => {
-      onEvent({ type: 'session.deleted', data: { sessionID: 'session-1' }, directory: '/repo' })
+      onEvent({
+        type: 'session.deleted',
+        data: { sessionID: 'session-1' },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1076,12 +1217,21 @@ describe('EventProvider permissions and forms', () => {
     })
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.replied', data: { id: 'form-1', sessionID: 'session-1', answer: {} }, directory: '/repo' })
-      onEvent({ type: 'form.cancelled', data: { id: 'form-2', sessionID: 'session-2' }, directory: '/repo' })
+      onEvent({
+        type: 'form.replied',
+        data: { id: 'form-1', sessionID: 'session-1', answer: {} },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'form.cancelled',
+        data: { id: 'form-2', sessionID: 'session-2' },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1090,40 +1240,38 @@ describe('EventProvider permissions and forms', () => {
     expect(invalidateQueries).not.toHaveBeenCalled()
   })
 
-  it.each([
-    'credential.updated',
-    'credential.switched',
-    'integration.updated',
-    'provider.updated',
-    'model.updated',
-  ])('invalidates provider caches on a location-less %s event', async (type) => {
-    const queryClient = createTestQueryClient()
-    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
+  it.each(['credential.updated', 'credential.switched', 'integration.updated', 'provider.updated', 'model.updated'])(
+    'invalidates provider caches on a location-less %s event',
+    async (type) => {
+      const queryClient = createTestQueryClient()
+      const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
 
-    render(<Harness />, { wrapper: createWrapper(queryClient) })
+      render(<Harness />, { wrapper: createWrapper(queryClient) })
 
-    await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
-    invalidateQueries.mockClear()
+      await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
+      invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
-    const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
+      const lastSubscribeCall =
+        mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+      const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
-    act(() => {
-      onEvent({ type, data: {} })
-    })
+      act(() => {
+        onEvent({ type, data: {} })
+      })
 
-    await waitFor(() => {
-      for (const queryKey of [
-        ['provider-credentials'],
-        ['provider-auth-methods'],
-        ['opencode', 'providers'],
-      ]) {
-        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey })
-      }
-    })
-    expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['providers'] })
-    expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['providers-for-execution-model'] })
-  })
+      await waitFor(() => {
+        for (const queryKey of [['provider-credentials'], ['provider-auth-methods'], ['opencode', 'providers']]) {
+          expect(invalidateQueries).toHaveBeenCalledWith({ queryKey })
+        }
+      })
+      expect(invalidateQueries).not.toHaveBeenCalledWith({
+        queryKey: ['providers'],
+      })
+      expect(invalidateQueries).not.toHaveBeenCalledWith({
+        queryKey: ['providers-for-execution-model'],
+      })
+    },
+  )
 
   it('collapses a burst of provider events into a single provider invalidation flush', async () => {
     const queryClient = createTestQueryClient()
@@ -1134,7 +1282,8 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -1147,9 +1296,14 @@ describe('EventProvider permissions and forms', () => {
     })
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'providers'] })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'providers'],
+      })
     })
-    expect(invalidateQueries).toHaveBeenCalledTimes(3)
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['provider-accounts'],
+    })
+    expect(invalidateQueries).toHaveBeenCalledTimes(4)
   })
 
   it.each<[string, string[]]>([
@@ -1165,7 +1319,8 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -1186,7 +1341,8 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onResync = lastSubscribeCall[0].onResync as ((directories: string[]) => void) | undefined
 
     act(() => {
@@ -1194,10 +1350,18 @@ describe('EventProvider permissions and forms', () => {
     })
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'commands'] })
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'agents'] })
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'skills'] })
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'providers'] })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'commands'],
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'agents'],
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'skills'],
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'providers'],
+      })
     })
   })
 
@@ -1210,7 +1374,8 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -1219,10 +1384,18 @@ describe('EventProvider permissions and forms', () => {
     })
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'commands'] })
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'agents'] })
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'skills'] })
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'providers'] })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'commands'],
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'agents'],
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'skills'],
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'providers'],
+      })
     })
   })
 
@@ -1235,7 +1408,8 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -1243,8 +1417,12 @@ describe('EventProvider permissions and forms', () => {
     })
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'config'] })
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode-config'] })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'config'],
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode-config'],
+      })
     })
   })
 
@@ -1259,14 +1437,21 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'vcs.branch.updated', data: { branch: 'feature' }, directory: '/repos/a/.worktrees/feat' })
+      onEvent({
+        type: 'vcs.branch.updated',
+        data: { branch: 'feature' },
+        directory: '/repos/a/.worktrees/feat',
+      })
     })
 
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['repo', 'siblings'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['repo', 'siblings'],
+    })
   })
 
   it('updates the repo branch and refreshes the sibling caches on vcs.branch.updated', async () => {
@@ -1289,17 +1474,26 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(updateDirectories).toHaveBeenCalledWith(expect.arrayContaining(['/repo-a'])))
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'vcs.branch.updated', data: { branch: 'feature' }, directory: '/repo-a' })
+      onEvent({
+        type: 'vcs.branch.updated',
+        data: { branch: 'feature' },
+        directory: '/repo-a',
+      })
     })
 
-    expect(queryClient.getQueryData<{ currentBranch?: string; branch?: string }>(['repo', 1]))
-      .toMatchObject({ currentBranch: 'feature', branch: 'feature' })
+    expect(queryClient.getQueryData<{ currentBranch?: string; branch?: string }>(['repo', 1])).toMatchObject({
+      currentBranch: 'feature',
+      branch: 'feature',
+    })
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['repo', 'siblings'] })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['repo', 'siblings'],
+      })
     })
   })
 
@@ -1328,7 +1522,8 @@ describe('EventProvider permissions and forms', () => {
     mocks.listPendingPermissions.mockClear()
     mocks.listPendingForms.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onResync = lastSubscribeCall[0].onResync as ((directories: string[]) => void) | undefined
 
     act(() => {
@@ -1350,20 +1545,27 @@ describe('EventProvider permissions and forms', () => {
 
     const queryClient = createTestQueryClient()
 
-    queryClient.setQueryData(
-      ['opencode', 'sessions', '/repo', { search: undefined, limit: 25 }],
-      {
-        pages: [{
+    queryClient.setQueryData(['opencode', 'sessions', '/repo', { search: undefined, limit: 25 }], {
+      pages: [
+        {
           items: [
-            { id: 'ses-infinite', projectID: 'proj-1', title: 'From Infinite Query', location: { directory: '/repo' }, time: { created: 1000, updated: 1000 } },
+            {
+              id: 'ses-infinite',
+              projectID: 'proj-1',
+              title: 'From Infinite Query',
+              location: { directory: '/repo' },
+              time: { created: 1000, updated: 1000 },
+            },
           ],
           cursors: {},
-        }],
-        pageParams: [undefined],
-      },
-    )
+        },
+      ],
+      pageParams: [undefined],
+    })
 
-    render(<CacheResolutionHarness sessionID="ses-infinite" />, { wrapper: createWrapper(queryClient) })
+    render(<CacheResolutionHarness sessionID="ses-infinite" />, {
+      wrapper: createWrapper(queryClient),
+    })
 
     await waitFor(() => {
       expect(screen.getByTestId('repo-id')).toHaveTextContent('123')
@@ -1375,18 +1577,17 @@ describe('EventProvider permissions and forms', () => {
 
     const queryClient = createTestQueryClient()
 
-    queryClient.setQueryData(
-      ['opencode', 'session', 'ses-detail', '/repo'],
-      {
-        id: 'ses-detail',
-        projectID: 'proj-1',
-        title: 'Session Detail',
-        location: { directory: '/repo' },
-        time: { created: 1000, updated: 1000 },
-      },
-    )
+    queryClient.setQueryData(['opencode', 'session', 'ses-detail', '/repo'], {
+      id: 'ses-detail',
+      projectID: 'proj-1',
+      title: 'Session Detail',
+      location: { directory: '/repo' },
+      time: { created: 1000, updated: 1000 },
+    })
 
-    render(<CacheResolutionHarness sessionID="ses-detail" />, { wrapper: createWrapper(queryClient) })
+    render(<CacheResolutionHarness sessionID="ses-detail" />, {
+      wrapper: createWrapper(queryClient),
+    })
 
     await waitFor(() => {
       expect(screen.getByTestId('repo-id')).toHaveTextContent('123')
@@ -1401,28 +1602,39 @@ describe('EventProvider permissions and forms', () => {
 
     const queryClient = createTestQueryClient()
 
-    queryClient.setQueryData(
-      ['opencode', 'sessions', '/repo-a|/repo-b', { search: undefined, limit: 25 }],
-      {
-        pages: [
-          {
-            items: [
-              { id: 'ses-first', projectID: 'proj-1', title: 'First', location: { directory: '/repo-a' }, time: { created: 1000, updated: 1000 } },
-            ],
-            cursors: { '/repo-a': 'cursor-a' },
-          },
-          {
-            items: [
-              { id: 'ses-second', projectID: 'proj-1', title: 'Second', location: { directory: '/repo-b' }, time: { created: 2000, updated: 2000 } },
-            ],
-            cursors: {},
-          },
-        ],
-        pageParams: [undefined, { '/repo-a': 'cursor-a' }],
-      },
-    )
+    queryClient.setQueryData(['opencode', 'sessions', '/repo-a|/repo-b', { search: undefined, limit: 25 }], {
+      pages: [
+        {
+          items: [
+            {
+              id: 'ses-first',
+              projectID: 'proj-1',
+              title: 'First',
+              location: { directory: '/repo-a' },
+              time: { created: 1000, updated: 1000 },
+            },
+          ],
+          cursors: { '/repo-a': 'cursor-a' },
+        },
+        {
+          items: [
+            {
+              id: 'ses-second',
+              projectID: 'proj-1',
+              title: 'Second',
+              location: { directory: '/repo-b' },
+              time: { created: 2000, updated: 2000 },
+            },
+          ],
+          cursors: {},
+        },
+      ],
+      pageParams: [undefined, { '/repo-a': 'cursor-a' }],
+    })
 
-    render(<CacheResolutionHarness sessionID="ses-second" />, { wrapper: createWrapper(queryClient) })
+    render(<CacheResolutionHarness sessionID="ses-second" />, {
+      wrapper: createWrapper(queryClient),
+    })
 
     await waitFor(() => {
       expect(screen.getByTestId('repo-id')).toHaveTextContent('456')
@@ -1436,12 +1648,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: otherSessionPermission, directory: '/repo' })
-      onEvent({ type: 'permission.asked', data: viewedSessionPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: otherSessionPermission,
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'permission.asked',
+        data: viewedSessionPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1462,12 +1683,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: otherSessionPermission, directory: '/repo' })
-      onEvent({ type: 'permission.asked', data: childSessionPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: otherSessionPermission,
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'permission.asked',
+        data: childSessionPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1483,12 +1713,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: otherSessionPermission, directory: '/repo' })
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: otherSessionPermission,
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1501,26 +1740,28 @@ describe('EventProvider permissions and forms', () => {
   it('resolves the current permission directory from the query cache', async () => {
     mocks.listRepos.mockResolvedValue([{ id: 123, fullPath: '/repo' }])
     const queryClient = createTestQueryClient()
-    queryClient.setQueryData(
-      ['opencode', 'session', 'session-1', '/repo'],
-      {
-        id: 'session-1',
-        projectID: 'proj-1',
-        title: 'Fix permission dialog',
-        location: { directory: '/repo' },
-        time: { created: 1000, updated: 1000 },
-      },
-    )
+    queryClient.setQueryData(['opencode', 'session', 'session-1', '/repo'], {
+      id: 'session-1',
+      projectID: 'proj-1',
+      title: 'Fix permission dialog',
+      location: { directory: '/repo' },
+      time: { created: 1000, updated: 1000 },
+    })
 
     render(<Harness />, { wrapper: createWrapper(queryClient) })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1536,11 +1777,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: otherSessionPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: otherSessionPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1548,7 +1794,11 @@ describe('EventProvider permissions and forms', () => {
     })
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: viewedSessionPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: viewedSessionPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1559,7 +1809,11 @@ describe('EventProvider permissions and forms', () => {
     act(() => {
       onEvent({
         type: 'permission.replied',
-        data: { sessionID: 'session-view', requestID: 'permission-view', reply: 'reject' },
+        data: {
+          sessionID: 'session-view',
+          requestID: 'permission-view',
+          reply: 'reject',
+        },
         directory: '/repo',
       })
     })
@@ -1581,11 +1835,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: viewedSessionPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: viewedSessionPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1593,7 +1852,11 @@ describe('EventProvider permissions and forms', () => {
     })
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: childSessionPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: childSessionPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1609,12 +1872,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: otherSessionForm }, directory: '/repo' })
-      onEvent({ type: 'form.created', data: { form: viewedSessionForm }, directory: '/repo' })
+      onEvent({
+        type: 'form.created',
+        data: { form: otherSessionForm },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'form.created',
+        data: { form: viewedSessionForm },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1634,12 +1906,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: otherSessionForm }, directory: '/repo' })
-      onEvent({ type: 'form.created', data: { form: childSessionForm }, directory: '/repo' })
+      onEvent({
+        type: 'form.created',
+        data: { form: otherSessionForm },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'form.created',
+        data: { form: childSessionForm },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1654,12 +1935,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: otherSessionForm }, directory: '/repo' })
-      onEvent({ type: 'form.created', data: { form: pendingForm }, directory: '/repo' })
+      onEvent({
+        type: 'form.created',
+        data: { form: otherSessionForm },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1675,11 +1965,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: otherSessionForm }, directory: '/repo' })
+      onEvent({
+        type: 'form.created',
+        data: { form: otherSessionForm },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1687,7 +1982,11 @@ describe('EventProvider permissions and forms', () => {
     })
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: viewedSessionForm }, directory: '/repo' })
+      onEvent({
+        type: 'form.created',
+        data: { form: viewedSessionForm },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1711,8 +2010,17 @@ describe('EventProvider permissions and forms', () => {
 
   it('resolves ancestry when a permission arrives for an unknown session', async () => {
     mocks.getSession.mockImplementation((sessionID: string) => {
-      if (sessionID === 'child-1') return Promise.resolve({ id: 'child-1', parentID: 'parent-1', location: { directory: '/repo' } })
-      if (sessionID === 'parent-1') return Promise.resolve({ id: 'parent-1', location: { directory: '/repo' } })
+      if (sessionID === 'child-1')
+        return Promise.resolve({
+          id: 'child-1',
+          parentID: 'parent-1',
+          location: { directory: '/repo' },
+        })
+      if (sessionID === 'parent-1')
+        return Promise.resolve({
+          id: 'parent-1',
+          location: { directory: '/repo' },
+        })
       return Promise.reject(new Error('Session not found'))
     })
 
@@ -1722,11 +2030,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'permission.asked', data: childSessionPermission, directory: '/repo' })
+      onEvent({
+        type: 'permission.asked',
+        data: childSessionPermission,
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1739,8 +2052,17 @@ describe('EventProvider permissions and forms', () => {
 
   it('resolves ancestry when a form arrives for an unknown session', async () => {
     mocks.getSession.mockImplementation((sessionID: string) => {
-      if (sessionID === 'child-1') return Promise.resolve({ id: 'child-1', parentID: 'parent-1', location: { directory: '/repo' } })
-      if (sessionID === 'parent-1') return Promise.resolve({ id: 'parent-1', location: { directory: '/repo' } })
+      if (sessionID === 'child-1')
+        return Promise.resolve({
+          id: 'child-1',
+          parentID: 'parent-1',
+          location: { directory: '/repo' },
+        })
+      if (sessionID === 'parent-1')
+        return Promise.resolve({
+          id: 'parent-1',
+          location: { directory: '/repo' },
+        })
       return Promise.reject(new Error('Session not found'))
     })
 
@@ -1750,11 +2072,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: childSessionForm }, directory: '/repo' })
+      onEvent({
+        type: 'form.created',
+        data: { form: childSessionForm },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -1765,9 +2092,19 @@ describe('EventProvider permissions and forms', () => {
   })
 
   it('exposes sseHealth through context', async () => {
-    mocks.getHealth.mockReturnValue({ isConnected: true, isHealthy: true, lastEventAt: Date.now(), isStalled: false })
+    mocks.getHealth.mockReturnValue({
+      isConnected: true,
+      isHealthy: true,
+      lastEventAt: Date.now(),
+      isStalled: false,
+    })
     mocks.subscribeGlobalMonitor.mockImplementation(({ onHealthChange }) => {
-      onHealthChange({ isConnected: false, isHealthy: false, lastEventAt: null, isStalled: false })
+      onHealthChange({
+        isConnected: false,
+        isHealthy: false,
+        lastEventAt: null,
+        isStalled: false,
+      })
       return {
         dispose: vi.fn(),
         updateDirectories: vi.fn(),
@@ -1796,7 +2133,12 @@ describe('EventProvider permissions and forms', () => {
   })
 
   it('does not re-render consumers for health notifications that only change lastEventAt', async () => {
-    let onHealthChange: (state: { isConnected: boolean; isHealthy: boolean; lastEventAt: number | null; isStalled: boolean }) => void = () => {}
+    let onHealthChange: (state: {
+      isConnected: boolean
+      isHealthy: boolean
+      lastEventAt: number | null
+      isStalled: boolean
+    }) => void = () => {}
     mocks.subscribeGlobalMonitor.mockImplementation(({ onHealthChange: handler }) => {
       onHealthChange = handler
       return {
@@ -1823,7 +2165,12 @@ describe('EventProvider permissions and forms', () => {
     const initialRenderCount = renderCount
 
     act(() => {
-      onHealthChange({ isConnected: true, isHealthy: true, lastEventAt: 1, isStalled: false })
+      onHealthChange({
+        isConnected: true,
+        isHealthy: true,
+        lastEventAt: 1,
+        isStalled: false,
+      })
     })
 
     await waitFor(() => {
@@ -1832,8 +2179,18 @@ describe('EventProvider permissions and forms', () => {
     const afterBooleanChange = renderCount
 
     act(() => {
-      onHealthChange({ isConnected: true, isHealthy: true, lastEventAt: 2, isStalled: false })
-      onHealthChange({ isConnected: true, isHealthy: true, lastEventAt: 3, isStalled: false })
+      onHealthChange({
+        isConnected: true,
+        isHealthy: true,
+        lastEventAt: 2,
+        isStalled: false,
+      })
+      onHealthChange({
+        isConnected: true,
+        isHealthy: true,
+        lastEventAt: 3,
+        isStalled: false,
+      })
     })
 
     expect(afterBooleanChange).toBe(initialRenderCount + 1)
@@ -1845,7 +2202,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -1856,7 +2214,9 @@ describe('EventProvider permissions and forms', () => {
       })
     })
 
-    expect(useSessionStatus.getState().getStatus('session-9')).toEqual({ type: 'busy' })
+    expect(useSessionStatus.getState().getStatus('session-9')).toEqual({
+      type: 'busy',
+    })
   })
 
   it('applies execution lifecycle and idle events from the global monitor to the status store', async () => {
@@ -1864,24 +2224,47 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.execution.started', data: { sessionID: 'session-9' }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.started',
+        data: { sessionID: 'session-9' },
+        directory: '/repo',
+      })
     })
-    expect(useSessionStatus.getState().getStatus('session-9')).toEqual({ type: 'busy' })
+    expect(useSessionStatus.getState().getStatus('session-9')).toEqual({
+      type: 'busy',
+    })
 
     act(() => {
-      onEvent({ type: 'session.execution.succeeded', data: { sessionID: 'session-9' }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.succeeded',
+        data: { sessionID: 'session-9' },
+        directory: '/repo',
+      })
     })
-    expect(useSessionStatus.getState().getStatus('session-9')).toEqual({ type: 'idle' })
+    expect(useSessionStatus.getState().getStatus('session-9')).toEqual({
+      type: 'idle',
+    })
 
     act(() => {
-      onEvent({ type: 'session.execution.started', data: { sessionID: 'session-9' }, directory: '/repo' })
-      onEvent({ type: 'session.idle', data: { sessionID: 'session-9' }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.started',
+        data: { sessionID: 'session-9' },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'session.idle',
+        data: { sessionID: 'session-9' },
+        directory: '/repo',
+      })
     })
-    expect(useSessionStatus.getState().getStatus('session-9')).toEqual({ type: 'idle' })
+    expect(useSessionStatus.getState().getStatus('session-9')).toEqual({
+      type: 'idle',
+    })
   })
 
   it.each([
@@ -1897,7 +2280,8 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
     invalidateQueries.mockClear()
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -1905,7 +2289,9 @@ describe('EventProvider permissions and forms', () => {
     })
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: changeWalkthroughQueryKey('session-9') })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: changeWalkthroughQueryKey('session-9'),
+      })
     })
   })
 
@@ -1914,11 +2300,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.execution.started', data: { sessionID: 'child-1' }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.started',
+        data: { sessionID: 'child-1' },
+        directory: '/repo',
+      })
     })
 
     expect(useSessionStatus.getState().knownSessions.has('child-1')).toBe(true)
@@ -1933,14 +2324,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const onResync = lastSubscribeCall[0].onResync as ((directories: string[]) => void) | undefined
 
     act(() => {
-      onEvent({ type: 'session.execution.started', data: { sessionID: 'child-1' }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.started',
+        data: { sessionID: 'child-1' },
+        directory: '/repo',
+      })
     })
-    expect(useSessionStatus.getState().getStatus('child-1')).toEqual({ type: 'busy' })
+    expect(useSessionStatus.getState().getStatus('child-1')).toEqual({
+      type: 'busy',
+    })
 
     act(() => {
       onResync?.([])
@@ -1956,19 +2354,34 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.execution.started', data: { sessionID: 'child-1' }, directory: '/repo' })
-      onEvent({ type: 'session.execution.failed', data: { sessionID: 'child-1', error: { message: 'boom' } }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.started',
+        data: { sessionID: 'child-1' },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'session.execution.failed',
+        data: { sessionID: 'child-1', error: { message: 'boom' } },
+        directory: '/repo',
+      })
     })
 
     expect(useSessionStatus.getState().outcomes.get('child-1')).toBe('failed')
-    expect(useSessionStatus.getState().getStatus('child-1')).toEqual({ type: 'idle' })
+    expect(useSessionStatus.getState().getStatus('child-1')).toEqual({
+      type: 'idle',
+    })
 
     act(() => {
-      onEvent({ type: 'session.idle', data: { sessionID: 'child-1' }, directory: '/repo' })
+      onEvent({
+        type: 'session.idle',
+        data: { sessionID: 'child-1' },
+        directory: '/repo',
+      })
     })
 
     expect(useSessionStatus.getState().outcomes.get('child-1')).toBe('failed')
@@ -1979,15 +2392,22 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.execution.interrupted', data: { sessionID: 'child-1', reason: 'user' }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.interrupted',
+        data: { sessionID: 'child-1', reason: 'user' },
+        directory: '/repo',
+      })
     })
 
     expect(useSessionStatus.getState().outcomes.get('child-1')).toBe('interrupted')
-    expect(useSessionStatus.getState().getStatus('child-1')).toEqual({ type: 'idle' })
+    expect(useSessionStatus.getState().getStatus('child-1')).toEqual({
+      type: 'idle',
+    })
   })
 
   it('does not turn a failed child into completed across a reconnect snapshot', async () => {
@@ -1998,12 +2418,17 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
-      onEvent({ type: 'session.execution.failed', data: { sessionID: 'child-1', error: { message: 'boom' } }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.failed',
+        data: { sessionID: 'child-1', error: { message: 'boom' } },
+        directory: '/repo',
+      })
     })
     expect(useSessionStatus.getState().outcomes.get('child-1')).toBe('failed')
 
@@ -2013,7 +2438,9 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => {
       expect(useSessionStatus.getState().outcomes.get('child-1')).toBe('failed')
-      expect(useSessionStatus.getState().getStatus('child-1')).toEqual({ type: 'idle' })
+      expect(useSessionStatus.getState().getStatus('child-1')).toEqual({
+        type: 'idle',
+      })
       expect(useSessionStatus.getState().knownSessions.has('child-1')).toBe(true)
     })
   })
@@ -2023,12 +2450,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.execution.failed', data: { sessionID: 'child-1', error: { message: 'boom' } }, directory: '/repo' })
-      onEvent({ type: 'session.execution.started', data: { sessionID: 'child-1' }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.failed',
+        data: { sessionID: 'child-1', error: { message: 'boom' } },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'session.execution.started',
+        data: { sessionID: 'child-1' },
+        directory: '/repo',
+      })
     })
 
     expect(useSessionStatus.getState().outcomes.get('child-1')).toBeUndefined()
@@ -2036,23 +2472,35 @@ describe('EventProvider permissions and forms', () => {
 
   it('forgets a deleted session status, knowledge, and outcome while keeping the list invalidation', async () => {
     const queryClient = createTestQueryClient()
-    queryClient.setQueryData(['opencode', 'sessions', '/repo'], { pages: [], pageParams: [] })
+    queryClient.setQueryData(['opencode', 'sessions', '/repo'], {
+      pages: [],
+      pageParams: [],
+    })
 
     render(<Harness />, { wrapper: createWrapper(queryClient) })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.execution.failed', data: { sessionID: 'child-1', error: { message: 'boom' } }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.failed',
+        data: { sessionID: 'child-1', error: { message: 'boom' } },
+        directory: '/repo',
+      })
     })
     expect(useSessionStatus.getState().outcomes.get('child-1')).toBe('failed')
     expect(useSessionStatus.getState().knownSessions.has('child-1')).toBe(true)
 
     act(() => {
-      onEvent({ type: 'session.deleted', data: { sessionID: 'child-1' }, directory: '/repo' })
+      onEvent({
+        type: 'session.deleted',
+        data: { sessionID: 'child-1' },
+        directory: '/repo',
+      })
     })
 
     const after = useSessionStatus.getState()
@@ -2068,19 +2516,27 @@ describe('EventProvider permissions and forms', () => {
   it('invalidates only the reconciliation of children that moved from busy to unknown during a poll', async () => {
     mocks.listRepos.mockResolvedValue([{ id: 123, fullPath: '/repo' }])
     mocks.listActiveSessions
-      .mockResolvedValueOnce({ 'child-1': { type: 'running' }, 'child-2': { type: 'running' } })
+      .mockResolvedValueOnce({
+        'child-1': { type: 'running' },
+        'child-2': { type: 'running' },
+      })
       .mockResolvedValue({ 'child-2': { type: 'running' } })
 
     const queryClient = createTestQueryClient()
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
-    queryClient.setQueryData(['opencode', 'session-reconcile', 'child-1'], { id: 'child-1' })
-    queryClient.setQueryData(['opencode', 'session-reconcile', 'child-2'], { id: 'child-2' })
+    queryClient.setQueryData(['opencode', 'session-reconcile', 'child-1'], {
+      id: 'child-1',
+    })
+    queryClient.setQueryData(['opencode', 'session-reconcile', 'child-2'], {
+      id: 'child-2',
+    })
 
     render(<Harness />, { wrapper: createWrapper(queryClient) })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     vi.useFakeTimers()
@@ -2114,7 +2570,9 @@ describe('EventProvider permissions and forms', () => {
 
   it('reconciles the global active snapshot on reconnect and clears omitted sessions', async () => {
     mocks.listRepos.mockResolvedValue([{ id: 123, fullPath: '/repo' }])
-    mocks.listActiveSessions.mockResolvedValue({ 'session-other': { type: 'running' } })
+    mocks.listActiveSessions.mockResolvedValue({
+      'session-other': { type: 'running' },
+    })
 
     render(<Harness />, { wrapper: createWrapper() })
 
@@ -2125,7 +2583,8 @@ describe('EventProvider permissions and forms', () => {
       useSessionStatus.getState().setStatus('session-stale', { type: 'busy' })
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -2133,8 +2592,12 @@ describe('EventProvider permissions and forms', () => {
     })
 
     await waitFor(() => {
-      expect(useSessionStatus.getState().getStatus('session-other')).toEqual({ type: 'busy' })
-      expect(useSessionStatus.getState().getStatus('session-stale')).toEqual({ type: 'idle' })
+      expect(useSessionStatus.getState().getStatus('session-other')).toEqual({
+        type: 'busy',
+      })
+      expect(useSessionStatus.getState().getStatus('session-stale')).toEqual({
+        type: 'idle',
+      })
     })
   })
 
@@ -2143,15 +2606,14 @@ describe('EventProvider permissions and forms', () => {
 
     const first = createDeferred<Record<string, unknown>>()
     const second = createDeferred<Record<string, unknown>>()
-    mocks.listActiveSessions
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise)
+    mocks.listActiveSessions.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
 
     render(<Harness />, { wrapper: createWrapper() })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -2170,7 +2632,9 @@ describe('EventProvider permissions and forms', () => {
       await second.promise
     })
     await waitFor(() => {
-      expect(useSessionStatus.getState().getStatus('session-new')).toEqual({ type: 'busy' })
+      expect(useSessionStatus.getState().getStatus('session-new')).toEqual({
+        type: 'busy',
+      })
     })
 
     await act(async () => {
@@ -2178,8 +2642,12 @@ describe('EventProvider permissions and forms', () => {
       await first.promise
     })
 
-    expect(useSessionStatus.getState().getStatus('session-new')).toEqual({ type: 'busy' })
-    expect(useSessionStatus.getState().getStatus('session-old')).toEqual({ type: 'idle' })
+    expect(useSessionStatus.getState().getStatus('session-new')).toEqual({
+      type: 'busy',
+    })
+    expect(useSessionStatus.getState().getStatus('session-old')).toEqual({
+      type: 'idle',
+    })
   })
 
   it('does not apply a global snapshot that resolves after unmount', async () => {
@@ -2192,7 +2660,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -2207,7 +2676,9 @@ describe('EventProvider permissions and forms', () => {
       await deferred.promise
     })
 
-    expect(useSessionStatus.getState().getStatus('session-late')).toEqual({ type: 'idle' })
+    expect(useSessionStatus.getState().getStatus('session-late')).toEqual({
+      type: 'idle',
+    })
   })
 
   it('does not let a deferred connect snapshot revert an idle event received while it was in flight', async () => {
@@ -2220,7 +2691,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
@@ -2230,8 +2702,16 @@ describe('EventProvider permissions and forms', () => {
     expect(mocks.listActiveSessions).toHaveBeenCalledTimes(1)
 
     act(() => {
-      onEvent({ type: 'session.status', data: { sessionID: 'session-a', status: { type: 'busy' } }, directory: '/repo' })
-      onEvent({ type: 'session.idle', data: { sessionID: 'session-a' }, directory: '/repo' })
+      onEvent({
+        type: 'session.status',
+        data: { sessionID: 'session-a', status: { type: 'busy' } },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'session.idle',
+        data: { sessionID: 'session-a' },
+        directory: '/repo',
+      })
     })
 
     await act(async () => {
@@ -2239,7 +2719,9 @@ describe('EventProvider permissions and forms', () => {
       await deferred.promise
     })
 
-    expect(useSessionStatus.getState().getStatus('session-a')).toEqual({ type: 'idle' })
+    expect(useSessionStatus.getState().getStatus('session-a')).toEqual({
+      type: 'idle',
+    })
   })
 
   it('does not let a deferred empty connect snapshot erase a session that started while it was in flight', async () => {
@@ -2252,7 +2734,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
@@ -2262,7 +2745,11 @@ describe('EventProvider permissions and forms', () => {
     expect(mocks.listActiveSessions).toHaveBeenCalledTimes(1)
 
     act(() => {
-      onEvent({ type: 'session.execution.started', data: { sessionID: 'session-a' }, directory: '/repo' })
+      onEvent({
+        type: 'session.execution.started',
+        data: { sessionID: 'session-a' },
+        directory: '/repo',
+      })
     })
 
     await act(async () => {
@@ -2270,7 +2757,9 @@ describe('EventProvider permissions and forms', () => {
       await deferred.promise
     })
 
-    expect(useSessionStatus.getState().getStatus('session-a')).toEqual({ type: 'busy' })
+    expect(useSessionStatus.getState().getStatus('session-a')).toEqual({
+      type: 'busy',
+    })
   })
 
   it('does not let a deferred connect snapshot resurrect an unknown session that went idle', async () => {
@@ -2283,7 +2772,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
@@ -2293,7 +2783,11 @@ describe('EventProvider permissions and forms', () => {
     expect(mocks.listActiveSessions).toHaveBeenCalledTimes(1)
 
     act(() => {
-      onEvent({ type: 'session.idle', data: { sessionID: 'session-unseen' }, directory: '/repo' })
+      onEvent({
+        type: 'session.idle',
+        data: { sessionID: 'session-unseen' },
+        directory: '/repo',
+      })
     })
 
     await act(async () => {
@@ -2301,25 +2795,43 @@ describe('EventProvider permissions and forms', () => {
       await deferred.promise
     })
 
-    expect(useSessionStatus.getState().getStatus('session-unseen')).toEqual({ type: 'idle' })
+    expect(useSessionStatus.getState().getStatus('session-unseen')).toEqual({
+      type: 'idle',
+    })
   })
 
   it('debounces a session list invalidation on session lifecycle events', async () => {
     const queryClient = createTestQueryClient()
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
-    queryClient.setQueryData(['opencode', 'sessions', '/repo'], { pages: [], pageParams: [] })
+    queryClient.setQueryData(['opencode', 'sessions', '/repo'], {
+      pages: [],
+      pageParams: [],
+    })
 
     render(<Harness />, { wrapper: createWrapper(queryClient) })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.created', data: { sessionID: 'session-9' }, directory: '/repo' })
-      onEvent({ type: 'session.renamed', data: { sessionID: 'session-9', title: 'Renamed' }, directory: '/repo' })
-      onEvent({ type: 'session.deleted', data: { sessionID: 'session-9' }, directory: '/repo' })
+      onEvent({
+        type: 'session.created',
+        data: { sessionID: 'session-9' },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'session.renamed',
+        data: { sessionID: 'session-9', title: 'Renamed' },
+        directory: '/repo',
+      })
+      onEvent({
+        type: 'session.deleted',
+        data: { sessionID: 'session-9' },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -2330,17 +2842,25 @@ describe('EventProvider permissions and forms', () => {
 
   it('invalidates the session list when a session is forked', async () => {
     const queryClient = createTestQueryClient()
-    queryClient.setQueryData(['opencode', 'sessions', '/repo'], { pages: [], pageParams: [] })
+    queryClient.setQueryData(['opencode', 'sessions', '/repo'], {
+      pages: [],
+      pageParams: [],
+    })
 
     render(<Harness />, { wrapper: createWrapper(queryClient) })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.forked', data: { sessionID: 'session-fork', parentID: 'session-9' }, directory: '/repo' })
+      onEvent({
+        type: 'session.forked',
+        data: { sessionID: 'session-fork', parentID: 'session-9' },
+        directory: '/repo',
+      })
     })
 
     await waitFor(() => {
@@ -2350,18 +2870,29 @@ describe('EventProvider permissions and forms', () => {
 
   it('invalidates only the session list for the event directory', async () => {
     const queryClient = createTestQueryClient()
-    queryClient.setQueryData(['opencode', 'sessions', '/repo-a'], { pages: [], pageParams: [] })
-    queryClient.setQueryData(['opencode', 'sessions', '/repo-b'], { pages: [], pageParams: [] })
+    queryClient.setQueryData(['opencode', 'sessions', '/repo-a'], {
+      pages: [],
+      pageParams: [],
+    })
+    queryClient.setQueryData(['opencode', 'sessions', '/repo-b'], {
+      pages: [],
+      pageParams: [],
+    })
 
     render(<Harness />, { wrapper: createWrapper(queryClient) })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.created', data: { sessionID: 'session-9' }, directory: '/repo-a' })
+      onEvent({
+        type: 'session.created',
+        data: { sessionID: 'session-9' },
+        directory: '/repo-a',
+      })
     })
 
     await waitFor(() => {
@@ -2373,18 +2904,26 @@ describe('EventProvider permissions and forms', () => {
   it('does not invalidate session lists on session.usage.updated', async () => {
     const queryClient = createTestQueryClient()
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
-    queryClient.setQueryData(['opencode', 'sessions', '/repo'], { pages: [], pageParams: [] })
+    queryClient.setQueryData(['opencode', 'sessions', '/repo'], {
+      pages: [],
+      pageParams: [],
+    })
 
     render(<Harness />, { wrapper: createWrapper(queryClient) })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     invalidateQueries.mockClear()
 
     act(() => {
-      onEvent({ type: 'session.usage.updated', data: { sessionID: 'session-9', cost: 0, tokens: {} }, directory: '/repo' })
+      onEvent({
+        type: 'session.usage.updated',
+        data: { sessionID: 'session-9', cost: 0, tokens: {} },
+        directory: '/repo',
+      })
     })
 
     await act(async () => {
@@ -2403,7 +2942,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     vi.useFakeTimers()
@@ -2444,7 +2984,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     vi.useFakeTimers()
@@ -2470,11 +3011,16 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'session.created', data: { sessionID: 'child-1', parentID: 'parent-1' }, directory: '/repo' })
+      onEvent({
+        type: 'session.created',
+        data: { sessionID: 'child-1', parentID: 'parent-1' },
+        directory: '/repo',
+      })
     })
 
     expect(useSessionStatus.getState().parents.get('child-1')).toBe('parent-1')
@@ -2485,13 +3031,20 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
       onEvent({
         type: 'shell.created',
-        data: { info: { id: 'shell-1', status: 'running', metadata: { sessionID: 'session-1' } } },
+        data: {
+          info: {
+            id: 'shell-1',
+            status: 'running',
+            metadata: { sessionID: 'session-1' },
+          },
+        },
         directory: '/repo',
       })
     })
@@ -2501,7 +3054,11 @@ describe('EventProvider permissions and forms', () => {
     })
 
     act(() => {
-      onEvent({ type: 'shell.exited', data: { id: 'shell-1', status: 'exited' }, directory: '/repo' })
+      onEvent({
+        type: 'shell.exited',
+        data: { id: 'shell-1', status: 'exited' },
+        directory: '/repo',
+      })
     })
     expect(useSessionStatus.getState().runningShells.has('shell-1')).toBe(false)
   })
@@ -2511,30 +3068,52 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
       onEvent({
         type: 'shell.created',
-        data: { info: { id: 'shell-1', status: 'running', metadata: { sessionID: 'session-1' } } },
+        data: {
+          info: {
+            id: 'shell-1',
+            status: 'running',
+            metadata: { sessionID: 'session-1' },
+          },
+        },
         directory: '/repo',
       })
     })
     expect(useSessionStatus.getState().runningShells.has('shell-1')).toBe(true)
 
     act(() => {
-      onEvent({ type: 'shell.deleted', data: { id: 'shell-1' }, directory: '/repo' })
+      onEvent({
+        type: 'shell.deleted',
+        data: { id: 'shell-1' },
+        directory: '/repo',
+      })
     })
     expect(useSessionStatus.getState().runningShells.has('shell-1')).toBe(false)
   })
 
   it('resolves active session ancestry from the snapshot, walking up to a known root', async () => {
     mocks.listRepos.mockResolvedValue([{ id: 123, fullPath: '/repo' }])
-    mocks.listActiveSessions.mockResolvedValue({ 'child-1': { type: 'running' } })
+    mocks.listActiveSessions.mockResolvedValue({
+      'child-1': { type: 'running' },
+    })
     mocks.getSession.mockImplementation((sessionID: string) => {
-      if (sessionID === 'child-1') return Promise.resolve({ id: 'child-1', parentID: 'parent-1', location: { directory: '/repo' } })
-      if (sessionID === 'parent-1') return Promise.resolve({ id: 'parent-1', location: { directory: '/repo' } })
+      if (sessionID === 'child-1')
+        return Promise.resolve({
+          id: 'child-1',
+          parentID: 'parent-1',
+          location: { directory: '/repo' },
+        })
+      if (sessionID === 'parent-1')
+        return Promise.resolve({
+          id: 'parent-1',
+          location: { directory: '/repo' },
+        })
       return Promise.reject(new Error('Session not found'))
     })
 
@@ -2542,7 +3121,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -2558,7 +3138,11 @@ describe('EventProvider permissions and forms', () => {
   it('populates running shells from the directory snapshot on connect', async () => {
     mocks.listRepos.mockResolvedValue([{ id: 123, fullPath: '/repo' }])
     mocks.listShells.mockResolvedValue([
-      { id: 'shell-1', status: 'running', metadata: { sessionID: 'session-1' } },
+      {
+        id: 'shell-1',
+        status: 'running',
+        metadata: { sessionID: 'session-1' },
+      },
       { id: 'shell-2', status: 'exited', metadata: { sessionID: 'session-2' } },
     ])
 
@@ -2566,7 +3150,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.listPendingForms).toHaveBeenCalledWith('/repo', 'local'))
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -2592,7 +3177,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onDirectoriesSubscribed = lastSubscribeCall[0].onDirectoriesSubscribed as (directories: string[]) => void
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
@@ -2603,11 +3189,21 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.listShells).toHaveBeenCalledWith('/repo', 'local'))
 
     act(() => {
-      onEvent({ type: 'shell.exited', data: { id: 'shell-1', status: 'exited' }, directory: '/repo' })
+      onEvent({
+        type: 'shell.exited',
+        data: { id: 'shell-1', status: 'exited' },
+        directory: '/repo',
+      })
     })
 
     await act(async () => {
-      deferred.resolve([{ id: 'shell-1', status: 'running', metadata: { sessionID: 'session-1' } }])
+      deferred.resolve([
+        {
+          id: 'shell-1',
+          status: 'running',
+          metadata: { sessionID: 'session-1' },
+        },
+      ])
       await deferred.promise
     })
 
@@ -2623,7 +3219,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onDirectoriesSubscribed = lastSubscribeCall[0].onDirectoriesSubscribed as (directories: string[]) => void
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
@@ -2636,7 +3233,13 @@ describe('EventProvider permissions and forms', () => {
     act(() => {
       onEvent({
         type: 'shell.created',
-        data: { info: { id: 'shell-2', status: 'running', metadata: { sessionID: 'session-2' } } },
+        data: {
+          info: {
+            id: 'shell-2',
+            status: 'running',
+            metadata: { sessionID: 'session-2' },
+          },
+        },
         directory: '/repo',
       })
     })
@@ -2654,12 +3257,19 @@ describe('EventProvider permissions and forms', () => {
 
   it('resolves ancestry for a shell owner from a newly subscribed directory snapshot', async () => {
     mocks.listRepos.mockResolvedValue([{ id: 123, fullPath: '/repo' }])
-    mocks.listShells.mockResolvedValue([
-      { id: 'shell-1', status: 'running', metadata: { sessionID: 'child-1' } },
-    ])
+    mocks.listShells.mockResolvedValue([{ id: 'shell-1', status: 'running', metadata: { sessionID: 'child-1' } }])
     mocks.getSession.mockImplementation((sessionID: string) => {
-      if (sessionID === 'child-1') return Promise.resolve({ id: 'child-1', parentID: 'parent-1', location: { directory: '/repo' } })
-      if (sessionID === 'parent-1') return Promise.resolve({ id: 'parent-1', location: { directory: '/repo' } })
+      if (sessionID === 'child-1')
+        return Promise.resolve({
+          id: 'child-1',
+          parentID: 'parent-1',
+          location: { directory: '/repo' },
+        })
+      if (sessionID === 'parent-1')
+        return Promise.resolve({
+          id: 'parent-1',
+          location: { directory: '/repo' },
+        })
       return Promise.reject(new Error('Session not found'))
     })
 
@@ -2667,7 +3277,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onDirectoriesSubscribed = lastSubscribeCall[0].onDirectoriesSubscribed as (directories: string[]) => void
 
     act(() => {
@@ -2683,10 +3294,21 @@ describe('EventProvider permissions and forms', () => {
 
   it('continues a known child to parent link up to the grandparent', async () => {
     mocks.listRepos.mockResolvedValue([{ id: 123, fullPath: '/repo' }])
-    mocks.listActiveSessions.mockResolvedValue({ 'child-1': { type: 'running' } })
+    mocks.listActiveSessions.mockResolvedValue({
+      'child-1': { type: 'running' },
+    })
     mocks.getSession.mockImplementation((sessionID: string) => {
-      if (sessionID === 'parent-1') return Promise.resolve({ id: 'parent-1', parentID: 'grandparent-1', location: { directory: '/repo' } })
-      if (sessionID === 'grandparent-1') return Promise.resolve({ id: 'grandparent-1', location: { directory: '/repo' } })
+      if (sessionID === 'parent-1')
+        return Promise.resolve({
+          id: 'parent-1',
+          parentID: 'grandparent-1',
+          location: { directory: '/repo' },
+        })
+      if (sessionID === 'grandparent-1')
+        return Promise.resolve({
+          id: 'grandparent-1',
+          location: { directory: '/repo' },
+        })
       return Promise.reject(new Error('Session not found'))
     })
 
@@ -2698,7 +3320,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -2715,18 +3338,21 @@ describe('EventProvider permissions and forms', () => {
   it('syncs running shells for a directory whose repo arrives after connect', async () => {
     const reposDeferred = createDeferred<Array<{ id: number; fullPath: string }>>()
     mocks.listRepos.mockReturnValueOnce(reposDeferred.promise)
-    mocks.subscribeGlobalMonitor.mockImplementation((input: { onDirectoriesSubscribed?: (directories: string[]) => void }) => ({
-      dispose: vi.fn(),
-      updateDirectories: (directories: string[]) => input.onDirectoriesSubscribed?.(directories),
-      reconnect: vi.fn(),
-      reportVisibility: vi.fn(),
-    }))
+    mocks.subscribeGlobalMonitor.mockImplementation(
+      (input: { onDirectoriesSubscribed?: (directories: string[]) => void }) => ({
+        dispose: vi.fn(),
+        updateDirectories: (directories: string[]) => input.onDirectoriesSubscribed?.(directories),
+        reconnect: vi.fn(),
+        reportVisibility: vi.fn(),
+      }),
+    )
 
     render(<Harness />, { wrapper: createWrapper() })
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -2751,7 +3377,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onDirectoriesSubscribed = lastSubscribeCall[0].onDirectoriesSubscribed as (directories: string[]) => void
 
     act(() => {
@@ -2781,7 +3408,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onResync = lastSubscribeCall[0].onResync as ((directories: string[]) => void) | undefined
 
     act(() => {
@@ -2825,9 +3453,7 @@ describe('EventProvider permissions and forms', () => {
     })
 
     await waitFor(() => {
-      expect(updateDirectories).toHaveBeenCalledWith(
-        expect.arrayContaining(['/repo', '/repo/.worktrees/feature']),
-      )
+      expect(updateDirectories).toHaveBeenCalledWith(expect.arrayContaining(['/repo', '/repo/.worktrees/feature']))
     })
 
     act(() => {
@@ -2846,9 +3472,7 @@ describe('EventProvider permissions and forms', () => {
     const key = selectActiveSessionDirectoriesKey({
       statuses: new Map([['remote-session', { type: 'busy' as const }]]),
       directories: new Map([['remote-session', 'srv_remote|/remote/repo']]),
-      runningShells: new Map([
-        ['shell-1', { sessionID: 'remote-session', directory: 'srv_remote|/remote/repo' }],
-      ]),
+      runningShells: new Map([['shell-1', { sessionID: 'remote-session', directory: 'srv_remote|/remote/repo' }]]),
     })
 
     expect(key).toBe('srv_remote|/remote/repo')
@@ -2868,7 +3492,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
@@ -2881,7 +3506,9 @@ describe('EventProvider permissions and forms', () => {
     })
 
     expect(useSessionStatus.getState().directories.get('remote-session')).toBe('srv_remote|/remote/repo')
-    expect(useSessionStatus.getState().getStatus('remote-session')).toEqual({ type: 'busy' })
+    expect(useSessionStatus.getState().getStatus('remote-session')).toEqual({
+      type: 'busy',
+    })
 
     await waitFor(() => {
       expect(updateDirectories).toHaveBeenCalledWith(expect.arrayContaining(['srv_remote|/remote/repo']))
@@ -2907,7 +3534,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
@@ -2931,7 +3559,9 @@ describe('EventProvider permissions and forms', () => {
       })
 
       expect(mocks.listActiveSessions).toHaveBeenCalledTimes(2)
-      expect(useSessionStatus.getState().getStatus('remote-session')).toEqual({ type: 'busy' })
+      expect(useSessionStatus.getState().getStatus('remote-session')).toEqual({
+        type: 'busy',
+      })
       expect(useSessionStatus.getState().knownSessions.has('remote-session')).toBe(true)
     } finally {
       vi.useRealTimers()
@@ -2946,17 +3576,21 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
-    const onResync = lastSubscribeCall[0].onResync as
-      | ((directories: string[], serverId?: string) => void)
-      | undefined
+    const onResync = lastSubscribeCall[0].onResync as ((directories: string[], serverId?: string) => void) | undefined
 
     mocks.listActiveSessions.mockImplementation((serverId?: string) =>
       Promise.resolve(serverId === 'srv_remote' ? { 'remote-session': { type: 'running' } } : {}),
     )
     act(() => {
-      onEvent({ type: 'session.status', data: { sessionID: 'remote-session', status: { type: 'busy' } }, directory: '/remote/repo', serverId: 'srv_remote' })
+      onEvent({
+        type: 'session.status',
+        data: { sessionID: 'remote-session', status: { type: 'busy' } },
+        directory: '/remote/repo',
+        serverId: 'srv_remote',
+      })
     })
     await act(async () => {
       await Promise.resolve()
@@ -2983,10 +3617,16 @@ describe('EventProvider permissions and forms', () => {
     expect(mocks.listShells).not.toHaveBeenCalledWith('/repo', 'local')
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'commands', 'srv_remote'] })
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'agents', 'srv_remote'] })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'commands', 'srv_remote'],
+      })
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['opencode', 'agents', 'srv_remote'],
+      })
     })
-    expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['opencode', 'commands'] })
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ['opencode', 'commands'],
+    })
   })
 
   it('reconciles only linked directories with active work on a remote resync', async () => {
@@ -3005,14 +3645,18 @@ describe('EventProvider permissions and forms', () => {
     await waitFor(() => expect(mocks.listProjects).toHaveBeenCalledWith('srv_remote'))
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
-    const onResync = lastSubscribeCall[0].onResync as
-      | ((directories: string[], serverId?: string) => void)
-      | undefined
+    const onResync = lastSubscribeCall[0].onResync as ((directories: string[], serverId?: string) => void) | undefined
 
     act(() => {
-      onEvent({ type: 'session.status', data: { sessionID: 'remote-busy', status: { type: 'busy' } }, directory: '/remote/busy', serverId: 'srv_remote' })
+      onEvent({
+        type: 'session.status',
+        data: { sessionID: 'remote-busy', status: { type: 'busy' } },
+        directory: '/remote/busy',
+        serverId: 'srv_remote',
+      })
     })
     await act(async () => {
       await Promise.resolve()
@@ -3023,10 +3667,7 @@ describe('EventProvider permissions and forms', () => {
     mocks.listShells.mockClear()
 
     await act(async () => {
-      onResync?.(
-        ['srv_remote|/remote/busy', 'srv_remote|/remote/idle', 'srv_remote|/remote/other'],
-        'srv_remote',
-      )
+      onResync?.(['srv_remote|/remote/busy', 'srv_remote|/remote/idle', 'srv_remote|/remote/other'], 'srv_remote')
     })
 
     await waitFor(() => {
@@ -3049,14 +3690,18 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
-    const onResync = lastSubscribeCall[0].onResync as
-      | ((directories: string[], serverId?: string) => void)
-      | undefined
+    const onResync = lastSubscribeCall[0].onResync as ((directories: string[], serverId?: string) => void) | undefined
 
     act(() => {
-      onEvent({ type: 'session.status', data: { sessionID: 'remote-viewed', status: { type: 'idle' } }, directory: '/remote/viewed', serverId: 'srv_remote' })
+      onEvent({
+        type: 'session.status',
+        data: { sessionID: 'remote-viewed', status: { type: 'idle' } },
+        directory: '/remote/viewed',
+        serverId: 'srv_remote',
+      })
     })
     await act(async () => {
       await Promise.resolve()
@@ -3089,10 +3734,9 @@ describe('EventProvider permissions and forms', () => {
       useSessionStatus.getState().setStatus('remote-session', { type: 'busy' })
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
-    const onResync = lastSubscribeCall[0].onResync as
-      | ((directories: string[], serverId?: string) => void)
-      | undefined
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const onResync = lastSubscribeCall[0].onResync as ((directories: string[], serverId?: string) => void) | undefined
 
     await act(async () => {
       onResync?.(['srv_remote|/remote/repo'], 'srv_remote')
@@ -3100,7 +3744,9 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => {
       expect(mocks.listActiveSessions).toHaveBeenCalledWith('srv_remote')
-      expect(useSessionStatus.getState().getStatus('remote-session')).toEqual({ type: 'idle' })
+      expect(useSessionStatus.getState().getStatus('remote-session')).toEqual({
+        type: 'idle',
+      })
     })
   })
 
@@ -3121,7 +3767,8 @@ describe('EventProvider permissions and forms', () => {
       useSessionStatus.getState().setStatus('remote-session', { type: 'busy' })
     })
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
@@ -3130,7 +3777,9 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => {
       expect(mocks.listActiveSessions).toHaveBeenCalledWith('srv_remote')
-      expect(useSessionStatus.getState().getStatus('remote-session')).toEqual({ type: 'idle' })
+      expect(useSessionStatus.getState().getStatus('remote-session')).toEqual({
+        type: 'idle',
+      })
     })
     expect(mocks.listActiveSessions).not.toHaveBeenCalledWith('srv_disabled')
   })
@@ -3140,13 +3789,29 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: pendingForm }, directory: '/srv/app', serverId: 'srv_removed' })
-      onEvent({ type: 'form.created', data: { form: secondPendingForm }, directory: '/srv/app', serverId: 'srv_remote' })
-      onEvent({ type: 'permission.asked', data: pendingPermission, directory: '/srv/app', serverId: 'srv_removed' })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        directory: '/srv/app',
+        serverId: 'srv_removed',
+      })
+      onEvent({
+        type: 'form.created',
+        data: { form: secondPendingForm },
+        directory: '/srv/app',
+        serverId: 'srv_remote',
+      })
+      onEvent({
+        type: 'permission.asked',
+        data: pendingPermission,
+        directory: '/srv/app',
+        serverId: 'srv_removed',
+      })
     })
 
     await waitFor(() => {
@@ -3199,12 +3864,18 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const onDirectoriesSubscribed = lastSubscribeCall[0].onDirectoriesSubscribed as (directories: string[]) => void
 
     act(() => {
-      onEvent({ type: 'form.created', data: { form: pendingForm }, directory: '/srv/app', serverId: 'srv_remote' })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        directory: '/srv/app',
+        serverId: 'srv_remote',
+      })
     })
 
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
@@ -3229,13 +3900,18 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
       useSessionStatus.getState().setSessionParent('session-1', null)
-      onEvent({ type: 'form.created', data: { form: pendingForm }, serverId: 'srv_remote' })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        serverId: 'srv_remote',
+      })
     })
 
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
@@ -3255,7 +3931,10 @@ describe('EventProvider permissions and forms', () => {
     mocks.servers = [{ id: 'srv_remote', enabled: true }]
     mocks.getSession.mockImplementation((sessionID: string) =>
       sessionID === 'session-1'
-        ? Promise.resolve({ id: 'session-1', location: { directory: '/srv/resolved' } })
+        ? Promise.resolve({
+            id: 'session-1',
+            location: { directory: '/srv/resolved' },
+          })
         : Promise.reject(new FetchError('Session not found', 404)),
     )
 
@@ -3263,13 +3942,18 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const onEvent = lastSubscribeCall[0].onEvent as (data: unknown) => void
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {
       useSessionStatus.getState().setSessionParent('session-1', null)
-      onEvent({ type: 'form.created', data: { form: pendingForm }, serverId: 'srv_remote' })
+      onEvent({
+        type: 'form.created',
+        data: { form: pendingForm },
+        serverId: 'srv_remote',
+      })
     })
 
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
@@ -3290,7 +3974,8 @@ describe('EventProvider permissions and forms', () => {
 
     await waitFor(() => expect(mocks.subscribeGlobalMonitor).toHaveBeenCalled())
 
-    const lastSubscribeCall = mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
+    const lastSubscribeCall =
+      mocks.subscribeGlobalMonitor.mock.calls[mocks.subscribeGlobalMonitor.mock.calls.length - 1]
     const handleStatusChange = lastSubscribeCall[0].onStatusChange as (connected: boolean) => void
 
     act(() => {

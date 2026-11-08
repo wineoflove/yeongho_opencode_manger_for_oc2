@@ -36,6 +36,7 @@ import {
   invalidateRepoGitCachesDebounced,
   invalidateSessionListCachesDebounced,
 } from '@/lib/queryInvalidation'
+import { t, tn } from '@/i18n/translate'
 
 const STATUS_POLL_INTERVAL_MS = 5000
 
@@ -336,7 +337,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
       await respondSSHHostKey(requestId, approved)
       setSSHHostKeyRequest(null)
     } catch {
-      showToast.error('Failed to respond to SSH host key verification')
+      showToast.error(t('Failed to respond to SSH host key verification'))
     }
   }, [])
 
@@ -608,10 +609,10 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const permissionCount = allPermissions.length
     if (permissionCount > prevPermissionCountRef.current && permissionCount > 0 && !showPermissionDialog) {
-      showToast.info(`${permissionCount} pending permission${permissionCount > 1 ? 's' : ''}`, {
+      showToast.info(tn('{count} pending permission', '{count} pending permissions', permissionCount), {
         duration: 5000,
         action: {
-          label: 'View',
+          label: t('View'),
           onClick: () => setShowPermissionDialog(true),
         },
       })
@@ -629,29 +630,29 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
     await settlePendingReply(
       () => replyPermission(sessionID, permissionID, response, message, permission?.serverId),
       'PermissionNotFoundError',
-      'Permission request expired',
+      t('Permission request expired'),
     )
     removePermission(permissionID, sessionID)
   }, [allPermissions, removePermission])
 
   const replyToForm = useCallback(async (formID: string, answer: FormAnswer) => {
     const form = Object.values(formsBySession).flat().find(f => f.id === formID)
-    if (!form) throw new Error('Form not found')
+    if (!form) throw new Error(t('Form not found'))
     await settlePendingReply(
       () => replyForm(form.sessionID, formID, answer, form.serverId),
       'FormNotFoundError',
-      'Form expired',
+      t('Form expired'),
     )
     removeForm(formID, form.sessionID)
   }, [formsBySession, removeForm])
 
   const cancelPendingForm = useCallback(async (formID: string) => {
     const form = Object.values(formsBySession).flat().find(f => f.id === formID)
-    if (!form) throw new Error('Form not found')
+    if (!form) throw new Error(t('Form not found'))
     await settlePendingReply(
       () => cancelForm(form.sessionID, formID, form.serverId),
       'FormNotFoundError',
-      'Form expired',
+      t('Form expired'),
     )
     removeForm(formID, form.sessionID)
   }, [formsBySession, removeForm])
