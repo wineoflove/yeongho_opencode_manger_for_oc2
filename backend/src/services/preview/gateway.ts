@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { Hono } from 'hono'
 import type { Context, MiddlewareHandler } from 'hono'
-import { createNodeWebSocket, type NodeWebSocket } from '@hono/node-ws'
+import { createHttpServer, type HttpServerRuntime } from '../../utils/http-server'
 import type { PreviewPort } from '@opencode-manager/shared/schemas'
 import { isLoopbackHost } from '@opencode-manager/shared/utils'
 import { AUTH_COOKIE_PREFIX } from '../../auth/cookies'
@@ -148,7 +148,7 @@ function rewriteLocalLocation(location: string, port: number): string | null {
 
 export interface PreviewGateway {
   app: Hono
-  injectWebSocket: NodeWebSocket['injectWebSocket']
+  start: HttpServerRuntime['start']
 }
 
 function isWebSocketUpgrade(c: Context): boolean {
@@ -186,7 +186,7 @@ function parseProtocols(header: string | undefined): string[] {
 
 export function createPreviewGatewayApp(store: PreviewSessionStore, fetchFn: typeof fetch = fetch): PreviewGateway {
   const app = new Hono()
-  const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
+  const { start, upgradeWebSocket } = createHttpServer(app)
 
   app.get('/__ocm_preview/start', (c) => {
     const sessionId = store.consumeStartToken(c.req.query('token') ?? '')
@@ -202,7 +202,10 @@ export function createPreviewGatewayApp(store: PreviewSessionStore, fetchFn: typ
     const isSecure = forwardedProto === 'https' || requestUrl.protocol === 'https:'
     const cookie = `${PREVIEW_COOKIE}=${sessionId}; HttpOnly; SameSite=Lax; Path=/${isSecure ? '; Secure' : ''}`
 
-    return new Response(null, { status: 302, headers: { location, 'set-cookie': cookie } })
+    return new Response(null, {
+      status: 302,
+      headers: { location, 'set-cookie': cookie },
+    })
   })
 
   const sessionGuard: MiddlewareHandler = async (c, next) => {
@@ -296,5 +299,5 @@ export function createPreviewGatewayApp(store: PreviewSessionStore, fetchFn: typ
     }
   })
 
-  return { app, injectWebSocket }
+  return { app, start }
 }

@@ -9,6 +9,7 @@ import {
   PreviewSessionStore,
 } from '../../../src/services/preview/gateway'
 import { startWebSocketServer, type WebSocketTestServer } from '../../helpers/websocket-server'
+import type { HttpServerHandle } from '../../../src/utils/http-server'
 
 class HandshakeError extends Error {
   constructor(readonly statusCode: number) {
@@ -155,7 +156,7 @@ class RawWebSocketClient {
 }
 
 let upstream: WebSocketTestServer
-let gatewayServer: WebSocketTestServer
+let gatewayServer: HttpServerHandle
 let upstreamPort = 0
 let gatewayPort = 0
 let capturedUrl: URL | undefined
@@ -194,10 +195,13 @@ async function openSessionCookie(): Promise<string> {
 }
 
 beforeAll(async () => {
-  upstream = await startWebSocketServer({ app: upstreamApp, injectWebSocket: upstreamWs.injectWebSocket })
+  upstream = await startWebSocketServer({
+    app: upstreamApp,
+    injectWebSocket: upstreamWs.injectWebSocket,
+  })
   upstreamPort = upstream.port
 
-  gatewayServer = await startWebSocketServer({ app: gateway.app, injectWebSocket: gateway.injectWebSocket })
+  gatewayServer = await gateway.start({ port: 0, hostname: '127.0.0.1' })
   gatewayPort = gatewayServer.port
 })
 
