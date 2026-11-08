@@ -21,6 +21,7 @@ import { ToolSidePanel } from "@/components/navigation/ToolSidePanel"
 import { useToolPanelLayout } from "@/hooks/useToolPanelLayout"
 import { useToolPanel } from "@/hooks/useToolPanel"
 import { Plus } from "lucide-react"
+import { t } from "@/i18n/translate"
 
 export function AssistantRedirect() {
   const navigate = useNavigate()
@@ -57,25 +58,25 @@ export function AssistantRedirect() {
     <div className="flex-1 min-w-0 h-full max-h-full overflow-hidden bg-gradient-to-br from-background via-background to-background flex flex-col pb-[calc(env(safe-area-inset-bottom)+56px)] sm:pb-0">
       <Header>
         <Header.BackButton to="/" />
-        <Header.Title>Assistant</Header.Title>
+        <Header.Title>{t("Assistant")}</Header.Title>
         <Header.Actions>
           <div className="flex items-center gap-1">
             <PendingActionsGroup />
           </div>
           <Button onClick={() => handleCreateSession()} disabled={!assistantDirectory || createSessionMutation.isPending} size="sm" className="hidden sm:inline-flex bg-primary hover:bg-primary-hover text-primary-foreground transition-all duration-200 hover:scale-105">
             <Plus className="w-4 h-4 mr-2" />
-            <span>New Session</span>
+            <span>{t("New Session")}</span>
           </Button>
-          <Button onClick={() => handleCreateSession()} disabled={!assistantDirectory || createSessionMutation.isPending} aria-label="New Session" size="sm" className="sm:hidden h-10 w-10 p-0 bg-primary hover:bg-primary-hover text-primary-foreground transition-all duration-200 hover:scale-105">
+          <Button onClick={() => handleCreateSession()} disabled={!assistantDirectory || createSessionMutation.isPending} aria-label={t("New Session")} size="sm" className="sm:hidden h-10 w-10 p-0 bg-primary hover:bg-primary-hover text-primary-foreground transition-all duration-200 hover:scale-105">
             <Plus className="w-5 h-5" />
           </Button>
         </Header.Actions>
       </Header>
       <div className="flex-1 flex flex-col min-h-0">
         {repoError ? (
-          <div className="p-4 text-sm text-muted-foreground">Failed to load Assistant sessions</div>
+          <div className="p-4 text-sm text-muted-foreground">{t("Failed to load Assistant sessions")}</div>
         ) : repoLoading || !repo?.fullPath ? (
-          <div className="p-4 text-sm text-muted-foreground">Loading Assistant sessions...</div>
+          <div className="p-4 text-sm text-muted-foreground">{t("Loading Assistant sessions...")}</div>
         ) : (
           <SessionList
             directory={assistantDirectory}
@@ -85,7 +86,7 @@ export function AssistantRedirect() {
       </div>
       {assistantDirectory && (
         <>
-          <FileBrowserSheet isOpen={!docked && fileBrowserOpen} onClose={() => setFileBrowserOpen(false)} basePath={repo?.localPath} repoName="Assistant" repoId={repoId} />
+          <FileBrowserSheet isOpen={!docked && fileBrowserOpen} onClose={() => setFileBrowserOpen(false)} basePath={repo?.localPath} repoName={t("Assistant")} repoId={repoId} />
           <RepoMcpDialog open={!docked && mcpDialogOpen} onOpenChange={setMcpDialogOpen} directory={assistantDirectory} />
           {assistantDirectory ? (
             <RepoSkillsDialog
@@ -102,7 +103,7 @@ export function AssistantRedirect() {
               repoId={repoId}
             />
           )}
-          <SourceControlPanel repoId={repoId} isOpen={!docked && sourceControlOpen} onClose={() => setSourceControlOpen(false)} currentBranch={repo?.currentBranch || repo?.branch || "main"} repoName="Assistant" />
+          <SourceControlPanel repoId={repoId} isOpen={!docked && sourceControlOpen} onClose={() => setSourceControlOpen(false)} currentBranch={repo?.currentBranch || repo?.branch || "main"} repoName={t("Assistant")} />
           <TerminalPanel target={{ kind: 'repo', repoId: 0 }} directory={assistantDirectory} isOpen={!docked && terminalOpen} onClose={() => setTerminalOpen(false)} />
           <PreviewPanel isOpen={!docked && previewOpen} onClose={() => setPreviewOpen(false)} directory={assistantDirectory} />
           <ResetPermissionsDialog open={resetPermissionsOpen} onOpenChange={setResetPermissionsOpen} repoId={repoId} />

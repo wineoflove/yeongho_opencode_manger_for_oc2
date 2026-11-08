@@ -26,6 +26,7 @@ import { RepoSkillsDialog } from '@/components/repo/RepoSkillsDialog'
 import { RemoteSourceControlPanel } from '@/components/source-control/RemoteSourceControlContent'
 import { TerminalPanel } from '@/components/terminal/TerminalPanel'
 import { ToolSidePanel } from '@/components/navigation/ToolSidePanel'
+import { t } from '@/i18n/translate'
 
 function RemoteProjectContent({ serverId, directory }: { serverId: string; directory?: string }) {
   const navigate = useNavigate()
@@ -62,7 +63,7 @@ function RemoteProjectContent({ serverId, directory }: { serverId: string; direc
     ? remoteProjectName(project)
     : directory
       ? getDirectoryName(directory)
-      : 'Project'
+      : t('Project')
 
   const openSettings = () => openTab('servers')
 
@@ -81,7 +82,7 @@ function RemoteProjectContent({ serverId, directory }: { serverId: string; direc
             <Header.Title>{title}</Header.Title>
             <Badge variant="outline" className="hidden shrink-0 @min-[36rem]:inline-flex">
               <Server className="mr-1 h-3 w-3" />
-              {server?.name ?? 'Linked server'}
+              {server?.name ?? t('Linked server')}
             </Badge>
             {branch ? (
               <Badge variant="secondary" className="hidden shrink-0 @min-[44rem]:inline-flex">
@@ -98,7 +99,7 @@ function RemoteProjectContent({ serverId, directory }: { serverId: string; direc
                 <Button
                   onClick={handleCreateSession}
                   disabled={createSession.isPending}
-                  aria-label="New Session"
+                  aria-label={t('New Session')}
                   size="sm"
                   className="h-9 w-9 bg-primary p-0 text-primary-foreground transition-all duration-200 hover:scale-105 hover:bg-primary-hover @min-[36rem]:w-auto @min-[36rem]:px-3"
                 >
@@ -107,7 +108,7 @@ function RemoteProjectContent({ serverId, directory }: { serverId: string; direc
                   ) : (
                     <Plus className="h-4 w-4 @min-[36rem]:mr-2" />
                   )}
-                  <span className="hidden @min-[36rem]:inline">New Session</span>
+                  <span className="hidden @min-[36rem]:inline">{t('New Session')}</span>
                 </Button>
               </>
             ) : null}
@@ -118,7 +119,7 @@ function RemoteProjectContent({ serverId, directory }: { serverId: string; direc
           {serversLoading && directory ? (
             <div
               role="status"
-              aria-label="Loading project"
+              aria-label={t('Loading project')}
               className="flex flex-1 items-center justify-center"
             >
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -131,9 +132,9 @@ function RemoteProjectContent({ serverId, directory }: { serverId: string; direc
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-3 sm:p-4">
               <LinkedServerStateCard
                 icon={Server}
-                title="Server not found"
-                description="This linked server is no longer configured."
-                actionLabel="Open server settings"
+                title={t('Server not found')}
+                description={t('This linked server is no longer configured.')}
+                actionLabel={t('Open server settings')}
                 onAction={openSettings}
               />
             </div>
@@ -141,9 +142,9 @@ function RemoteProjectContent({ serverId, directory }: { serverId: string; direc
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-3 sm:p-4">
               <LinkedServerStateCard
                 icon={Server}
-                title="This server is disabled"
-                description="Enable it in Settings → Servers to browse its projects and sessions."
-                actionLabel="Open server settings"
+                title={t('This server is disabled')}
+                description={t('Enable it in Settings → Servers to browse its projects and sessions.')}
+                actionLabel={t('Open server settings')}
                 onAction={openSettings}
               />
             </div>
@@ -151,9 +152,9 @@ function RemoteProjectContent({ serverId, directory }: { serverId: string; direc
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-3 sm:p-4">
               <LinkedServerStateCard
                 icon={FolderGit2}
-                title="No project selected"
-                description="This project link is missing its directory on the server."
-                actionLabel="Back to projects"
+                title={t('No project selected')}
+                description={t('This project link is missing its directory on the server.')}
+                actionLabel={t('Back to projects')}
                 onAction={() => navigate('/')}
               />
             </div>

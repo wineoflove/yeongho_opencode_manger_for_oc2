@@ -501,6 +501,9 @@ describe('SessionDetail remote server mode', () => {
 
     expect(await screen.findByRole('dialog')).toHaveAccessibleName('Session details')
     expect(screen.getByText('/home/me/app')).toBeInTheDocument()
+    const status = screen.getByRole('region', { name: 'Session status' })
+    expect(status).toHaveTextContent('Status')
+    expect(status).toHaveTextContent('Messages')
   })
 
   it('navigates child sessions within the linked server route', async () => {

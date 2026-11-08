@@ -6,6 +6,8 @@ import type { SessionMessageInfo } from '@opencode-manager/shared/opencode'
 import { SessionDetail } from '../SessionDetail'
 import { LocationCatcher } from '@/test/test-utils'
 import { BUILTIN_COMMANDS } from '@/lib/builtinCommands'
+import { useDialogParam } from '@/hooks/useDialogParam'
+import { useComposerDraftStore } from '@/stores/composerDraftStore'
 
 const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
@@ -35,6 +37,7 @@ const mocks = vi.hoisted(() => ({
   openModelPicker: vi.fn(),
   promptInputProps: null as Record<string, unknown> | null,
   scrollIntoView: vi.fn(),
+  disengageAutoScroll: vi.fn(),
   showToast: {
     success: vi.fn(),
     error: vi.fn(),
@@ -292,7 +295,7 @@ describe('SessionDetail command actions', () => {
     mocks.useSSEHealth.mockReturnValue({ isHealthy: true })
     mocks.useConfig.mockReturnValue({ data: undefined, isLoading: false })
     mocks.useMobile.mockReturnValue(false)
-    mocks.useAutoScroll.mockReturnValue({ scrollToBottom: vi.fn() })
+    mocks.useAutoScroll.mockReturnValue({ scrollToBottom: vi.fn(), disengage: mocks.disengageAutoScroll })
     mocks.dialogSetters = {
       files: vi.fn(),
       mcp: vi.fn(),
@@ -651,6 +654,10 @@ describe('SessionDetail command actions', () => {
     expect(target).not.toBeNull()
     expect(mocks.scrollIntoView.mock.instances.at(-1)).toBe(target)
     expect(mocks.scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' })
+    expect(mocks.disengageAutoScroll).toHaveBeenCalledOnce()
+    expect(mocks.disengageAutoScroll.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.scrollIntoView.mock.invocationCallOrder.at(-1) ?? 0,
+    )
   })
 
   it('lists only the loaded transcript in the timeline picker', async () => {
@@ -878,5 +885,69 @@ describe('SessionDetail command actions', () => {
     const wrapper = screen.getByTestId('prompt-overlay').firstElementChild as HTMLElement
     expect(wrapper).toHaveClass('relative')
     expect(wrapper).not.toHaveClass('pointer-events-auto')
+  })
+
+  it('creates a new session from this one with a reference draft in its composer', async () => {
+    vi.mocked(useDialogParam).mockImplementation(((name: string) => [
+      name === 'referenceSession',
+      mocks.dialogSetters[name] ?? vi.fn(),
+    ]) as typeof useDialogParam)
+    mocks.createSession.mockResolvedValue({ id: 'session-ref' })
+    useComposerDraftStore.setState({ drafts: {} })
+    const captured = { search: { current: '' }, pathname: { current: '' } }
+    try {
+      renderSessionDetail(captured)
+      expect(await screen.findByRole('button', { name: 'New session from this session', hidden: true })).toBeInTheDocument()
+      const dialog = await screen.findByRole('dialog', { name: 'Start a new session from this one?' })
+      expect(dialog).toHaveTextContent(`Reference session: ${SESSION_ID} (Command Session)`)
+      fireEvent.click(screen.getByRole('button', { name: 'New session' }))
+      await waitFor(() => expect(captured.pathname.current).toBe('/repos/1/sessions/session-ref'))
+      expect(mocks.createSession).toHaveBeenCalledWith({ agent: undefined })
+      expect(useComposerDraftStore.getState().getDraft('session-ref').prompt).toBe(
+        `Reference session: ${SESSION_ID} (Command Session)\n\n`,
+      )
+    } finally {
+      vi.mocked(useDialogParam).mockImplementation(((name: string) => [false, mocks.dialogSetters[name]]) as typeof useDialogParam)
+    }
+  })
+
+  it('lists files the session changed, including earlier history, in the artifacts panel', async () => {
+    const edit = (id: string, time: number, path: string) =>
+      ({
+        id,
+        type: 'assistant',
+        agent: 'build',
+        model: { providerID: 'mock', id: 'fixture' },
+        time: { created: time, completed: time },
+        content: [
+          {
+            type: 'tool',
+            id: `call_${id}`,
+            name: 'edit',
+            state: {
+              status: 'completed',
+              input: { path },
+              metadata: { files: [{ file: path, status: 'modified', additions: 1, deletions: 0 }], truncated: false },
+              content: [{ type: 'text', text: `Edited ${path} (1 replacement)` }],
+            },
+          },
+        ],
+      }) as unknown as SessionMessageInfo
+    mocks.useSessionTranscript.mockReturnValue({
+      messages: [edit('m2', 2000, 'recent.ts')],
+      pending: [],
+      status: 'idle',
+      isLoading: false,
+      fetchOlder: vi.fn(),
+      hasOlder: true,
+    })
+    mocks.listSessionMessages.mockResolvedValue({ messages: [edit('m1', 1000, 'older.ts'), edit('m2', 2000, 'recent.ts')] })
+    renderSessionDetail()
+    const button = await screen.findByRole('button', { name: 'Session artifacts' })
+    expect(button).toHaveTextContent('1+')
+    fireEvent.click(button)
+    expect(await screen.findByText('older.ts')).toBeInTheDocument()
+    expect(screen.getByText('recent.ts')).toBeInTheDocument()
+    expect(mocks.listSessionMessages).toHaveBeenCalled()
   })
 })

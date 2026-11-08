@@ -15,6 +15,7 @@ import { useDialogParam } from "@/hooks/useDialogParam";
 import { useToolPanelLayout } from "@/hooks/useToolPanelLayout";
 import { useSidebarServerSelection } from "@/hooks/useSidebarServerSelection";
 import { useToolPanel } from "@/hooks/useToolPanel";
+import { t } from "@/i18n/translate";
 
 export function Repos() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export function Repos() {
               variant="ghost"
               size="icon"
               onClick={() => setFileBrowserOpen(true)}
-              aria-label="Open files"
+              aria-label={t("Open files")}
               className="hidden sm:flex text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 h-8 w-8"
             >
               <FolderOpen className="w-4 h-4" />
@@ -59,7 +60,7 @@ export function Repos() {
             className="hidden sm:flex text-foreground border-border hover:bg-accent transition-all duration-200 hover:scale-105"
           >
             <CalendarClock className="w-4 h-4 mr-2" />
-            All Schedules
+            {t("All Schedules")}
           </Button>
           {isLocalServer ? (
             <Button
@@ -68,7 +69,7 @@ export function Repos() {
               className="hidden md:inline-flex"
             >
               <Plus className="w-4 h-4 mr-1" />
-              Repo
+              {t("Repo")}
             </Button>
           ) : null}
           <span>
@@ -87,7 +88,7 @@ export function Repos() {
           isOpen={!docked && fileBrowserOpen}
           onClose={handleCloseFileBrowser}
           basePath=""
-          repoName="Workspace Root"
+          repoName={t("Workspace Root")}
           allowNavigateAboveBase={true}
         />
       ) : null}

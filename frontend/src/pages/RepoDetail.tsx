@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { repoQueryOptions } from "@/lib/repoQuery";
 import { NotFoundState } from "@/components/ui/not-found-state";
-import { SessionList, type SessionListRenderArgs } from "@/components/session/SessionList";
+import {
+  SessionList,
+  type SessionListRenderArgs,
+} from "@/components/session/SessionList";
 import { FileBrowserSheet } from "@/components/file-browser/FileBrowserSheet";
 import { Header } from "@/components/ui/header";
 import { RepoMcpDialog } from "@/components/repo/RepoMcpDialog";
@@ -17,11 +26,19 @@ import { TerminalPanel } from "@/components/terminal/TerminalPanel";
 import { PreviewPanel } from "@/components/preview/PreviewPanel";
 import { useCreateSession } from "@/hooks/useOpenCode";
 import { useRepoActivity } from "@/hooks/useRepoActivity";
-import { useCreateRepoWorkspace, useDeleteRepoWorkspaces, useRepoSiblings } from "@/hooks/useRepoSiblings";
+import {
+  useCreateRepoWorkspace,
+  useDeleteRepoWorkspaces,
+  useRepoSiblings,
+} from "@/hooks/useRepoSiblings";
 import { useMultiRuns } from "@/hooks/useMultiRuns";
 import { useSSE } from "@/hooks/useSSE";
 import { useDialogParam } from "@/hooks/useDialogParam";
-import { useOpenTerminal, useTerminalDialogParam, useTerminalDirectoryParam } from "@/hooks/useOpenTerminal";
+import {
+  useOpenTerminal,
+  useTerminalDialogParam,
+  useTerminalDirectoryParam,
+} from "@/hooks/useOpenTerminal";
 import { useWorktreeTab } from "@/hooks/useWorktreeTab";
 import { useToolPanelLayout } from "@/hooks/useToolPanelLayout";
 import { useToolPanel } from "@/hooks/useToolPanel";
@@ -33,28 +50,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { GitBranch, Plus, Loader2, Layers, Columns3 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ResetPermissionsDialog } from "@/components/repo/ResetPermissionsDialog";
 import { PendingActionsGroup } from "@/components/notifications/PendingActionsGroup";
 import { getRepoDisplayName } from "@/lib/utils";
 import { notifyWorktreeSetup } from "@/lib/worktreeSetup";
-import { getRepoDirectoryNameError, isWorktreeSibling } from "@opencode-manager/shared/utils";
+import {
+  getRepoDirectoryNameError,
+  isWorktreeSibling,
+} from "@opencode-manager/shared/utils";
 import type { MultiRunTarget } from "@opencode-manager/shared/schemas";
+import { t } from "@/i18n/translate";
 
 export function RepoDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const repoId = Number(id) || 0;
-  const [fileBrowserOpen, setFileBrowserOpen] = useDialogParam('files');
-  const [mcpDialogOpen, setMcpDialogOpen] = useDialogParam('mcp');
-  const [skillsDialogOpen, setSkillsDialogOpen] = useDialogParam('skills');
-  const [secretsDialogOpen, setSecretsDialogOpen] = useDialogParam('secrets');
-  const [sourceControlOpen, setSourceControlOpen] = useDialogParam('sourceControl');
+  const [fileBrowserOpen, setFileBrowserOpen] = useDialogParam("files");
+  const [mcpDialogOpen, setMcpDialogOpen] = useDialogParam("mcp");
+  const [skillsDialogOpen, setSkillsDialogOpen] = useDialogParam("skills");
+  const [secretsDialogOpen, setSecretsDialogOpen] = useDialogParam("secrets");
+  const [sourceControlOpen, setSourceControlOpen] =
+    useDialogParam("sourceControl");
   const [terminalOpen, setTerminalOpen] = useTerminalDialogParam();
-  const [actionsDialogOpen, setActionsDialogOpen] = useDialogParam('actions');
-  const [previewOpen, setPreviewOpen] = useDialogParam('preview');
-  const [resetPermissionsOpen, setResetPermissionsOpen] = useDialogParam('resetPermissions');
-  const [multiRunOpen, setMultiRunOpen] = useDialogParam('multiRun');
+  const [actionsDialogOpen, setActionsDialogOpen] = useDialogParam("actions");
+  const [previewOpen, setPreviewOpen] = useDialogParam("preview");
+  const [resetPermissionsOpen, setResetPermissionsOpen] =
+    useDialogParam("resetPermissions");
+  const [multiRunOpen, setMultiRunOpen] = useDialogParam("multiRun");
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const { activeTab, setActiveTab } = useWorktreeTab();
   const openTerminal = useOpenTerminal();
@@ -74,41 +104,54 @@ export function RepoDetail() {
   const createWorkspace = useCreateRepoWorkspace(repoId);
 
   const workspaceSiblings = useMemo(
-    () => (siblings ?? []).filter((sibling) => isWorktreeSibling(sibling) && !!sibling.fullPath),
+    () =>
+      (siblings ?? []).filter(
+        (sibling) => isWorktreeSibling(sibling) && !!sibling.fullPath,
+      ),
     [siblings],
   );
 
   const scheduleDirectorySet = useMemo(
-    () => new Set(
-      workspaceSiblings
-        .filter((sibling) => sibling.worktreeSource === 'schedule')
-        .map((sibling) => sibling.fullPath),
-    ),
+    () =>
+      new Set(
+        workspaceSiblings
+          .filter((sibling) => sibling.worktreeSource === "schedule")
+          .map((sibling) => sibling.fullPath),
+      ),
     [workspaceSiblings],
   );
 
   const nonScheduleWorkspaceDirectories = useMemo(
-    () => workspaceSiblings
-      .filter((sibling) => sibling.worktreeSource !== 'schedule')
-      .map((sibling) => sibling.fullPath)
-      .filter(Boolean),
+    () =>
+      workspaceSiblings
+        .filter((sibling) => sibling.worktreeSource !== "schedule")
+        .map((sibling) => sibling.fullPath)
+        .filter(Boolean),
     [workspaceSiblings],
   );
 
-  const [expandedScheduleDirectories, setExpandedScheduleDirectories] = useState<string[]>([]);
+  const [expandedScheduleDirectories, setExpandedScheduleDirectories] =
+    useState<string[]>([]);
 
   const activeScheduleDirectories = useMemo(
-    () => expandedScheduleDirectories.filter((directory) => scheduleDirectorySet.has(directory)),
+    () =>
+      expandedScheduleDirectories.filter((directory) =>
+        scheduleDirectorySet.has(directory),
+      ),
     [expandedScheduleDirectories, scheduleDirectorySet],
   );
 
-  const handleExpandedScheduleDirectoriesChange = useCallback((directories: string[]) => {
-    setExpandedScheduleDirectories((current) =>
-      current.length === directories.length && current.every((directory, index) => directory === directories[index])
-        ? current
-        : directories,
-    );
-  }, []);
+  const handleExpandedScheduleDirectoriesChange = useCallback(
+    (directories: string[]) => {
+      setExpandedScheduleDirectories((current) =>
+        current.length === directories.length &&
+        current.every((directory, index) => directory === directories[index])
+          ? current
+          : directories,
+      );
+    },
+    [],
+  );
 
   const baseDirectory = repo?.fullPath;
   const subscriptionDirectories = useMemo(() => {
@@ -117,15 +160,35 @@ export function RepoDetail() {
     nonScheduleWorkspaceDirectories.forEach((dir) => set.add(dir));
     activeScheduleDirectories.forEach((dir) => set.add(dir));
     return Array.from(set);
-  }, [baseDirectory, nonScheduleWorkspaceDirectories, activeScheduleDirectories]);
+  }, [
+    baseDirectory,
+    nonScheduleWorkspaceDirectories,
+    activeScheduleDirectories,
+  ]);
 
-  const showWorktrees = activeTab === 'workspaces';
-  const multiRunTarget = useMemo<MultiRunTarget>(() => ({ kind: 'repo', repoId }), [repoId]);
-  const { data: multiRuns } = useMultiRuns(repoId > 0 ? multiRunTarget : undefined, showWorktrees);
+  const showWorktrees = activeTab === "workspaces";
+  const multiRunTarget = useMemo<MultiRunTarget>(
+    () => ({ kind: "repo", repoId }),
+    [repoId],
+  );
+  const { data: multiRuns } = useMultiRuns(
+    repoId > 0 ? multiRunTarget : undefined,
+    showWorktrees,
+  );
   const sessionListDirectories = useMemo(() => {
     if (!showWorktrees) return baseDirectory ? [baseDirectory] : [];
-    return Array.from(new Set([...nonScheduleWorkspaceDirectories, ...activeScheduleDirectories]));
-  }, [showWorktrees, baseDirectory, nonScheduleWorkspaceDirectories, activeScheduleDirectories]);
+    return Array.from(
+      new Set([
+        ...nonScheduleWorkspaceDirectories,
+        ...activeScheduleDirectories,
+      ]),
+    );
+  }, [
+    showWorktrees,
+    baseDirectory,
+    nonScheduleWorkspaceDirectories,
+    activeScheduleDirectories,
+  ]);
 
   useEffect(() => {
     if (!showWorktrees) setExpandedScheduleDirectories([]);
@@ -144,9 +207,13 @@ export function RepoDetail() {
   const createSessionMutation = useCreateSession(baseDirectory);
 
   const handleCreateSession = (directory = baseDirectory) => {
-    createSessionMutation.mutate({ directory }, {
-      onSuccess: (session) => navigate(sessionUrl(session.id, directory !== baseDirectory)),
-    });
+    createSessionMutation.mutate(
+      { directory },
+      {
+        onSuccess: (session) =>
+          navigate(sessionUrl(session.id, directory !== baseDirectory)),
+      },
+    );
   };
 
   const handleCreateWorkspace = (name: string) => {
@@ -154,12 +221,17 @@ export function RepoDetail() {
       onSuccess: (workspace) => {
         setCreateWorkspaceOpen(false);
         notifyWorktreeSetup(workspace.worktreeSetup);
-        if (workspace.worktreeSetup?.status === 'started') {
+        if (workspace.worktreeSetup?.status === "started") {
           const terminalId = workspace.worktreeSetup.terminal.id;
-          openTerminal(terminalId, { repoTab: 'workspaces', ...(workspace.directory ? { terminalDirectory: workspace.directory } : {}) });
+          openTerminal(terminalId, {
+            repoTab: "workspaces",
+            ...(workspace.directory
+              ? { terminalDirectory: workspace.directory }
+              : {}),
+          });
           return;
         }
-        setActiveTab('workspaces');
+        setActiveTab("workspaces");
       },
     });
   };
@@ -168,7 +240,11 @@ export function RepoDetail() {
     navigate(sessionUrl(sessionId, showWorktrees));
   };
 
-  const renderWorktreeGroups = ({ sessions, searchQuery, renderSessionCard }: SessionListRenderArgs) => (
+  const renderWorktreeGroups = ({
+    sessions,
+    searchQuery,
+    renderSessionCard,
+  }: SessionListRenderArgs) => (
     <WorktreeSessionGroups
       repoId={repoId}
       worktrees={workspaceSiblings}
@@ -176,9 +252,16 @@ export function RepoDetail() {
       multiRuns={multiRuns}
       searchQuery={searchQuery}
       renderSessionCard={renderSessionCard}
-      onExpandedScheduleDirectoriesChange={handleExpandedScheduleDirectoriesChange}
+      onExpandedScheduleDirectoriesChange={
+        handleExpandedScheduleDirectoriesChange
+      }
       onNewSession={handleCreateSession}
-      onOpenTerminal={(directory) => openTerminal(null, { repoTab: "workspaces", terminalDirectory: directory })}
+      onOpenTerminal={(directory) =>
+        openTerminal(null, {
+          repoTab: "workspaces",
+          terminalDirectory: directory,
+        })
+      }
       onCreateWorktree={() => setCreateWorkspaceOpen(true)}
       onDelete={(directories) => deleteWorkspaces.mutate(directories)}
       isDeleting={deleteWorkspaces.isPending}
@@ -194,16 +277,24 @@ export function RepoDetail() {
   }
 
   if (!repo) {
-    return <NotFoundState message="Repository not found" backTo="/" backLabel="Back to repositories" />;
+    return (
+      <NotFoundState
+        message={t("Repository not found")}
+        backTo="/"
+        backLabel={t('Back to repositories')}
+      />
+    );
   }
-  
-  if (repo.cloneStatus !== 'ready') {
+
+  if (repo.cloneStatus !== "ready") {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">
-            {repo.cloneStatus === 'cloning' ? 'Cloning repository...' : 'Repository not ready'}
+            {repo.cloneStatus === "cloning"
+              ? t("Cloning repository...")
+              : t("Repository not ready")}
           </p>
         </div>
       </div>
@@ -212,148 +303,157 @@ export function RepoDetail() {
 
   const repoName = getRepoDisplayName(repo);
   const branchToDisplay = repo.currentBranch || repo.branch;
-  const displayName = branchToDisplay ? `${repoName} (${branchToDisplay})` : repoName;
+  const displayName = branchToDisplay
+    ? `${repoName} (${branchToDisplay})`
+    : repoName;
   const currentBranch = repo.currentBranch || repo.branch || "main";
   const isWorktree = repo.isWorktree || false;
 
   return (
     <div className="flex h-full max-h-full min-w-0">
-    <div
-      className="flex-1 min-w-0 h-full max-h-full overflow-hidden bg-gradient-to-br from-background via-background to-background flex flex-col pb-[calc(env(safe-area-inset-bottom)+56px)] sm:pb-0"
-    >
-      <Header className="@container">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <Header.BackButton to="/" />
-          <Header.Title>{repoName}</Header.Title>
-          {isWorktree ? (
-            <Badge className="text-xs px-1.5 sm:px-2.5 py-0.5 bg-primary/20 text-primary border-primary/40" title="Worktree">
-              <GitBranch className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">WT: {currentBranch}</span>
-            </Badge>
-          ) : null}
+      <div className="flex-1 min-w-0 h-full max-h-full overflow-hidden bg-gradient-to-br from-background via-background to-background flex flex-col pb-[calc(env(safe-area-inset-bottom)+56px)] md:pb-0">
+        <Header className="@container">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <Header.BackButton to="/" />
+            <Header.Title>{repoName}</Header.Title>
+            {isWorktree ? (
+              <Badge
+                className="text-xs px-1.5 sm:px-2.5 py-0.5 bg-primary/20 text-primary border-primary/40"
+                title={t("Worktree")}
+              >
+                <GitBranch className="h-3 w-3 sm:mr-1" />
+                <span className="hidden sm:inline">
+                  {t("WT: {branch}", { branch: currentBranch })}
+                </span>
+              </Badge>
+            ) : null}
+          </div>
+          <Header.Actions className="shrink-0 gap-1 sm:gap-2 pl-2">
+            <ProjectActionsMenu repoId={repoId} directory={baseDirectory} />
+            <PendingActionsGroup />
+            <Button
+              onClick={() => setMultiRunOpen(true)}
+              aria-label={t("Multi-run")}
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0 @min-[36rem]:w-auto @min-[36rem]:px-3"
+            >
+              <Columns3 className="w-4 h-4 @min-[36rem]:mr-2" />
+              <span className="hidden @min-[36rem]:inline">
+                {t("Multi-run")}
+              </span>
+            </Button>
+            <Button
+              onClick={() => handleCreateSession()}
+              disabled={createSessionMutation.isPending}
+              aria-label={t("New Session")}
+              size="sm"
+              className="h-9 w-9 p-0 @min-[36rem]:w-auto @min-[36rem]:px-3 bg-primary hover:bg-primary-hover text-primary-foreground transition-all duration-200 hover:scale-105"
+            >
+              <Plus className="w-4 h-4 @min-[36rem]:mr-2" />
+              <span className="hidden @min-[36rem]:inline">
+                {t("New Session")}
+              </span>
+            </Button>
+          </Header.Actions>
+        </Header>
+
+        <WorktreeTabs
+          workspaces={workspaceSiblings}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          baseLabel={currentBranch}
+          onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
+        />
+
+        <div className="flex-1 flex flex-col min-h-0">
+          {(showWorktrees || sessionListDirectories.length > 0) && (
+            <SessionList
+              key={showWorktrees ? "worktrees" : "repo"}
+              directories={sessionListDirectories}
+              createDirectory={baseDirectory}
+              onSelectSession={handleSelectSession}
+              renderSessions={showWorktrees ? renderWorktreeGroups : undefined}
+            />
+          )}
         </div>
-        <Header.Actions className="shrink-0 gap-1 sm:gap-2 pl-2">
-          <ProjectActionsMenu repoId={repoId} directory={baseDirectory} />
-          <PendingActionsGroup />
-          <Button
-            onClick={() => setMultiRunOpen(true)}
-            aria-label="Multi-run"
-            variant="outline"
-            size="sm"
-            className="h-9 w-9 p-0 @min-[36rem]:w-auto @min-[36rem]:px-3"
-          >
-            <Columns3 className="w-4 h-4 @min-[36rem]:mr-2" />
-            <span className="hidden @min-[36rem]:inline">Multi-run</span>
-          </Button>
-          <Button
-            onClick={() => handleCreateSession()}
-            disabled={createSessionMutation.isPending}
-            aria-label="New Session"
-            size="sm"
-            className="h-9 w-9 p-0 @min-[36rem]:w-auto @min-[36rem]:px-3 bg-primary hover:bg-primary-hover text-primary-foreground transition-all duration-200 hover:scale-105"
-          >
-            <Plus className="w-4 h-4 @min-[36rem]:mr-2" />
-            <span className="hidden @min-[36rem]:inline">New Session</span>
-          </Button>
-        </Header.Actions>
-      </Header>
 
-      <WorktreeTabs
-        workspaces={workspaceSiblings}
-        value={activeTab}
-        onValueChange={setActiveTab}
-        baseLabel={currentBranch}
-        onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
-      />
+        <CreateWorkspaceDialog
+          open={createWorkspaceOpen}
+          onOpenChange={setCreateWorkspaceOpen}
+          onCreate={handleCreateWorkspace}
+          isCreating={createWorkspace.isPending}
+        />
 
-      <div className="flex-1 flex flex-col min-h-0">
-        {(showWorktrees || sessionListDirectories.length > 0) && (
-          <SessionList
-            key={showWorktrees ? "worktrees" : "repo"}
-            directories={sessionListDirectories}
-            createDirectory={baseDirectory}
-            onSelectSession={handleSelectSession}
-            renderSessions={showWorktrees ? renderWorktreeGroups : undefined}
-          />
-        )}
+        <FileBrowserSheet
+          isOpen={!docked && fileBrowserOpen}
+          onClose={() => setFileBrowserOpen(false)}
+          basePath={repo.localPath}
+          repoName={displayName}
+          repoId={repoId}
+          allowNavigateAboveBase={true}
+        />
+
+        <RepoMcpDialog
+          open={!docked && mcpDialogOpen}
+          onOpenChange={setMcpDialogOpen}
+          directory={baseDirectory}
+        />
+
+        <RepoActionsDialog
+          repoId={repoId}
+          directory={baseDirectory}
+          open={!docked && actionsDialogOpen}
+          onOpenChange={setActionsDialogOpen}
+        />
+
+        <RepoSkillsDialog
+          open={!docked && skillsDialogOpen}
+          onOpenChange={setSkillsDialogOpen}
+          repoId={repoId}
+        />
+
+        <RepoSecretsDialog
+          open={!docked && secretsDialogOpen}
+          onOpenChange={setSecretsDialogOpen}
+          repoId={repoId}
+        />
+
+        <SourceControlPanel
+          repoId={repoId}
+          isOpen={!docked && sourceControlOpen}
+          onClose={() => setSourceControlOpen(false)}
+          currentBranch={currentBranch}
+          repoName={repoName}
+        />
+
+        <TerminalPanel
+          target={{ kind: "repo", repoId }}
+          directory={terminalDirectory ?? baseDirectory}
+          isOpen={!docked && terminalOpen}
+          onClose={() => setTerminalOpen(false)}
+        />
+
+        <PreviewPanel
+          isOpen={!docked && previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          directory={baseDirectory}
+        />
+
+        <ResetPermissionsDialog
+          open={resetPermissionsOpen}
+          onOpenChange={setResetPermissionsOpen}
+          repoId={repoId}
+        />
+
+        <MultiRunSheet
+          target={multiRunTarget}
+          directory={baseDirectory}
+          defaultBaseRef={currentBranch}
+          open={multiRunOpen}
+          onOpenChange={setMultiRunOpen}
+        />
       </div>
-
-      <CreateWorkspaceDialog
-        open={createWorkspaceOpen}
-        onOpenChange={setCreateWorkspaceOpen}
-        onCreate={handleCreateWorkspace}
-        isCreating={createWorkspace.isPending}
-      />
-
-      <FileBrowserSheet
-        isOpen={!docked && fileBrowserOpen}
-        onClose={() => setFileBrowserOpen(false)}
-        basePath={repo.localPath}
-        repoName={displayName}
-        repoId={repoId}
-        allowNavigateAboveBase={true}
-      />
-
-      <RepoMcpDialog
-        open={!docked && mcpDialogOpen}
-        onOpenChange={setMcpDialogOpen}
-        directory={baseDirectory}
-      />
-
-      <RepoActionsDialog
-        repoId={repoId}
-        directory={baseDirectory}
-        open={!docked && actionsDialogOpen}
-        onOpenChange={setActionsDialogOpen}
-      />
-
-      <RepoSkillsDialog
-        open={!docked && skillsDialogOpen}
-        onOpenChange={setSkillsDialogOpen}
-        repoId={repoId}
-      />
-
-      <RepoSecretsDialog
-        open={!docked && secretsDialogOpen}
-        onOpenChange={setSecretsDialogOpen}
-        repoId={repoId}
-      />
-
-      <SourceControlPanel
-        repoId={repoId}
-        isOpen={!docked && sourceControlOpen}
-        onClose={() => setSourceControlOpen(false)}
-        currentBranch={currentBranch}
-        repoName={repoName}
-      />
-
-      <TerminalPanel
-        target={{ kind: 'repo', repoId }}
-        directory={terminalDirectory ?? baseDirectory}
-        isOpen={!docked && terminalOpen}
-        onClose={() => setTerminalOpen(false)}
-      />
-
-      <PreviewPanel
-        isOpen={!docked && previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        directory={baseDirectory}
-      />
-
-      <ResetPermissionsDialog
-        open={resetPermissionsOpen}
-        onOpenChange={setResetPermissionsOpen}
-        repoId={repoId}
-      />
-
-      <MultiRunSheet
-        target={multiRunTarget}
-        directory={baseDirectory}
-        defaultBaseRef={currentBranch}
-        open={multiRunOpen}
-        onOpenChange={setMultiRunOpen}
-      />
-    </div>
       {showRail && (
         <ToolSidePanel
           panel={toolPanel}
@@ -377,7 +477,12 @@ interface CreateWorkspaceDialogProps {
   isCreating: boolean;
 }
 
-function CreateWorkspaceDialog({ open, onOpenChange, onCreate, isCreating }: CreateWorkspaceDialogProps) {
+function CreateWorkspaceDialog({
+  open,
+  onOpenChange,
+  onCreate,
+  isCreating,
+}: CreateWorkspaceDialogProps) {
   const [name, setName] = useState("");
   const trimmedName = name.trim();
   const nameError = trimmedName ? getRepoDirectoryNameError(trimmedName) : null;
@@ -400,41 +505,58 @@ function CreateWorkspaceDialog({ open, onOpenChange, onCreate, isCreating }: Cre
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-primary" />
-              Create Worktree
+              {t("Create Worktree")}
             </DialogTitle>
             <DialogDescription>
-              OpenCode creates a git worktree of this repository from the current commit.
+              {t(
+                "OpenCode creates a git worktree of this repository from the current commit.",
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="worktree-name">Name</Label>
+            <Label htmlFor="worktree-name">{t("Name")}</Label>
             <Input
               id="worktree-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Generated if empty"
+              placeholder={t("Generated if empty")}
               autoComplete="off"
               autoFocus
               disabled={isCreating}
               aria-invalid={nameError ? true : undefined}
               aria-describedby="worktree-name-hint"
             />
-            <p id="worktree-name-hint" className={`text-xs ${nameError ? "text-destructive" : "text-muted-foreground"}`}>
-              {nameError ?? "Used as the folder name and its label under Worktrees. If the folder already exists, a number is added."}
+            <p
+              id="worktree-name-hint"
+              className={`text-xs ${nameError ? "text-destructive" : "text-muted-foreground"}`}
+            >
+              {nameError ??
+                t(
+                  "Used as the folder name and its label under Worktrees. If the folder already exists, a number is added.",
+                )}
             </p>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isCreating}>
-              Cancel
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={isCreating}
+            >
+              {t("Cancel")}
             </Button>
-            <Button type="submit" disabled={isCreating || Boolean(nameError)} className="bg-primary hover:bg-primary-hover text-primary-foreground">
+            <Button
+              type="submit"
+              disabled={isCreating || Boolean(nameError)}
+              className="bg-primary hover:bg-primary-hover text-primary-foreground"
+            >
               {isCreating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  {t("Creating...")}
                 </>
               ) : (
-                'Create Worktree'
+                t("Create Worktree")
               )}
             </Button>
           </DialogFooter>

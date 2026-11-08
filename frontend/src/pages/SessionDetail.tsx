@@ -5,7 +5,7 @@ import { repoQueryOptions } from "@/lib/repoQuery";
 import { MessageThread } from "@/components/message/MessageThread";
 import { PromptInput, type PromptInputHandle } from "@/components/message/PromptInput";
 import { FloatingTTSButton } from '@/components/message/FloatingTTSButton'
-import { X, CornerUpLeft, GitBranch, ArrowDown, Server } from "lucide-react";
+import { X, CornerUpLeft, GitBranch, ArrowDown, Server, CopyPlus, FileText } from "lucide-react";
 import { SquareFill } from "@/components/ui/square-fill";
 import { Header } from "@/components/ui/header";
 import { Badge } from "@/components/ui/badge";
@@ -72,17 +72,28 @@ import { PreviewPanel } from "@/components/preview/PreviewPanel";
 import { SessionSendErrorBanner } from "@/components/session/SessionSendErrorBanner";
 import { ReconnectingBanner } from "@/components/session/ReconnectingBanner";
 import { SessionDetailsSheet } from "@/components/session/SessionDetailsSheet";
+import { SessionStatusSummary } from "@/components/session/SessionStatusSummary";
 import { BackgroundWorkBar } from "@/components/session/BackgroundWorkBar";
+import { SessionTodoDisplay } from "@/components/message/SessionTodoDisplay";
+import { latestSessionTodos } from "@/lib/sessionTodos";
+import { useOlderHistoryLoader } from "@/hooks/useOlderHistoryLoader";
 import { SessionGoalBar } from "@/components/session/SessionGoalBar";
 import { useDialogParam } from "@/hooks/useDialogParam";
 import { useTerminalDialogParam } from "@/hooks/useOpenTerminal";
 import { SessionMoreButton } from "@/components/navigation/SessionMoreButton";
+import { Button } from "@/components/ui/button";
+import { ReferenceSessionDialog } from "@/components/session/ReferenceSessionDialog";
+import { SessionArtifactsPanel } from "@/components/session/SessionArtifactsPanel";
+import { extractSessionArtifacts } from "@/lib/sessionArtifacts";
+import { buildReferencePrompt, describeWorkingDirectory } from "@/lib/referenceSession";
+import { useComposerDraftStore } from "@/stores/composerDraftStore";
 import { SideQuestionDialog } from "@/components/session/SideQuestionDialog";
 import { SessionMessagePickerDialog } from "@/components/session/SessionMessagePickerDialog";
 import { ChangesWalkthroughSheet, type WalkthroughSourceRequest } from "@/components/session/ChangesWalkthroughSheet";
 import { ToolSidePanel } from "@/components/navigation/ToolSidePanel";
 import type { WalkthroughSource } from "@opencode-manager/shared/schemas";
 import { useToolPanel } from "@/hooks/useToolPanel";
+import { t } from "@/i18n/translate";
 
 const OLDER_HISTORY_SCROLL_THRESHOLD_PX = 200
 
@@ -145,6 +156,8 @@ export function SessionDetail() {
   const [previewOpen, setPreviewOpen] = useDialogParam('preview');
   const [resetPermissionsOpen, setResetPermissionsOpen] = useDialogParam('resetPermissions');
   const [walkthroughOpen, setWalkthroughOpen] = useDialogParam('walkthrough');
+  const [referenceDialogOpen, setReferenceDialogOpen] = useDialogParam('referenceSession');
+  const [creatingReference, setCreatingReference] = useState(false);
   const [requestedWalkthroughSource, setRequestedWalkthroughSource] = useState<WalkthroughSourceRequest | null>(null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | undefined>();
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -260,12 +273,31 @@ export function SessionDetail() {
     isLoading: messagesLoading,
     fetchOlder,
     hasOlder,
+    olderPageCommit,
   } = useSessionTranscript(sessionId ?? '', sessionDirectory ?? '');
 
   const messages = useMemo(
     () => applyRevertBoundary(transcriptMessages, session?.revert?.messageID),
     [transcriptMessages, session?.revert?.messageID],
   );
+  const [artifactsSessionId, setArtifactsSessionId] = useState<string | null>(null);
+  const artifactsOpen = Boolean(sessionId) && artifactsSessionId === sessionId;
+  const { data: artifactHistory, isFetching: loadingArtifactHistory } = useQuery({
+    queryKey: ["session-artifact-history", serverId, sessionId],
+    queryFn: () => fetchCompleteSessionHistory(sessionId ?? "", serverId),
+    enabled: artifactsOpen && hasOlder && Boolean(sessionId),
+    staleTime: 60_000,
+  });
+  const artifacts = useMemo(
+    () =>
+      extractSessionArtifacts(
+        hasOlder && artifactHistory ? applyRevertBoundary(artifactHistory, session?.revert?.messageID) : messages,
+        sessionDirectory,
+      ),
+    [hasOlder, artifactHistory, messages, session?.revert?.messageID, sessionDirectory],
+  );
+  const artifactsPartial = hasOlder && !artifactHistory;
+  const sessionTodos = useMemo(() => latestSessionTodos(messages), [messages]);
 
   const transcriptSnapshot = useMemo<SessionTranscriptSnapshot>(
     () => ({ messages, pending: pendingPrompts, status: transcriptStatus }),
@@ -289,7 +321,7 @@ export function SessionDetail() {
       })
       .catch(() => {
         if (cancelled) return;
-        showToast.error('Failed to load messages');
+        showToast.error(t("Failed to load messages"));
         setMessagePickerMode(null);
       })
       .finally(() => {
@@ -309,7 +341,7 @@ export function SessionDetail() {
     setMessageContainer(element);
   }, []);
 
-  const { scrollToBottom, scrollByUser } = useAutoScroll({
+  const { scrollToBottom, scrollByUser, disengage: disengageAutoScroll } = useAutoScroll({
     container: messageContainer,
     messages,
     sessionId,
@@ -318,11 +350,21 @@ export function SessionDetail() {
     onScrollStateChange: setShowScrollButton
   });
 
-  const handleMessageScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    if (!hasOlder || !fetchOlder) return
-    if (event.currentTarget.scrollTop > OLDER_HISTORY_SCROLL_THRESHOLD_PX) return
-    void fetchOlder().catch(() => undefined)
-  }, [fetchOlder, hasOlder]);
+  const { handleScroll: handleMessageScroll, cancel: cancelOlderHistoryAnchor } = useOlderHistoryLoader({
+    containerRef: messageContainerRef,
+    scopeKey: `${serverId}\u0000${sessionId ?? ''}\u0000${revertMessageID ?? ''}`,
+    firstMessageId: transcriptMessages[0]?.id,
+    olderPageCommit,
+    hasOlder,
+    fetchOlder,
+    thresholdPx: OLDER_HISTORY_SCROLL_THRESHOLD_PX,
+    onRequest: disengageAutoScroll,
+  });
+
+  const jumpToLatest = useCallback(() => {
+    cancelOlderHistoryAnchor();
+    scrollToBottom();
+  }, [cancelOlderHistoryAnchor, scrollToBottom]);
   const interruptSession = useInterruptSession();
   const { mutateAsync: updateSessionAsync } = useUpdateSession(sessionDirectory);
   const { mutateAsync: createSessionAsync } = useCreateSession(sessionDirectory);
@@ -388,7 +430,7 @@ export function SessionDetail() {
     requestedWalkthroughSource && requestedWalkthroughSource.sessionId === (sessionId ?? '')
       ? requestedWalkthroughSource
       : undefined;
-  const handleSkillLoaded = useCallback((skill: SkillFileInfo) => showToast.success(`Loaded skill: ${skill.name}`), []);
+  const handleSkillLoaded = useCallback((skill: SkillFileInfo) => showToast.success(t("Loaded skill: {skill}", { skill: skill.name })), []);
   const handleConnectProvider = useCallback(() => openSettingsTab('providers'), [openSettingsTab]);
 
   useAutoOpenWalkthrough({
@@ -414,7 +456,7 @@ export function SessionDetail() {
       clearFormDraft(minimizedFormId)
       setMinimizedFormId(null)
     } catch {
-      showToast.error('Failed to dismiss form')
+      showToast.error(t("Failed to dismiss form"))
     }
   }, [cancelForm, minimizedFormId])
 
@@ -447,9 +489,24 @@ export function SessionDetail() {
         navigate(getSessionPath(repoId, newSession.id, { serverId }));
       }
     } catch {
-      showToast.error('Failed to create new session');
+      showToast.error(t("Failed to create new session"));
     }
   }, [createSessionAsync, navigate, repoId, serverId]);
+
+  const handleCreateFromReference = useCallback(async () => {
+    if (!session) return;
+    setCreatingReference(true);
+    try {
+      const newSession = await createSessionAsync({ agent: undefined });
+      const store = useComposerDraftStore.getState();
+      store.saveDraft(newSession.id, { ...store.getDraft(newSession.id), prompt: buildReferencePrompt(session) });
+      navigate(getSessionPath(repoId, newSession.id, { serverId }), { replace: true });
+    } catch {
+      showToast.error(t("Failed to create new session"));
+    } finally {
+      setCreatingReference(false);
+    }
+  }, [session, createSessionAsync, navigate, repoId, serverId]);
 
   const { mutateAsync: undoMessageAsync } = useUndoMessage({
     sessionId: sessionId ?? '',
@@ -465,14 +522,14 @@ export function SessionDetail() {
     if (!sessionId) return;
 
     const toastId = `compact-${sessionId}`;
-    showToast.loading('Compacting session...', { id: toastId });
+    showToast.loading(t("Compacting session..."), { id: toastId });
     setSessionStatus(sessionId, { type: 'compact' });
 
     try {
       await compactSession(sessionId, serverId);
-      showToast.success('Compaction requested', { id: toastId });
+      showToast.success(t("Compaction requested"), { id: toastId });
     } catch (error) {
-      showToast.error(`Compact failed: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: toastId });
+      showToast.error(t("Compact failed: {error}", { error: error instanceof Error ? error.message : 'Unknown error' }), { id: toastId });
       setSessionStatus(sessionId, { type: 'idle' });
     }
   }, [sessionId, serverId, setSessionStatus]);
@@ -515,10 +572,10 @@ export function SessionDetail() {
             promptInputRef.current?.setPromptValue(chosenMessage.text);
           }
         }
-        showToast.success('Session forked');
+        showToast.success(t("Session forked"));
       }
     } catch (error) {
-      showToast.error(`Fork failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showToast.error(t("Fork failed: {error}", { error: error instanceof Error ? error.message : 'Unknown error' }));
     }
   }, [sessionId, forkPickerMessages, navigate, repoId, serverId]);
 
@@ -532,8 +589,10 @@ export function SessionDetail() {
     const target = Array.from(
       container.querySelectorAll<HTMLElement>('[data-message-id]'),
     ).find((element) => element.dataset.messageId === messageID);
-    target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  }, []);
+    if (!target) return;
+    disengageAutoScroll();
+    target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [disengageAutoScroll]);
 
   const handleCloseSession = useCallback(() => {
     if (isRemoteServer) {
@@ -564,7 +623,7 @@ export function SessionDetail() {
   }, [repo?.fullPath, repo?.localPath, sessionDirectory, setFileBrowserOpen]);
 
   const renameSession = useCallback(async (title: string) => {
-    if (!sessionId) throw new Error('No active session');
+    if (!sessionId) throw new Error(t("No active session"));
     await updateSessionAsync({ sessionID: sessionId, title: title.trim() });
   }, [sessionId, updateSessionAsync]);
 
@@ -573,10 +632,10 @@ export function SessionDetail() {
     try {
       await renameSession(title);
       if (!trimmedTitle) {
-        showToast.success('Session title regenerated');
+        showToast.success(t("Session title regenerated"));
       }
     } catch (error) {
-      showToast.error(`Rename failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showToast.error(t("Rename failed: {status}", { status: error instanceof Error ? error.message : 'Unknown error' }));
     }
   }, [renameSession]);
 
@@ -600,7 +659,7 @@ export function SessionDetail() {
   const handleToggleDetails = useCallback(() => {
     const newValue = !preferences?.expandToolCalls
     updateSettings({ expandToolCalls: newValue })
-    showToast.success(newValue ? 'Tool details expanded' : 'Tool details collapsed')
+    showToast.success(newValue ? t("Tool details expanded") : t("Tool details collapsed"))
   }, [preferences?.expandToolCalls, updateSettings]);
 
   const buildSessionExport = useCallback(async () => {
@@ -619,7 +678,7 @@ export function SessionDetail() {
       showToast.error(
         error instanceof Error && error.message === 'No session data to export'
           ? error.message
-          : 'Failed to export session',
+          : t("Failed to export session"),
       )
       return null
     })
@@ -627,7 +686,7 @@ export function SessionDetail() {
 
     const { filename, content } = result
     if (await downloadMarkdown(content, filename)) {
-      showToast.success(`Exported to ${filename}`)
+      showToast.success(t("Exported to {filename}", { filename }))
     }
   }, [buildSessionExport]);
 
@@ -636,9 +695,9 @@ export function SessionDetail() {
       buildSessionExport().then((result) => result.content),
     )
     if (copied) {
-      showToast.success('Session transcript copied')
+      showToast.success(t("Session transcript copied"))
     } else {
-      showToast.error('Failed to copy session transcript')
+      showToast.error(t("Failed to copy session transcript"))
     }
   }, [buildSessionExport]);
 
@@ -741,23 +800,23 @@ export function SessionDetail() {
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-background">
         <div className="flex flex-col items-center gap-2">
           <div className="w-8 h-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-          <span className="text-muted-foreground">Loading repository...</span>
+          <span className="text-muted-foreground">{t("Loading repository...")}</span>
         </div>
       </div>
     );
   }
 
   if (!isAssistantSession && !isRemoteServer && !repo) {
-    return <NotFoundState message="Repository not found" backTo="/" backLabel="Back to repositories" />;
+    return <NotFoundState message={t("Repository not found")} backTo="/" backLabel={t("Back to repositories")} />;
   }
 
   if (isSessionNotFoundError(sessionQueryError)) {
     const listTab = new URLSearchParams(location.search).get('repoTab') ?? undefined;
     return (
       <NotFoundState
-        message="Session not found"
+        message={t("Session not found")}
         backTo={isRemoteServer ? remoteProjectBackPath : getSessionListPath(repoId, isAssistantSession, listTab)}
-        backLabel={isRemoteServer ? 'Back to projects' : 'Back to sessions'}
+        backLabel={isRemoteServer ? t("Back to projects") : t("Back to sessions")}
       />
     );
   }
@@ -766,9 +825,9 @@ export function SessionDetail() {
     if (sessionQueryError) {
       return (
         <NotFoundState
-          message="Failed to load session"
+          message={t('Failed to load session')}
           backTo={remoteProjectBackPath}
-          backLabel="Back to projects"
+          backLabel={t('Back to projects')}
         />
       );
     }
@@ -778,7 +837,7 @@ export function SessionDetail() {
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-background">
           <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-            <span className="text-muted-foreground">Loading session...</span>
+            <span className="text-muted-foreground">{t("Loading session...")}</span>
           </div>
         </div>
       );
@@ -787,9 +846,9 @@ export function SessionDetail() {
 
   const linkedServer = linkedServers.find((candidate) => candidate.id === serverId);
   const projectDisplayName = isRemoteServer
-    ? remoteProjectDisplayName ?? (sessionDirectory ? getDirectoryName(sessionDirectory) : 'Project')
+    ? remoteProjectDisplayName ?? (sessionDirectory ? getDirectoryName(sessionDirectory) : t("Project"))
     : isAssistantSession || !repo
-      ? 'Assistant'
+      ? t("Assistant")
       : getRepoDisplayName(repo);
   const tabFromUrl = new URLSearchParams(location.search).get('repoTab') ?? undefined;
   const sessionBackPath = isRemoteServer
@@ -812,11 +871,11 @@ export function SessionDetail() {
                 <button
                   type="button"
                   onClick={() => setSessionDetailsOpen(true)}
-                  aria-label={`Session details: ${session?.title || "Untitled Session"}`}
+                  aria-label={t('Session details: {title}', { title: session?.title || t('Untitled Session') })}
                   className="block min-w-0 max-w-full cursor-pointer text-left"
                 >
                   <span className="block truncate bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent transition-opacity hover:opacity-80">
-                    {session?.title || "Untitled Session"}
+                    {session?.title || t("Untitled Session")}
                   </span>
                 </button>
               </h1>
@@ -827,16 +886,16 @@ export function SessionDetail() {
                     event.stopPropagation();
                     handleParentSessionClick();
                   }}
-                  aria-label="Parent session"
+                  aria-label={t("Parent session")}
                   className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded-full border border-info/40 px-2 py-0.5 text-[10px] sm:text-xs text-info transition-colors hover:bg-info/10"
                 >
                   <CornerUpLeft className="h-3 w-3 shrink-0" />
-                  <span className="truncate">Parent session</span>
+                  <span className="truncate">{t("Parent session")}</span>
                 </button>
               ) : (
                 <p className="flex min-w-0 items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
                   {isRemoteServer && (
-                    <Server aria-label="Remote server" className="h-3 w-3 shrink-0 text-highlight" />
+                    <Server aria-label={t("Remote server")} className="h-3 w-3 shrink-0 text-highlight" />
                   )}
                   <span className="truncate text-highlight">{projectDisplayName}</span>
                   {headerBranch && (
@@ -849,7 +908,7 @@ export function SessionDetail() {
               <Badge
                 variant="outline"
                 data-testid="session-branch"
-                title={`Branch: ${headerBranch}`}
+                title={t('Branch: {branch}', { branch: headerBranch })}
                 className="hidden sm:inline-flex max-w-44 shrink-0 items-center gap-1 border-border bg-card px-2 font-mono text-[11px] font-normal text-muted-foreground"
               >
                 <GitBranch className="h-3 w-3 shrink-0" />
@@ -858,6 +917,34 @@ export function SessionDetail() {
             )}
           </div>
           <Header.Actions className="gap-2 sm:gap-4">
+            {!isRemoteServer && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 shrink-0 gap-1 px-2 sm:px-3"
+                aria-haspopup="dialog"
+                aria-expanded={artifactsOpen}
+                aria-label={t("Session artifacts")}
+                title={t("Session artifacts")}
+                onClick={() => setArtifactsSessionId(sessionId ?? null)}
+              >
+                <FileText className="h-4 w-4" />
+                <span className="tabular-nums text-xs">{artifactsPartial ? `${artifacts.length}+` : artifacts.length}</span>
+              </Button>
+            )}
+            {!isRemoteServer && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setReferenceDialogOpen(true)}
+                disabled={!session}
+                className="hidden h-10 px-2 sm:inline-flex sm:px-3"
+                aria-label={t("New session from this session")}
+                title={t("New session from this session")}
+              >
+                <CopyPlus className="h-4 w-4" />
+              </Button>
+            )}
             <div className="flex items-center gap-1">
               {!isAssistantSession && !isRemoteServer && (
                 <ProjectActionsMenu repoId={repoId} directory={sessionDirectory} />
@@ -930,18 +1017,18 @@ export function SessionDetail() {
                       }}
                       onClick={handleClearPrompt}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive hover:bg-destructive/90 text-destructive-foreground border border-destructive/60 hover:border-destructive shadow-md shadow-destructive/30 hover:shadow-destructive/50 backdrop-blur-md transition-all duration-200 active:scale-95 hover:scale-105 ring-1 ring-destructive/20 hover:ring-destructive/40"
-                      aria-label="Clear"
+                      aria-label={t("Clear")}
                     >
                       <X className="w-5 h-5" />
-                      <span className="text-sm font-medium hidden sm:inline">Clear</span>
+                      <span className="text-sm font-medium hidden sm:inline">{t("Clear")}</span>
                     </button>
                   )}
                   {isSessionActive && (
                     <button
                       type="button"
                       onClick={handleInterruptSession}
-                      title="Stop"
-                      aria-label="Stop"
+                      title={t("Stop")}
+                      aria-label={t("Stop")}
                       className="md:hidden p-3 rounded-xl transition-all duration-200 active:scale-95 hover:scale-105 bg-destructive hover:bg-destructive/90 text-destructive-foreground border border-destructive/60 shadow-lg shadow-destructive/30"
                     >
                       <SquareFill className="w-5 h-5" />
@@ -952,10 +1039,10 @@ export function SessionDetail() {
               {showScrollButton && !isFormSheetOpen && (
                 <button
                   type="button"
-                  aria-label="Jump to latest"
-                  title="Jump to latest"
+                  aria-label={t("Jump to latest")}
+                  title={t("Jump to latest")}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={scrollToBottom}
+                  onClick={jumpToLatest}
                   className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 size-11 rounded-full bg-card text-foreground border border-border shadow-md flex items-center justify-center transition-all duration-200 active:scale-95 hover:bg-accent"
                 >
                   <ArrowDown className="w-5 h-5" />
@@ -982,6 +1069,7 @@ export function SessionDetail() {
                 <div className={cn(!isFormSheetOpen && "px-[3%] md:px-0")}>
                   <SessionSendErrorBanner sessionId={sessionId} isConnected={streamConnected} isReconnecting={streamReconnecting} />
                   <SessionGoalBar sessionID={sessionId} />
+                  <SessionTodoDisplay key={sessionId} todos={sessionTodos} />
                   <BackgroundWorkBar
                     sessionID={sessionId}
                     directory={sessionDirectory}
@@ -1000,7 +1088,7 @@ export function SessionDetail() {
                     onSuggestionsOpenChange={setHasComposerSuggestions}
                     isSessionActive={isSessionActive}
                     isStreamingResponse={isStreamingResponse}
-                    onScrollToBottom={scrollToBottom}
+                    onScrollToBottom={jumpToLatest}
                     commandActions={commandActions}
                     onPromptChange={setHasPromptContent}
                   />
@@ -1040,6 +1128,20 @@ export function SessionDetail() {
         branch={headerBranch}
         directory={sessionDirectory}
         onRename={renameSession}
+        summary={
+          sessionId ? (
+            <SessionStatusSummary
+              sessionId={sessionId}
+              directory={sessionDirectory}
+              session={session}
+              status={transcriptStatus}
+              active={isSessionActive}
+              messages={messages}
+              hasOlder={hasOlder}
+              todos={sessionTodos}
+            />
+          ) : undefined
+        }
       />
 
       {sideQuestion && sessionId && (
@@ -1060,8 +1162,8 @@ export function SessionDetail() {
           onOpenChange={(open) => {
             if (!open) setMessagePickerMode(null);
           }}
-          title={messagePickerMode === 'fork' ? 'Fork session' : 'Jump to message'}
-          leadingOptionLabel={messagePickerMode === 'fork' ? 'Entire conversation' : undefined}
+          title={messagePickerMode === 'fork' ? t("Fork session") : t("Jump to message")}
+          leadingOptionLabel={messagePickerMode === 'fork' ? t("Entire conversation") : undefined}
           messages={messagePickerMode === 'fork' ? forkPickerMessages ?? [] : messages}
           loading={messagePickerMode === 'fork' && forkPickerLoading}
           onSelect={messagePickerMode === 'fork' ? handleForkAtMessage : handleJumpToMessage}
@@ -1147,6 +1249,27 @@ export function SessionDetail() {
           isOpen={!docked && previewOpen}
           onClose={() => setPreviewOpen(false)}
           directory={sessionDirectory}
+        />
+      )}
+
+      {artifactsOpen && !isRemoteServer && (
+        <SessionArtifactsPanel
+          artifacts={artifacts}
+          historyStatus={loadingArtifactHistory ? "loading" : artifactsPartial ? "partial" : "complete"}
+          onClose={() => setArtifactsSessionId(null)}
+          onFileClick={handleFileClick}
+        />
+      )}
+
+      {session && !isRemoteServer && (
+        <ReferenceSessionDialog
+          open={referenceDialogOpen}
+          onOpenChange={setReferenceDialogOpen}
+          projectName={projectDisplayName}
+          location={describeWorkingDirectory(sessionDirectory, repoDirectory)}
+          promptPreview={buildReferencePrompt(session)}
+          isPending={creatingReference}
+          onConfirm={() => void handleCreateFromReference()}
         />
       )}
 
