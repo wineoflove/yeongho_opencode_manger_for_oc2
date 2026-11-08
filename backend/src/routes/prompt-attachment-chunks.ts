@@ -4,11 +4,14 @@ import { isAbsolute, join } from 'node:path'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { PromptUploadStartSchema, PROMPT_ATTACHMENT_CHUNK_BYTES } from '@opencode-manager/shared/schemas'
-import { allocatePromptAttachment } from '../services/prompt-attachment-storage'
+import { allocatePromptAttachment, writePromptAttachmentMetadata } from '../services/prompt-attachment-storage'
 
 interface Upload {
   directory: string
   path: string
+  filename: string
+  sessionDirectory: string
+  sessionID?: string
   partial: string
   size: number
   received: number
@@ -54,6 +57,9 @@ export function createPromptAttachmentChunkRoutes() {
       const uploadId = randomUUID()
       uploads.set(uploadId, {
         ...allocation,
+        filename: parsed.data.filename,
+        sessionDirectory: parsed.data.directory,
+        sessionID: parsed.data.sessionID,
         partial,
         size: parsed.data.size,
         received: 0,
@@ -100,6 +106,13 @@ export function createPromptAttachmentChunkRoutes() {
     try {
       await rename(upload.partial, upload.path)
       uploads.delete(id)
+      await writePromptAttachmentMetadata(upload.directory, {
+        filename: upload.filename,
+        size: upload.size,
+        uploadedAt: Date.now(),
+        directory: upload.sessionDirectory,
+        sessionID: upload.sessionID,
+      })
       return context.json({ path: upload.path, size: upload.size })
     } finally {
       upload.busy = false
