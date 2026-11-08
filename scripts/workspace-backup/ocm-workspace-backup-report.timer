@@ -1,0 +1,11 @@
+[Unit]
+Description=Report completed workspace backups every five minutes without a model
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=ocm-workspace-backup-report.service
+
+[Install]
+WantedBy=timers.target

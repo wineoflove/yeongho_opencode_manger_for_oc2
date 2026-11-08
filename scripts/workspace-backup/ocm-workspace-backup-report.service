@@ -1,0 +1,10 @@
+[Unit]
+Description=Publish workspace backup results and clean verified disposable sessions
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/wineoflove/apps/opencode-manager
+Environment=NODE_OPTIONS=
+UMask=0077
+ExecStart=/home/wineoflove/.npm-global/bin/bun /home/wineoflove/apps/opencode-manager/scripts/workspace-backup/run.mjs
+TimeoutStartSec=240
