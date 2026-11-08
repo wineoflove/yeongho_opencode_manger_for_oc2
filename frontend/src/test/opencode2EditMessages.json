@@ -1,0 +1,124 @@
+[
+  {
+    "id": "msg_1b1f04bd10018vjb25IR99jbaG",
+    "type": "assistant",
+    "time": {
+      "created": 1793986677714,
+      "streamed": 1793986677722,
+      "completed": 1793986677726
+    },
+    "content": [
+      {
+        "type": "tool",
+        "id": "call_1",
+        "name": "write",
+        "executed": false,
+        "state": {
+          "status": "completed",
+          "input": {
+            "path": "created.txt",
+            "content": "one\n"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Created file successfully: created.txt"
+            }
+          ],
+          "metadata": {
+            "truncated": false
+          }
+        },
+        "time": {
+          "created": 1793986677719,
+          "ran": 1793986677721,
+          "completed": 1793986677725
+        }
+      }
+    ],
+    "finish": "tool-calls",
+    "agent": "build",
+    "model": {
+      "id": "fixture",
+      "providerID": "mock",
+      "variant": "default"
+    }
+  },
+  {
+    "id": "msg_1b1f04be00014LQVj3e9WmwQkf",
+    "type": "assistant",
+    "time": {
+      "created": 1793986677730,
+      "streamed": 1793986677738,
+      "completed": 1793986677741
+    },
+    "content": [
+      {
+        "type": "tool",
+        "id": "call_2",
+        "name": "edit",
+        "executed": false,
+        "state": {
+          "status": "completed",
+          "input": {
+            "path": "created.txt",
+            "oldString": "one",
+            "newString": "two"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Edited created.txt (1 replacement)"
+            }
+          ],
+          "metadata": {
+            "files": [
+              {
+                "file": "created.txt",
+                "patch": "Index: created.txt\n===================================================================\n--- created.txt\n+++ created.txt\n@@ -1,1 +1,1 @@\n-one\n+two\n",
+                "status": "modified",
+                "additions": 1,
+                "deletions": 1
+              }
+            ],
+            "truncated": false
+          }
+        },
+        "time": {
+          "created": 1793986677737,
+          "ran": 1793986677738,
+          "completed": 1793986677740
+        }
+      }
+    ],
+    "finish": "tool-calls",
+    "agent": "build",
+    "model": {
+      "id": "fixture",
+      "providerID": "mock",
+      "variant": "default"
+    }
+  },
+  {
+    "id": "msg_1b1f04bf0001gZdBXvyLsoaUDC",
+    "type": "assistant",
+    "time": {
+      "created": 1793986677745,
+      "streamed": 1793986677749,
+      "completed": 1793986677749
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "Done."
+      }
+    ],
+    "finish": "stop",
+    "agent": "build",
+    "model": {
+      "id": "fixture",
+      "providerID": "mock",
+      "variant": "default"
+    }
+  }
+]
