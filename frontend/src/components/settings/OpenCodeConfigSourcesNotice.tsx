@@ -6,6 +6,8 @@ import {
   getPreferredOpenCodeConfigSource,
 } from '@/api/types/settings'
 import type { OpenCodeConfigFile, OpenCodeConfigSourceName } from '@/api/types/settings'
+import { t } from '@/i18n/translate'
+import { tr } from '@/i18n/rich'
 
 interface OpenCodeConfigSourcesNoticeProps {
   config: OpenCodeConfigFile
@@ -27,24 +29,23 @@ export function OpenCodeConfigSourcesNotice({ config, targetName }: OpenCodeConf
       <Info className="h-4 w-4 text-info" />
       <details className="group" open>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-          <AlertTitle className="mb-0">Multiple configuration files are merged</AlertTitle>
+          <AlertTitle className="mb-0">{t('Multiple configuration files are merged')}</AlertTitle>
           <ChevronDown className="h-4 w-4 shrink-0 text-info transition-transform group-open:rotate-180" />
         </summary>
         <AlertDescription>
           <p>
-            OpenCode loads these files in order, with each later file overriding matching settings from the files before it:{' '}
-            {orderedNames.map((name, index) => (
+            {tr('OpenCode loads these files in order, with each later file overriding matching settings from the files before it: {files}', { files: orderedNames.map((name, index) => (
               <span key={name}>
                 {index > 0 ? ', ' : ''}
                 <code className="font-mono text-foreground">{name}</code>
               </span>
-            ))}
+            )) })}
           </p>
           <p className="mt-1">
-            Saves apply only to <code className="font-mono text-foreground">{writeTargetName}</code>. A value saved to a lower-priority file can be overridden by a higher-priority file.
+            {tr('Saves apply only to {file}. A value saved to a lower-priority file can be overridden by a higher-priority file.', { file: <code className="font-mono text-foreground">{writeTargetName}</code> })}
           </p>
           <p className="mt-1">
-            For simpler configuration, consolidate the settings you need into one file, then remove redundant files after verifying the result.
+            {t('For simpler configuration, consolidate the settings you need into one file, then remove redundant files after verifying the result.')}
           </p>
         </AlertDescription>
       </details>

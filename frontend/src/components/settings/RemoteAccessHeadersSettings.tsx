@@ -13,8 +13,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { AlertCircle, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react'
+import { t, msg } from '@/i18n/translate'
 
-const STORED_VALUE_PLACEHOLDER = 'Stored – leave blank to keep'
+const STORED_VALUE_PLACEHOLDER = msg('Stored – leave blank to keep')
 
 interface HeaderRow {
   id: number
@@ -47,13 +48,13 @@ function hasStoredValue(storedNames: Set<string>, name: string): boolean {
 
 function rowNameError(row: HeaderRow): string | null {
   const parsed = RemoteAccessHeaderNameSchema.safeParse(row.name)
-  return parsed.success ? null : parsed.error.issues[0]?.message ?? 'Invalid header name'
+  return parsed.success ? null : (parsed.error.issues[0]?.message ?? t('Invalid header name'))
 }
 
 function rowValueError(row: HeaderRow, stored: boolean): string | null {
   if (stored && row.value.trim() === '') return null
   const parsed = RemoteAccessHeaderValueSchema.safeParse(row.value)
-  return parsed.success ? null : parsed.error.issues[0]?.message ?? 'Invalid header value'
+  return parsed.success ? null : (parsed.error.issues[0]?.message ?? t('Invalid header value'))
 }
 
 function isRowValid(row: HeaderRow, stored: boolean): boolean {
@@ -84,9 +85,7 @@ export function RemoteAccessHeadersSettings() {
   const handleCloudflarePreset = () => {
     setRows((current) => {
       const existingNames = new Set(current.map((row) => normalizeName(row.name)))
-      const missingNames = CLOUDFLARE_ACCESS_HEADER_NAMES.filter(
-        (name) => !existingNames.has(normalizeName(name)),
-      )
+      const missingNames = CLOUDFLARE_ACCESS_HEADER_NAMES.filter((name) => !existingNames.has(normalizeName(name)))
       const availableSlots = REMOTE_ACCESS_HEADER_MAX_COUNT - current.length
       return [
         ...current,
@@ -104,15 +103,11 @@ export function RemoteAccessHeadersSettings() {
   }
 
   const handleNameChange = (index: number, name: string) => {
-    setRows((current) =>
-      current.map((row, rowIndex) => (rowIndex === index ? { ...row, name } : row)),
-    )
+    setRows((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, name } : row)))
   }
 
   const handleValueChange = (index: number, value: string) => {
-    setRows((current) =>
-      current.map((row, rowIndex) => (rowIndex === index ? { ...row, value } : row)),
-    )
+    setRows((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, value } : row)))
   }
 
   const handleSave = async () => {
@@ -128,7 +123,7 @@ export function RemoteAccessHeadersSettings() {
       })
       setRows(createRows(response.headers))
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save remote access headers')
+      setError(saveError instanceof Error ? saveError.message : t('Failed to save remote access headers'))
     }
   }
 
@@ -140,7 +135,7 @@ export function RemoteAccessHeadersSettings() {
       const response = await clear.mutateAsync()
       setRows(createRows(response.headers))
     } catch (clearError) {
-      setError(clearError instanceof Error ? clearError.message : 'Failed to clear remote access headers')
+      setError(clearError instanceof Error ? clearError.message : t('Failed to clear remote access headers'))
     }
   }
 
@@ -149,10 +144,10 @@ export function RemoteAccessHeadersSettings() {
       <CardHeader className="pb-2 sm:pb-4">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <KeyRound className="h-4 w-4 sm:h-5 sm:w-5" />
-          Remote access headers
+          {t('Remote access headers')}
         </CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          Sent by the mobile app on every request, so it can pass a reverse proxy such as Cloudflare Access.
+          {t('Sent by the mobile app on every request, so it can pass a reverse proxy such as Cloudflare Access.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4">
@@ -160,7 +155,7 @@ export function RemoteAccessHeadersSettings() {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Stored headers could not be decrypted (AUTH_SECRET may have changed). Enter them again.
+              {t('Stored headers could not be decrypted (AUTH_SECRET may have changed). Enter them again.')}
             </AlertDescription>
           </Alert>
         )}
@@ -179,9 +174,7 @@ export function RemoteAccessHeadersSettings() {
         ) : (
           <>
             {rows.length === 0 ? (
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                No remote access headers are stored.
-              </p>
+              <p className="text-xs sm:text-sm text-muted-foreground">{t('No remote access headers are stored.')}</p>
             ) : (
               <div className="space-y-2">
                 {rows.map((row, index) => {
@@ -196,8 +189,10 @@ export function RemoteAccessHeadersSettings() {
                           <Input
                             value={row.name}
                             onChange={(event) => handleNameChange(index, event.target.value)}
-                            placeholder="Header name"
-                            aria-label={`Header ${index + 1} name`}
+                            placeholder={t('Header name')}
+                            aria-label={t('Header {index} name', {
+                              index: index + 1,
+                            })}
                             className="h-9 font-mono md:text-sm"
                             disabled={isSaving}
                           />
@@ -209,8 +204,10 @@ export function RemoteAccessHeadersSettings() {
                             autoComplete="off"
                             value={row.value}
                             onChange={(event) => handleValueChange(index, event.target.value)}
-                            placeholder={stored ? STORED_VALUE_PLACEHOLDER : 'Value'}
-                            aria-label={`Header ${index + 1} value`}
+                            placeholder={stored ? t(STORED_VALUE_PLACEHOLDER) : t('Value')}
+                            aria-label={t('Header {index} value', {
+                              index: index + 1,
+                            })}
                             className="h-9 font-mono md:text-sm"
                             disabled={isSaving}
                           />
@@ -221,7 +218,9 @@ export function RemoteAccessHeadersSettings() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleRemove(index)}
-                          aria-label={`Remove header ${index + 1}`}
+                          aria-label={t('Remove header {index}', {
+                            index: index + 1,
+                          })}
                           className="h-9 w-9 shrink-0"
                           disabled={isSaving}
                         >
@@ -235,15 +234,9 @@ export function RemoteAccessHeadersSettings() {
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAdd}
-                disabled={isSaving || atMaxCount}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={handleAdd} disabled={isSaving || atMaxCount}>
                 <Plus className="mr-1 h-3 w-3" />
-                Add header
+                {t('Add header')}
               </Button>
               <Button
                 type="button"
@@ -252,16 +245,11 @@ export function RemoteAccessHeadersSettings() {
                 onClick={handleCloudflarePreset}
                 disabled={isSaving || atMaxCount}
               >
-                Cloudflare Access service token
+                {t('Cloudflare Access service token')}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSave}
-                disabled={isSaving || !rowsAreValid}
-              >
+              <Button type="button" size="sm" onClick={handleSave} disabled={isSaving || !rowsAreValid}>
                 {replace.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                Save
+                {t('Save')}
               </Button>
               <Button
                 type="button"
@@ -270,15 +258,16 @@ export function RemoteAccessHeadersSettings() {
                 onClick={() => setConfirmClear(true)}
                 disabled={isSaving || rows.length === 0}
               >
-                Clear all
+                {t('Clear all')}
               </Button>
             </div>
           </>
         )}
 
         <p className="text-xs text-muted-foreground">
-          Cloudflare Access: create a service token in Zero Trust, add a Service Auth policy for it
-          on the Manager&apos;s Access application, then paste its Client ID and Client Secret here.
+          {t(
+            "Cloudflare Access: create a service token in Zero Trust, add a Service Auth policy for it on the Manager's Access application, then paste its Client ID and Client Secret here.",
+          )}
         </p>
       </CardContent>
 
@@ -287,8 +276,8 @@ export function RemoteAccessHeadersSettings() {
         onOpenChange={(open) => !open && setConfirmClear(false)}
         onConfirm={handleClear}
         onCancel={() => setConfirmClear(false)}
-        title="Clear Remote Access Headers"
-        description="The mobile app will stop sending these headers on every request."
+        title={t('Clear Remote Access Headers')}
+        description={t('The mobile app will stop sending these headers on every request.')}
         isDeleting={clear.isPending}
       />
     </Card>

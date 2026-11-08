@@ -3,6 +3,8 @@ import { Loader2, ArrowUpCircle, RotateCcw, History } from 'lucide-react'
 import { useServerHealth } from '@/hooks/useServerHealth'
 import { useOpenCodeServerActions } from '@/hooks/useOpenCodeServerActions'
 import { RestartServerDialog } from './RestartServerDialog'
+import { t } from '@/i18n/translate'
+import { RepoErrorText } from '@/components/repo/RepoErrorText'
 
 interface ServerHealthStatusProps {
   onOpenVersionDialog?: () => void
@@ -25,7 +27,7 @@ export function ServerHealthStatus({ onOpenVersionDialog }: ServerHealthStatusPr
     return (
       <div className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Loading server status...</span>
+        <span className="text-sm text-muted-foreground">{t('Loading server status...')}</span>
       </div>
     )
   }
@@ -38,11 +40,11 @@ export function ServerHealthStatus({ onOpenVersionDialog }: ServerHealthStatusPr
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div className={`h-3 w-3 rounded-full ${isUnhealthy ? 'bg-destructive animate-pulse' : 'bg-success'}`} />
           <p className="font-medium text-sm">
-            Server Status: {isUnhealthy ? 'Unhealthy' : 'Healthy'}
+            {t('Server Status: {status}', { status: isUnhealthy ? t('Unhealthy') : t('Healthy') })}
           </p>
           {health.error && (
             <p className="text-xs text-destructive">
-              {health.error}
+              <RepoErrorText message={health.error} />
             </p>
           )}
           {health.opencodeVersion && (
@@ -52,7 +54,7 @@ export function ServerHealthStatus({ onOpenVersionDialog }: ServerHealthStatusPr
           )}
           {health.opencodeManagerVersion && (
             <p className="text-xs text-muted-foreground">
-              Manager v{health.opencodeManagerVersion}
+              {t('Manager v{version}', { version: health.opencodeManagerVersion })}
             </p>
           )}
         </div>
@@ -69,7 +71,7 @@ export function ServerHealthStatus({ onOpenVersionDialog }: ServerHealthStatusPr
             ) : (
               <ArrowUpCircle className="h-3 w-3 sm:h-4 sm:w-4" />
             )}
-            <span className="text-xs sm:text-sm">Update</span>
+            <span className="text-xs sm:text-sm">{t('Update')}</span>
           </Button>
           <Button
             variant="secondary"
@@ -83,7 +85,7 @@ export function ServerHealthStatus({ onOpenVersionDialog }: ServerHealthStatusPr
             ) : (
               <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
             )}
-            <span className="text-xs sm:text-sm">Restart</span>
+            <span className="text-xs sm:text-sm">{t('Restart')}</span>
           </Button>
           <Button
             variant="secondary"
@@ -92,7 +94,7 @@ export function ServerHealthStatus({ onOpenVersionDialog }: ServerHealthStatusPr
             onClick={onOpenVersionDialog}
           >
             <History className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="text-xs sm:text-sm">Versions</span>
+            <span className="text-xs sm:text-sm">{t('Versions')}</span>
           </Button>
         </div>
       </div>

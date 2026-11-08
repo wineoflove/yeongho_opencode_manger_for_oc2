@@ -17,6 +17,7 @@ import { settingsApi } from '@/api/settings'
 import { showToast } from '@/lib/toast'
 import { getOpenCodeApiErrorMessage } from '@/lib/opencode-errors'
 import { formatMcpServerName } from '@/lib/mcp'
+import { t } from '@/i18n/translate'
 
 interface McpManagerProps {
   config: {
@@ -74,7 +75,7 @@ export function McpManager({ config, onUpdate }: McpManagerProps) {
       setDeleteConfirmServer(null)
     },
     onError: (error) => {
-      showToast.error(getOpenCodeApiErrorMessage(error, 'Failed to delete MCP server'))
+      showToast.error(getOpenCodeApiErrorMessage(error, t('Failed to delete MCP server')))
     },
   })
 
@@ -119,7 +120,7 @@ export function McpManager({ config, onUpdate }: McpManagerProps) {
   }
 
   const handleOAuthStartAuth = async (): Promise<McpAuthStartResponse> => {
-    if (!authDialogServerId) throw new Error('No server ID')
+    if (!authDialogServerId) throw new Error(t('No server ID'))
     return await mcpApi.startAuth(authDialogServerId)
   }
 
@@ -164,7 +165,7 @@ export function McpManager({ config, onUpdate }: McpManagerProps) {
   if (!config) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">No OpenCode configuration file found.</p>
+        <p className="text-muted-foreground">{t('No OpenCode configuration file found.')}</p>
       </div>
     )
   }
@@ -176,10 +177,10 @@ export function McpManager({ config, onUpdate }: McpManagerProps) {
           <div className="flex flex-col items-center gap-3 bg-card border border-border rounded-lg p-6 shadow-lg">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <span className="text-sm font-medium text-foreground">
-              {togglingServerId ? 'Updating MCP server...' : 'Processing...'}
+              {togglingServerId ? t('Updating MCP server...') : t('Processing...')}
             </span>
             <span className="text-xs text-muted-foreground">
-              Please wait while we update your configuration
+              {t('Please wait while we update your configuration')}
             </span>
           </div>
         </div>
@@ -192,13 +193,13 @@ export function McpManager({ config, onUpdate }: McpManagerProps) {
           disabled={isLoadingStatus}
         >
           <RefreshCw className={`h-3 w-3 mr-1 ${isLoadingStatus ? 'animate-spin' : ''}`} />
-          Refresh
+          {t('Refresh')}
         </Button>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
-              Add Server
+              {t('Add Server')}
             </Button>
           </DialogTrigger>
           <AddMcpServerDialog 
@@ -213,8 +214,8 @@ export function McpManager({ config, onUpdate }: McpManagerProps) {
         isLoading={false}
         error={null}
         isEmpty={serverIds.length === 0}
-        emptyTitle="No MCP servers configured"
-        emptyHint="Add your first server to get started."
+        emptyTitle={t('No MCP servers configured')}
+        emptyHint={t('Add your first server to get started.')}
       >
         {serverIds.map((serverId) => {
           const status = mcpStatus?.[serverId]
@@ -246,8 +247,8 @@ export function McpManager({ config, onUpdate }: McpManagerProps) {
         onOpenChange={() => setDeleteConfirmServer(null)}
         onConfirm={handleDeleteServer}
         onCancel={() => setDeleteConfirmServer(null)}
-        title="Delete MCP Server"
-        description="This will remove the MCP server configuration. This action cannot be undone."
+        title={t('Delete MCP Server')}
+        description={t('This will remove the MCP server configuration. This action cannot be undone.')}
         itemName={deleteConfirmServer?.name}
         isDeleting={deleteServerMutation.isPending}
       />
@@ -266,8 +267,8 @@ export function McpManager({ config, onUpdate }: McpManagerProps) {
         onOpenChange={() => setRemoveAuthConfirmServer(null)}
         onConfirm={handleConfirmRemoveAuth}
         onCancel={() => setRemoveAuthConfirmServer(null)}
-        title="Remove Authentication"
-        description="This will remove the OAuth credentials for this MCP server. You will need to re-authenticate to use this server again."
+        title={t('Remove Authentication')}
+        description={t('This will remove the OAuth credentials for this MCP server. You will need to re-authenticate to use this server again.')}
         itemName={removeAuthConfirmServer ? formatMcpServerName(removeAuthConfirmServer) : ''}
         isDeleting={isRemovingAuth}
       />

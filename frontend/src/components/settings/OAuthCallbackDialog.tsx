@@ -8,6 +8,7 @@ import { CopyButton } from '@/components/ui/copy-button'
 import { showToast } from '@/lib/toast'
 import { oauthApi, type OAuthAuthorizeResponse } from '@/api/oauth'
 import { mapOAuthError } from '@/lib/oauthErrors'
+import { t } from '@/i18n/translate'
 
 interface OAuthCallbackDialogProps {
   providerId: string
@@ -65,7 +66,7 @@ export function OAuthCallbackDialog({
 
           if (status.status === 'failed' || status.status === 'expired') {
             setIsLoading(false)
-            setError(status.message ?? 'Authentication failed')
+            setError(status.message ?? t('Authentication failed'))
             return
           }
         } catch (err) {
@@ -125,11 +126,11 @@ export function OAuthCallbackDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="bg-card border-border max-w-lg">
         <DialogHeader>
-          <DialogTitle>Complete {providerName} Authentication</DialogTitle>
+          <DialogTitle>{t('Complete {provider} Authentication', { provider: providerName })}</DialogTitle>
           <DialogDescription>
             {isAutoMethod
-              ? 'Follow the instructions below to complete authentication.'
-              : 'Enter the authorization code from the provider.'
+              ? t('Follow the instructions below to complete authentication.')
+              : t('Enter the authorization code from the provider.')
             }
           </DialogDescription>
         </DialogHeader>
@@ -152,11 +153,11 @@ export function OAuthCallbackDialog({
                   </code>
                   <CopyButton
                     content={deviceCode}
-                    title="Copy device code"
+                    title={t('Copy device code')}
                     variant="ghost"
                     iconSize="sm"
                     className="flex-shrink-0"
-                    onCopy={() => showToast.success('Code copied to clipboard')}
+                    onCopy={() => showToast.success(t('Code copied to clipboard'))}
                   />
                 </div>
               )}
@@ -169,15 +170,15 @@ export function OAuthCallbackDialog({
                   className="flex-1"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  Open Authorization Page
+                  {t('Open Authorization Page')}
                 </Button>
                 <CopyButton
                   content={authResponse.url}
-                  title="Copy authorization URL"
+                  title={t('Copy authorization URL')}
                   variant="ghost"
                   iconSize="sm"
                   className="flex-shrink-0"
-                  onCopy={() => showToast.success('URL copied to clipboard')}
+                  onCopy={() => showToast.success(t('URL copied to clipboard'))}
                 />
               </div>
             </div>
@@ -185,21 +186,21 @@ export function OAuthCallbackDialog({
             {!isAutoMethod && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="authCode">Authorization Code</Label>
+                  <Label htmlFor="authCode">{t('Authorization Code')}</Label>
                   <CopyButton
                     content={authCode}
-                    title="Copy authorization code"
+                    title={t('Copy authorization code')}
                     variant="ghost"
                     iconSize="sm"
                     className="flex-shrink-0"
-                    onCopy={() => showToast.success('Code copied to clipboard')}
+                    onCopy={() => showToast.success(t('Code copied to clipboard'))}
                   />
                 </div>
                 <Input
                   id="authCode"
                   value={authCode}
                   onChange={(e) => setAuthCode(e.target.value)}
-                  placeholder="Enter the authorization code..."
+                  placeholder={t('Enter the authorization code...')}
                   className="bg-background border-border"
                   disabled={isLoading}
                 />
@@ -211,12 +212,12 @@ export function OAuthCallbackDialog({
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Completing...
+                      {t('Completing...')}
                     </>
                   ) : (
                     <>
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Complete Authentication
+                      {t('Complete Authentication')}
                     </>
                   )}
                 </Button>
@@ -226,7 +227,7 @@ export function OAuthCallbackDialog({
             {isAutoMethod && (
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Waiting for authorization to complete...
+                {t('Waiting for authorization to complete...')}
               </div>
             )}
           </div>

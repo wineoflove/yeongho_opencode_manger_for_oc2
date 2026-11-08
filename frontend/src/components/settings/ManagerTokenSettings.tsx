@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertTriangle, Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { CopyButton } from '@/components/ui/copy-button'
 import { SettingsDisclosure } from './SettingsDisclosure'
+import { t } from '@/i18n/translate'
 
 interface ManagerTokenSettingsProps {
   isOpen?: boolean
@@ -32,13 +33,13 @@ export function ManagerTokenSettings({ isOpen: controlledOpen, onToggle }: Manag
 
   return (
     <SettingsDisclosure
-      title="Manager Internal Token"
+      title={t('Manager Internal Token')}
       isOpen={isOpen}
       onToggle={handleToggle}
       contentClassName="space-y-3"
       meta={
         <span className="text-xs text-muted-foreground truncate hidden sm:inline">
-          Bearer token for workspace plugin and API clients
+          {t('Bearer token for workspace plugin and API clients')}
         </span>
       }
     >
@@ -47,7 +48,7 @@ export function ManagerTokenSettings({ isOpen: controlledOpen, onToggle }: Manag
           <Input
             id="manager-token"
             type={showToken ? 'text' : 'password'}
-            value={isLoading ? 'Loading...' : token ?? ''}
+            value={isLoading ? t('Loading...') : token ?? ''}
             readOnly
             className="flex-1 font-mono text-xs pr-9"
             autoComplete="new-password"
@@ -57,7 +58,7 @@ export function ManagerTokenSettings({ isOpen: controlledOpen, onToggle }: Manag
             type="button"
             onClick={() => setShowToken(!showToken)}
             disabled={!token}
-            aria-label={showToken ? 'Hide token' : 'Show token'}
+            aria-label={showToken ? t('Hide token') : t('Show token')}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -65,7 +66,7 @@ export function ManagerTokenSettings({ isOpen: controlledOpen, onToggle }: Manag
         </div>
         <CopyButton
           content={token ?? ''}
-          title="Copy"
+          title={t('Copy')}
           className={buttonVariants({ variant: 'outline', size: 'icon' })}
         />
         <Button
@@ -74,8 +75,8 @@ export function ManagerTokenSettings({ isOpen: controlledOpen, onToggle }: Manag
           type="button"
           onClick={handleRotate}
           disabled={rotate.isPending || isLoading}
-          aria-label="Rotate token"
-          title="Rotate token"
+          aria-label={t('Rotate token')}
+          title={t('Rotate token')}
         >
           <RefreshCw className={`h-4 w-4 ${rotate.isPending ? 'animate-spin' : ''}`} />
         </Button>
@@ -85,7 +86,7 @@ export function ManagerTokenSettings({ isOpen: controlledOpen, onToggle }: Manag
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Rotating will invalidate the existing token. Any plugin or client using it must be updated. Click Rotate again to confirm.
+            {t('Rotating will invalidate the existing token. Any plugin or client using it must be updated. Click Rotate again to confirm.')}
           </AlertDescription>
         </Alert>
       )}

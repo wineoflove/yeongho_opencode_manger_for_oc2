@@ -13,6 +13,7 @@ import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { showToast } from '@/lib/toast'
 import { useOpenCodeServers } from '@/hooks/useOpenCodeServers'
 import { OpenCodeServerDialog, type OpenCodeServerFormValues } from './OpenCodeServerDialog'
+import { t } from '@/i18n/translate'
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
@@ -23,18 +24,18 @@ function ServerTestResult({ result }: { result: OpenCodeServerTestResult }) {
     return (
       <div className="flex items-start gap-2 text-sm text-destructive">
         <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
-        <span className="break-words">{result.error ?? 'Connection failed'}</span>
+        <span className="break-words">{result.error ?? t('Connection failed')}</span>
       </div>
     )
   }
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-      <span>OpenCode {result.version ?? 'unknown version'}</span>
+      <span>OpenCode {result.version ?? t('unknown version')}</span>
       {result.versionSupported ? (
-        <Badge variant="secondary">Supported</Badge>
+        <Badge variant="secondary">{t('Supported')}</Badge>
       ) : (
-        <Badge variant="destructive">Unsupported version</Badge>
+        <Badge variant="destructive">{t('Unsupported version')}</Badge>
       )}
     </div>
   )
@@ -87,7 +88,7 @@ export function OpenCodeServersSettings() {
       else if (values.clearPassword) input.password = null
       else if (values.password) input.password = values.password
       await updateAsync({ id: editingServer.id, input })
-      showToast.success('Server updated')
+      showToast.success(t('Server updated'))
       return
     }
 
@@ -101,9 +102,9 @@ export function OpenCodeServersSettings() {
     else if (values.password) input.password = values.password
     const { test } = await createAsync(input)
     if (test.ok) {
-      showToast.success(`Server added${test.version ? ` — OpenCode ${test.version}` : ''}`)
+      showToast.success(test.version ? t('Server added — OpenCode {version}', { version: test.version }) : t('Server added'))
     } else {
-      showToast.warning(`Server added, but the connection test failed: ${test.error ?? 'unknown error'}`)
+      showToast.warning(t('Server added, but the connection test failed: {reason}', { reason: test.error ?? t('unknown error') }))
     }
   }
 
@@ -119,7 +120,7 @@ export function OpenCodeServersSettings() {
     try {
       await updateAsync({ id: server.id, input: { enabled } })
     } catch (updateError) {
-      showToast.error(errorMessage(updateError, 'Failed to update server'))
+      showToast.error(errorMessage(updateError, t('Failed to update server')))
     }
   }
 
@@ -134,7 +135,7 @@ export function OpenCodeServersSettings() {
       const result = await testByIdAsync(server.id)
       setTestResults((current) => ({ ...current, [server.id]: result }))
     } catch (testError) {
-      showToast.error(errorMessage(testError, 'Connection test failed'))
+      showToast.error(errorMessage(testError, t('Connection test failed')))
     } finally {
       setTestingServerId(null)
     }
@@ -144,10 +145,10 @@ export function OpenCodeServersSettings() {
     if (!deletingServer) return
     try {
       await deleteAsync(deletingServer.id)
-      showToast.success('Server deleted')
+      showToast.success(t('Server deleted'))
       setDeletingServer(null)
     } catch (deleteError) {
-      showToast.error(errorMessage(deleteError, 'Failed to delete server'))
+      showToast.error(errorMessage(deleteError, t('Failed to delete server')))
     }
   }
 
@@ -155,35 +156,35 @@ export function OpenCodeServersSettings() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Linked servers</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('Linked servers')}</h2>
           <p className="text-sm text-muted-foreground">
-            Remote OpenCode servers this Manager can connect to. Disabled servers stay configured but are not used.
+            {t('Remote OpenCode servers this Manager can connect to. Disabled servers stay configured but are not used.')}
           </p>
         </div>
         <Button type="button" size="sm" onClick={openAddDialog} disabled={isCreating}>
           <Plus className="mr-2 h-4 w-4" />
-          Add server
+          {t('Add server')}
         </Button>
       </div>
 
       {isLoading && (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading servers...
+          {t('Loading servers...')}
         </div>
       )}
 
       {!isLoading && error && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/40 p-4 text-sm text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{errorMessage(error, 'Failed to load servers')}</span>
+          <span>{errorMessage(error, t('Failed to load servers'))}</span>
         </div>
       )}
 
       {!isLoading && !error && servers.length === 0 && (
         <div className="rounded-lg border border-dashed border-border p-6 text-center">
           <p className="text-sm text-muted-foreground">
-            No linked servers. Add one with a pairing QR code or by entering its URL and credentials.
+            {t('No linked servers. Add one with a pairing QR code or by entering its URL and credentials.')}
           </p>
         </div>
       )}
@@ -197,12 +198,12 @@ export function OpenCodeServersSettings() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-foreground">{server.name}</span>
                     <Badge variant={server.hasPassword ? 'secondary' : 'outline'}>
-                      {server.hasPassword ? 'Password set' : 'No password'}
+                      {server.hasPassword ? t('Password set') : t('No password')}
                     </Badge>
-                    {!server.enabled && <Badge variant="outline">Disabled</Badge>}
+                    {!server.enabled && <Badge variant="outline">{t('Disabled')}</Badge>}
                   </div>
                   <p className="break-all text-sm text-muted-foreground">{server.baseUrl}</p>
-                  <p className="text-xs text-muted-foreground">Username: {server.username}</p>
+                  <p className="text-xs text-muted-foreground">{t('Username: {name}', { name: server.username })}</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1">
@@ -210,7 +211,7 @@ export function OpenCodeServersSettings() {
                     checked={server.enabled}
                     onCheckedChange={(checked) => void toggleEnabled(server, checked)}
                     disabled={isUpdating}
-                    aria-label={`Enable ${server.name}`}
+                    aria-label={t('Enable {name}', { name: server.name })}
                   />
                   <Button
                     type="button"
@@ -224,13 +225,13 @@ export function OpenCodeServersSettings() {
                     ) : (
                       <Activity className="mr-2 h-4 w-4" />
                     )}
-                    Test
+                    {t('Test')}
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={`Edit ${server.name}`}
+                    aria-label={t('Edit {name}', { name: server.name })}
                     onClick={() => openEditDialog(server)}
                   >
                     <Pencil className="h-4 w-4" />
@@ -239,7 +240,7 @@ export function OpenCodeServersSettings() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={`Delete ${server.name}`}
+                    aria-label={t('Delete {name}', { name: server.name })}
                     onClick={() => setDeletingServer(server)}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -266,8 +267,8 @@ export function OpenCodeServersSettings() {
         onOpenChange={(open) => !open && setDeletingServer(null)}
         onConfirm={() => void confirmDelete()}
         onCancel={() => setDeletingServer(null)}
-        title="Delete Server"
-        description="Remove this linked server from the Manager. Its sessions stay on the remote server."
+        title={t('Delete Server')}
+        description={t('Remove this linked server from the Manager. Its sessions stay on the remote server.')}
         itemName={deletingServer?.name}
         isDeleting={isDeleting}
       />

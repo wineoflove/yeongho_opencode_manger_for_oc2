@@ -8,6 +8,7 @@ import { CommandDialog } from './CommandDialog'
 import { UploadFolderButton } from './UploadFolderButton'
 import { DirectoryFilesList } from './DirectoryFilesList'
 import type { OpenCodeDirectoryFileInfo } from '@/api/types/settings'
+import { t } from '@/i18n/translate'
 
 interface Command {
   template: string
@@ -64,7 +65,7 @@ export function CommandsEditor({ commands, directoryCommands = [], onChange }: C
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
-              Add Command
+              {t('Add Command')}
             </Button>
           </DialogTrigger>
           <CommandDialog
@@ -77,8 +78,8 @@ export function CommandsEditor({ commands, directoryCommands = [], onChange }: C
 
       <SettingsList
         isEmpty={!hasCommands}
-        emptyTitle="No commands configured"
-        emptyHint="Add your first command to get started."
+        emptyTitle={t('No commands configured')}
+        emptyHint={t('Add your first command to get started.')}
         maxHeightClassName="max-h-[calc(100dvh-300px)] sm:max-h-[420px]"
       >
         {Object.entries(commands).map(([name, command]) => (
@@ -90,9 +91,9 @@ export function CommandsEditor({ commands, directoryCommands = [], onChange }: C
               command.agent && <Badge variant="outline" className="shrink-0">{command.agent}</Badge>
             }
             onClick={() => startEdit(name, command)}
-            primaryAction={{ label: 'Edit', onClick: () => startEdit(name, command) }}
-            actions={[{ label: 'Delete', destructive: true, onClick: () => deleteCommand(name) }]}
-            actionsLabel={`Actions for ${name}`}
+            primaryAction={{ label: t('Edit'), onClick: () => startEdit(name, command) }}
+            actions={[{ label: t('Delete'), destructive: true, onClick: () => deleteCommand(name) }]}
+            actionsLabel={t('Actions for {name}', { name })}
           />
         ))}
         <DirectoryFilesList kind="commands" files={directoryCommands} />

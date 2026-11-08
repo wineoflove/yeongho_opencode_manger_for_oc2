@@ -6,6 +6,7 @@ import { XCircle, Key, Shield, Trash2, RefreshCw } from 'lucide-react'
 import type { McpStatus, McpServerConfig } from '@/api/mcp'
 import { formatMcpServerName } from '@/lib/mcp'
 import { McpStatusBadge } from './McpStatusBadge'
+import { t } from '@/i18n/translate'
 
 interface McpServerCardProps {
   serverId: string
@@ -25,21 +26,21 @@ interface McpServerCardProps {
 function getServerDescription(serverConfig: McpServerConfig | undefined): string {
   if (serverConfig?.type === 'local') {
     const command = serverConfig.command.join(' ')
-    if (command.includes('filesystem')) return 'File system access'
-    if (command.includes('git')) return 'Git repository operations'
-    if (command.includes('sqlite')) return 'SQLite database access'
-    if (command.includes('postgres')) return 'PostgreSQL database access'
-    if (command.includes('brave-search')) return 'Web search via Brave'
-    if (command.includes('github')) return 'GitHub repository access'
-    if (command.includes('slack')) return 'Slack integration'
-    if (command.includes('puppeteer')) return 'Web automation'
-    if (command.includes('fetch')) return 'HTTP requests'
-    if (command.includes('memory')) return 'Persistent memory'
-    return `Local command: ${command}`
+    if (command.includes('filesystem')) return t('File system access')
+    if (command.includes('git')) return t('Git repository operations')
+    if (command.includes('sqlite')) return t('SQLite database access')
+    if (command.includes('postgres')) return t('PostgreSQL database access')
+    if (command.includes('brave-search')) return t('Web search via Brave')
+    if (command.includes('github')) return t('GitHub repository access')
+    if (command.includes('slack')) return t('Slack integration')
+    if (command.includes('puppeteer')) return t('Web automation')
+    if (command.includes('fetch')) return t('HTTP requests')
+    if (command.includes('memory')) return t('Persistent memory')
+    return t('Local command: {command}', { command })
   } else if (serverConfig?.type === 'remote') {
-    return `Remote server: ${serverConfig.url}`
+    return t('Remote server: {url}', { url: serverConfig.url })
   }
-  return 'MCP server'
+  return t('MCP server')
 }
 
 export function McpServerCard({
@@ -64,15 +65,15 @@ export function McpServerCard({
 
   const actions: SettingsListRowAction[] = []
   if (showAuthButton && onAuthenticate) {
-    actions.push({ label: 'Authenticate', onClick: () => onAuthenticate(serverId), icon: <Key className="h-4 w-4 mr-2" /> })
+    actions.push({ label: t('Authenticate'), onClick: () => onAuthenticate(serverId), icon: <Key className="h-4 w-4 mr-2" /> })
   }
   if (connectedWithOAuth && onAuthenticate) {
-    actions.push({ label: 'Re-authenticate', onClick: () => onAuthenticate(serverId), icon: <RefreshCw className="h-4 w-4 mr-2" /> })
+    actions.push({ label: t('Re-authenticate'), onClick: () => onAuthenticate(serverId), icon: <RefreshCw className="h-4 w-4 mr-2" /> })
   }
   if (connectedWithOAuth && onRemoveAuth) {
-    actions.push({ label: isRemovingAuth ? 'Removing...' : 'Remove Auth', onClick: () => onRemoveAuth(serverId), icon: <Shield className="h-4 w-4 mr-2" />, disabled: isRemovingAuth })
+    actions.push({ label: isRemovingAuth ? t('Removing...') : t('Remove Auth'), onClick: () => onRemoveAuth(serverId), icon: <Shield className="h-4 w-4 mr-2" />, disabled: isRemovingAuth })
   }
-  actions.push({ label: 'Delete Server', onClick: () => onDeleteServer(serverId, displayName), icon: <Trash2 className="h-4 w-4 mr-2" />, destructive: true, separatorBefore: showAuthButton || connectedWithOAuth })
+  actions.push({ label: t('Delete Server'), onClick: () => onDeleteServer(serverId, displayName), icon: <Trash2 className="h-4 w-4 mr-2" />, destructive: true, separatorBefore: showAuthButton || connectedWithOAuth })
 
   return (
     <SettingsListRow
@@ -80,12 +81,12 @@ export function McpServerCard({
       badges={
         <>
           {connectedWithOAuth && (
-            <span title="OAuth authenticated">
+            <span title={t('OAuth authenticated')}>
               <Shield className="h-3 w-3 text-muted-foreground" />
             </span>
           )}
           {status ? <McpStatusBadge status={status} /> : (
-            <Badge variant="outline" className="text-xs">Loading...</Badge>
+            <Badge variant="outline" className="text-xs">{t('Loading...')}</Badge>
           )}
         </>
       }
@@ -105,7 +106,7 @@ export function McpServerCard({
             size="sm"
           >
             <Key className="h-3 w-3 mr-1" />
-            Auth
+            {t('Auth')}
           </Button>
         ) : (
           <Switch
@@ -116,7 +117,7 @@ export function McpServerCard({
         )
       }
       actions={actions}
-      actionsLabel={`Actions for ${displayName}`}
+      actionsLabel={t('Actions for {name}', { name: displayName })}
     />
   )
 }

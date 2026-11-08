@@ -21,16 +21,17 @@ import {
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { msg, t } from "@/i18n/translate";
 
 const commandFormSchema = z.object({
   name: z
     .string()
-    .min(1, "Command name is required")
+    .min(1, msg("Command name is required"))
     .regex(
       /^[a-z0-9-]+$/,
-      "Must be lowercase letters, numbers, and hyphens only",
+      msg("Must be lowercase letters, numbers, and hyphens only"),
     ),
-  template: z.string().min(1, "Template is required"),
+  template: z.string().min(1, msg("Template is required")),
   description: z.string().optional(),
   agent: z.string().optional(),
   model: z.string().optional(),
@@ -102,7 +103,7 @@ export function CommandDialog({
       <DialogContent mobileFullscreen className="sm:max-w-3xl sm:max-h-[85vh] gap-0 flex flex-col p-0 md:p-6">
         <DialogHeader className="p-4 sm:p-6 border-b flex flex-row items-center justify-between space-y-0">
           <DialogTitle>
-            {editingCommand ? "Edit Command" : "Create Command"}
+            {editingCommand ? t("Edit Command") : t("Create Command")}
           </DialogTitle>
         </DialogHeader>
 
@@ -114,7 +115,7 @@ export function CommandDialog({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Command Name</FormLabel>
+                    <FormLabel>{t("Command Name")}</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -124,7 +125,7 @@ export function CommandDialog({
                       />
                     </FormControl>
                     <FormDescription>
-                      Use lowercase letters, numbers, and hyphens only
+                      {t("Use lowercase letters, numbers, and hyphens only")}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -136,11 +137,11 @@ export function CommandDialog({
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t("Description")}</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Brief description of what the command does"
+                        placeholder={t("Brief description of what the command does")}
                       />
                     </FormControl>
                     <FormMessage />
@@ -153,18 +154,17 @@ export function CommandDialog({
                 name="template"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Template</FormLabel>
+                    <FormLabel>{t("Template")}</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="The prompt template that will be sent to the LLM. Use $ARGUMENTS or $1, $2, etc. for parameters."
+                        placeholder={t("The prompt template that will be sent to the LLM. Use $ARGUMENTS or $1, $2, etc. for parameters.")}
                         rows={8}
                         className="font-mono md:text-sm"
                       />
                     </FormControl>
                     <FormDescription>
-                      Use $ARGUMENTS for all arguments or $1, $2, etc. for
-                      specific parameters
+                      {t("Use $ARGUMENTS for all arguments or $1, $2, etc. for specific parameters")}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -177,7 +177,7 @@ export function CommandDialog({
                   name="agent"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Agent (optional)</FormLabel>
+                      <FormLabel>{t("Agent (optional)")}</FormLabel>
                       <FormControl>
                         <Input {...field} placeholder="build" />
                       </FormControl>
@@ -190,7 +190,7 @@ export function CommandDialog({
                   name="topP"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Top P (optional)</FormLabel>
+                      <FormLabel>{t("Top P (optional)")}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -213,7 +213,7 @@ export function CommandDialog({
                   name="model"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Model (optional)</FormLabel>
+                      <FormLabel>{t("Model (optional)")}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -232,9 +232,9 @@ export function CommandDialog({
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">Run as subtask</FormLabel>
+                      <FormLabel className="text-base">{t("Run as subtask")}</FormLabel>
                       <FormDescription>
-                        Execute this command as a separate subtask
+                        {t("Execute this command as a separate subtask")}
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -252,10 +252,10 @@ export function CommandDialog({
 
         <DialogFooter className="p-3 sm:p-4 border-t gap-2 pb-4">
           <Button variant="outline" onClick={() => handleOpenChange(false)} className="flex-1 sm:flex-none">
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button onClick={() => form.handleSubmit(handleSubmit)()} disabled={!form.formState.isValid} className="flex-1 sm:flex-none">
-            {editingCommand ? "Update" : "Create"}
+            {editingCommand ? t("Update") : t("Create")}
           </Button>
         </DialogFooter>
       </DialogContent>

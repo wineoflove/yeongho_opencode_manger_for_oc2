@@ -12,6 +12,7 @@ import {
   type SessionDefaults,
   type SessionPermissionMode,
 } from '@opencode-manager/shared/schemas'
+import { t } from '@/i18n/translate'
 
 interface GoalDraft {
   goalAuditorModel: string
@@ -100,13 +101,13 @@ export function SessionAutomationSettings() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-foreground">Sessions</h2>
+      <h2 className="text-lg font-semibold text-foreground">{t('Sessions')}</h2>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0 space-y-0.5">
-          <Label htmlFor="sessionPermissionMode">Default permission mode for new sessions</Label>
+          <Label htmlFor="sessionPermissionMode">{t('Default permission mode for new sessions')}</Label>
           <p className="text-sm text-muted-foreground">
-            Accept everything answers every "ask" automatically, never overrides deny rules, and only applies to sessions created after the change.
+            {t('Accept everything answers every "ask" automatically, never overrides deny rules, and only applies to sessions created after the change.')}
           </p>
         </div>
         <Select
@@ -114,28 +115,28 @@ export function SessionAutomationSettings() {
           onValueChange={(value) => updateSessionDefaults({ permissionMode: value as SessionPermissionMode })}
         >
           <SelectTrigger id="sessionPermissionMode" className="w-full shrink-0 sm:w-40">
-            <SelectValue placeholder="Select a mode" />
+            <SelectValue placeholder={t('Select a mode')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ask">Ask every time</SelectItem>
-            <SelectItem value="auto">Accept everything</SelectItem>
+            <SelectItem value="ask">{t('Ask every time')}</SelectItem>
+            <SelectItem value="auto">{t('Accept everything')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0 space-y-0.5">
-          <Label htmlFor="goalAuditorModel">Goal auditor model</Label>
+          <Label htmlFor="goalAuditorModel">{t('Goal auditor model')}</Label>
           <p className="text-sm text-muted-foreground">
-            Model that decides whether a session goal is done. Leave empty to use the OpenCode default model.
+            {t('Model that decides whether a session goal is done. Leave empty to use the OpenCode default model.')}
           </p>
         </div>
         <ModelCombobox
           id="goalAuditorModel"
-          ariaLabel="Goal auditor model"
+          ariaLabel={t('Goal auditor model')}
           value={draft.goalAuditorModel}
           onChange={(value) => updateGoalDraft({ goalAuditorModel: value })}
-          placeholder="OpenCode default"
+          placeholder={t('OpenCode default')}
           allowCustomValue
           showClear
           className="w-full shrink-0 sm:w-64"
@@ -144,9 +145,9 @@ export function SessionAutomationSettings() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0 space-y-0.5">
-          <Label htmlFor="goalMaxContinuations">Max automatic continuations</Label>
+          <Label htmlFor="goalMaxContinuations">{t('Max automatic continuations')}</Label>
           <p className="text-sm text-muted-foreground">
-            How many times a goal may keep the agent working after each audit before it stops.
+            {t('How many times a goal may keep the agent working after each audit before it stops.')}
           </p>
         </div>
         <Input
@@ -163,9 +164,9 @@ export function SessionAutomationSettings() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0 space-y-0.5">
-          <Label htmlFor="goalTokenBudget">Token budget per goal</Label>
+          <Label htmlFor="goalTokenBudget">{t('Token budget per goal')}</Label>
           <p className="text-sm text-muted-foreground">
-            Stop a goal once it has spent this many tokens. Leave empty for no limit.
+            {t('Stop a goal once it has spent this many tokens. Leave empty for no limit.')}
           </p>
         </div>
         <Input
@@ -173,7 +174,7 @@ export function SessionAutomationSettings() {
           type="number"
           min={1}
           value={draft.goalTokenBudget}
-          placeholder="No limit"
+          placeholder={t('No limit')}
           className="w-full shrink-0 sm:w-40"
           onChange={(event) => updateGoalDraft({ goalTokenBudget: event.target.value })}
           onBlur={commitGoalFields}

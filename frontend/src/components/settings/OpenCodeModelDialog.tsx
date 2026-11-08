@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { RefreshCw, Loader2 } from 'lucide-react'
 import { settingsApi } from '@/api/settings'
 import type { ModelConfig, ProviderConfig } from '@/api/types/settings'
+import { msg, t, tn } from '@/i18n/translate'
 
 type ConfigModel = Partial<ModelConfig> & {
   limit?: {
@@ -89,13 +90,13 @@ function prettifyModelName(modelId: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function jsonObjectField(label: string) {
+function jsonObjectField(message: string) {
   return z.string().superRefine((value, ctx) => {
     if (!value.trim()) return
     if (!parseJsonObject(value)) {
       ctx.addIssue({
         code: 'custom',
-        message: `${label} must be a valid JSON object`,
+        message,
       })
     }
   })
@@ -103,7 +104,7 @@ function jsonObjectField(label: string) {
 
 const modelFormSchema = z.object({
   providerId: z.string(),
-  modelId: z.string().min(1, 'Model ID is required').regex(/^[a-zA-Z0-9._-]+$/, 'Must use only letters, numbers, dots, hyphens, and underscores'),
+  modelId: z.string().min(1, msg('Model ID is required')).regex(/^[a-zA-Z0-9._-]+$/, msg('Must use only letters, numbers, dots, hyphens, and underscores')),
   backingModelId: z.string(),
   providerModelProviderId: z.string(),
   displayName: z.string(),
@@ -115,12 +116,12 @@ const modelFormSchema = z.object({
   contextLimit: z.string(),
   inputLimit: z.string(),
   outputLimit: z.string(),
-  capabilitiesJson: jsonObjectField('Capabilities'),
-  costJson: jsonObjectField('Cost'),
-  optionsJson: jsonObjectField('Options'),
-  headersJson: jsonObjectField('Headers'),
-  variantsJson: jsonObjectField('Variants'),
-  extraJson: jsonObjectField('Advanced fields'),
+  capabilitiesJson: jsonObjectField(msg('Capabilities must be a valid JSON object')),
+  costJson: jsonObjectField(msg('Cost must be a valid JSON object')),
+  optionsJson: jsonObjectField(msg('Options must be a valid JSON object')),
+  headersJson: jsonObjectField(msg('Headers must be a valid JSON object')),
+  variantsJson: jsonObjectField(msg('Variants must be a valid JSON object')),
+  extraJson: jsonObjectField(msg('Advanced fields must be a valid JSON object')),
   createNewProvider: z.boolean(),
   newProviderType: z.enum(['api', 'npm']),
   newProviderId: z.string(),
@@ -130,30 +131,30 @@ const modelFormSchema = z.object({
 }).superRefine((data, ctx) => {
   if (data.createNewProvider) {
     if (!data.newProviderId?.trim()) {
-      ctx.addIssue({ code: 'custom', message: 'Provider ID is required when creating a new provider', path: ['newProviderId'] })
+      ctx.addIssue({ code: 'custom', message: t('Provider ID is required when creating a new provider'), path: ['newProviderId'] })
     } else if (!/^[a-z0-9-]+$/.test(data.newProviderId)) {
-      ctx.addIssue({ code: 'custom', message: 'Must be lowercase letters, numbers, and hyphens only', path: ['newProviderId'] })
+      ctx.addIssue({ code: 'custom', message: t('Must be lowercase letters, numbers, and hyphens only'), path: ['newProviderId'] })
     }
     if (data.newProviderType === 'api' && !data.newProviderBaseUrl?.trim()) {
-      ctx.addIssue({ code: 'custom', message: 'Base URL is required for API providers', path: ['newProviderBaseUrl'] })
+      ctx.addIssue({ code: 'custom', message: t('Base URL is required for API providers'), path: ['newProviderBaseUrl'] })
     }
     if (data.newProviderType === 'npm' && !data.newProviderNpm?.trim()) {
-      ctx.addIssue({ code: 'custom', message: 'NPM package is required for npm providers', path: ['newProviderNpm'] })
+      ctx.addIssue({ code: 'custom', message: t('NPM package is required for npm providers'), path: ['newProviderNpm'] })
     }
   } else {
     if (!data.providerId?.trim()) {
-      ctx.addIssue({ code: 'custom', message: 'Provider is required', path: ['providerId'] })
+      ctx.addIssue({ code: 'custom', message: t('Provider is required'), path: ['providerId'] })
     }
   }
 
   for (const [field, label] of [
-    ['contextLimit', 'Context limit'],
-    ['inputLimit', 'Input limit'],
-    ['outputLimit', 'Output limit'],
+    ['contextLimit', msg('Context limit must be a number')],
+    ['inputLimit', msg('Input limit must be a number')],
+    ['outputLimit', msg('Output limit must be a number')],
   ] as const) {
     const value = data[field]
     if (value.trim() && parseOptionalNumber(value) === undefined) {
-      ctx.addIssue({ code: 'custom', message: `${label} must be a number`, path: [field] })
+      ctx.addIssue({ code: 'custom', message: label, path: [field] })
     }
   }
 })
@@ -303,7 +304,7 @@ export function OpenCodeModelDialog({
       setDiscoveredModels(response.models)
     } catch {
       setDiscoveredModels([])
-      setDiscoveryError('Failed to discover models. Check the endpoint URL and API key.')
+      setDiscoveryError(t('Failed to discover models. Check the endpoint URL and API key.'))
     } finally {
       setIsLoadingModels(false)
     }
@@ -431,7 +432,7 @@ export function OpenCodeModelDialog({
     <Dialog open={open} onOpenChange={handleOpenChange} key={editingModel ? `edit-${editingModel.modelId}` : 'create'}>
       <DialogContent mobileFullscreen className="sm:max-w-2xl sm:max-h-[85vh] gap-0 flex flex-col p-0 md:p-6">
         <DialogHeader className="p-4 sm:p-6 border-b flex flex-row items-center justify-between space-y-0">
-          <DialogTitle>{isEditing ? 'Edit Model' : 'Create Model'}</DialogTitle>
+          <DialogTitle>{isEditing ? t('Edit Model') : t('Create Model')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-2 sm:p-4" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
@@ -444,8 +445,8 @@ export function OpenCodeModelDialog({
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <div className="space-y-0.5">
-                        <FormLabel>Create new provider</FormLabel>
-                        <p className="text-xs text-muted-foreground">Add a new provider configuration</p>
+                        <FormLabel>{t('Create new provider')}</FormLabel>
+                        <p className="text-xs text-muted-foreground">{t('Add a new provider configuration')}</p>
                       </div>
                       <FormControl>
                         <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -457,16 +458,16 @@ export function OpenCodeModelDialog({
 
               {createNewProvider ? (
                 <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                  <h4 className="text-sm font-medium">New Provider</h4>
+                  <h4 className="text-sm font-medium">{t('New Provider')}</h4>
 
                   <FormField control={form.control} name="newProviderType" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Provider Type</FormLabel>
+                      <FormLabel>{t('Provider Type')}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
-                          <SelectItem value="api">API (HTTP endpoint)</SelectItem>
-                          <SelectItem value="npm">NPM Package</SelectItem>
+                          <SelectItem value="api">{t('API (HTTP endpoint)')}</SelectItem>
+                          <SelectItem value="npm">{t('NPM Package')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -475,16 +476,16 @@ export function OpenCodeModelDialog({
 
                   <FormField control={form.control} name="newProviderId" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Provider ID</FormLabel>
-                      <FormControl><Input {...field} placeholder="e.g., my-provider" /></FormControl>
+                      <FormLabel>{t('Provider ID')}</FormLabel>
+                      <FormControl><Input {...field} placeholder={t('e.g., my-provider')} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
 
                   <FormField control={form.control} name="newProviderName" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Display Name</FormLabel>
-                      <FormControl><Input {...field} placeholder="e.g., My Provider" /></FormControl>
+                      <FormLabel>{t('Display Name')}</FormLabel>
+                      <FormControl><Input {...field} placeholder={t('e.g., My Provider')} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -492,8 +493,8 @@ export function OpenCodeModelDialog({
                   {newProviderType === 'api' && (
                     <FormField control={form.control} name="newProviderBaseUrl" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Base URL</FormLabel>
-                        <FormControl><Input {...field} placeholder="e.g., https://api.openai.com/v1" /></FormControl>
+                        <FormLabel>{t('Base URL')}</FormLabel>
+                        <FormControl><Input {...field} placeholder={t('e.g., https://api.openai.com/v1')} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -501,16 +502,16 @@ export function OpenCodeModelDialog({
 
                   {newProviderType === 'api' && (
                     <div className="space-y-2">
-                      <Label htmlFor="discovery-api-key">API Key (for discovery)</Label>
+                      <Label htmlFor="discovery-api-key">{t('API Key (for discovery)')}</Label>
                       <Input
                         id="discovery-api-key"
                         type="password"
                         value={discoveryApiKey}
                         onChange={(e) => setDiscoveryApiKey(e.target.value)}
-                        placeholder="Optional - used to fetch the model list"
+                        placeholder={t('Optional - used to fetch the model list')}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Used only to discover available models. Configure provider auth separately via env vars or headers.
+                        {t('Used only to discover available models. Configure provider auth separately via env vars or headers.')}
                       </p>
                     </div>
                   )}
@@ -518,8 +519,8 @@ export function OpenCodeModelDialog({
                   {newProviderType === 'npm' && (
                     <FormField control={form.control} name="newProviderNpm" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>NPM Package</FormLabel>
-                        <FormControl><Input {...field} placeholder="e.g., @scope/package" /></FormControl>
+                        <FormLabel>{t('NPM Package')}</FormLabel>
+                        <FormControl><Input {...field} placeholder={t('e.g., @scope/package')} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -528,11 +529,11 @@ export function OpenCodeModelDialog({
               ) : (
                 <FormField control={form.control} name="providerId" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Provider</FormLabel>
+                    <FormLabel>{t('Provider')}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
                       <FormControl>
                         <SelectTrigger className={isEditing ? 'bg-muted' : ''}>
-                          <SelectValue placeholder="Select provider" />
+                          <SelectValue placeholder={t('Select provider')} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -549,8 +550,8 @@ export function OpenCodeModelDialog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={form.control} name="modelId" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Config Key</FormLabel>
-                    <FormControl><Input {...field} placeholder="e.g., qwen-3.5-27b" /></FormControl>
+                    <FormLabel>{t('Config Key')}</FormLabel>
+                    <FormControl><Input {...field} placeholder={t('e.g., qwen-3.5-27b')} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -558,7 +559,7 @@ export function OpenCodeModelDialog({
                 <FormField control={form.control} name="backingModelId" render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
-                      <FormLabel>Provider Model ID</FormLabel>
+                      <FormLabel>{t('Provider Model ID')}</FormLabel>
                       {discoveryBaseUrl && (
                         <button
                           type="button"
@@ -567,7 +568,7 @@ export function OpenCodeModelDialog({
                           className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 disabled:opacity-50"
                         >
                           {isLoadingModels ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                          {discoveredModels.length > 0 ? 'Refresh' : 'Discover'}
+                          {discoveredModels.length > 0 ? t('Refresh') : t('Discover')}
                         </button>
                       )}
                     </div>
@@ -581,15 +582,15 @@ export function OpenCodeModelDialog({
                           }
                         }}
                         options={discoveredModelOptions}
-                        placeholder="e.g., MiniMax-M2.7"
+                        placeholder={t('e.g., MiniMax-M2.7')}
                         disabled={isLoadingModels}
                         allowCustomValue={true}
                       />
                     </FormControl>
                     {discoveryError && <p className="text-xs text-destructive">{discoveryError}</p>}
-                    {!discoveryError && isLoadingModels && <p className="text-xs text-muted-foreground">Discovering models...</p>}
+                    {!discoveryError && isLoadingModels && <p className="text-xs text-muted-foreground">{t('Discovering models...')}</p>}
                     {!discoveryError && !isLoadingModels && discoveredModels.length > 0 && (
-                      <p className="text-xs text-muted-foreground">{discoveredModels.length} model{discoveredModels.length === 1 ? '' : 's'} found</p>
+                      <p className="text-xs text-muted-foreground">{tn('{count} model found', '{count} models found', discoveredModels.length)}</p>
                     )}
                     <FormMessage />
                   </FormItem>
@@ -599,16 +600,16 @@ export function OpenCodeModelDialog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={form.control} name="displayName" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Display Name</FormLabel>
-                    <FormControl><Input {...field} placeholder="e.g., Qwen3.5-27B" /></FormControl>
+                    <FormLabel>{t('Display Name')}</FormLabel>
+                    <FormControl><Input {...field} placeholder={t('e.g., Qwen3.5-27B')} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
 
                 <FormField control={form.control} name="family" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Family</FormLabel>
-                    <FormControl><Input {...field} placeholder="e.g., minimax" /></FormControl>
+                    <FormLabel>{t('Family')}</FormLabel>
+                    <FormControl><Input {...field} placeholder={t('e.g., minimax')} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -617,17 +618,17 @@ export function OpenCodeModelDialog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={form.control} name="status" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Status</FormLabel>
+                    <FormLabel>{t('Status')}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder={t('Select status')} /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="beta">Beta</SelectItem>
-                        <SelectItem value="alpha">Alpha</SelectItem>
-                        <SelectItem value="deprecated">Deprecated</SelectItem>
+                        <SelectItem value="none">{t('None')}</SelectItem>
+                        <SelectItem value="active">{t('Active')}</SelectItem>
+                        <SelectItem value="beta">{t('Beta')}</SelectItem>
+                        <SelectItem value="alpha">{t('Alpha')}</SelectItem>
+                        <SelectItem value="deprecated">{t('Deprecated')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -636,7 +637,7 @@ export function OpenCodeModelDialog({
 
                 <FormField control={form.control} name="releaseDate" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Release Date</FormLabel>
+                    <FormLabel>{t('Release Date')}</FormLabel>
                     <FormControl><Input {...field} placeholder="YYYY-MM-DD" /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -646,8 +647,8 @@ export function OpenCodeModelDialog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={form.control} name="providerModelProviderId" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Model Provider ID</FormLabel>
-                    <FormControl><Input {...field} placeholder="Optional provider override" /></FormControl>
+                    <FormLabel>{t('Model Provider ID')}</FormLabel>
+                    <FormControl><Input {...field} placeholder={t('Optional provider override')} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -656,15 +657,15 @@ export function OpenCodeModelDialog({
                   <FormField control={form.control} name="apiUrl" render={({ field }) => (
                     <FormItem>
                       <FormLabel>API URL</FormLabel>
-                      <FormControl><Input {...field} placeholder="Optional" /></FormControl>
+                      <FormControl><Input {...field} placeholder={t('Optional')} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
 
                   <FormField control={form.control} name="apiNpm" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>API NPM</FormLabel>
-                      <FormControl><Input {...field} placeholder="Optional" /></FormControl>
+                      <FormLabel>{t('API NPM')}</FormLabel>
+                      <FormControl><Input {...field} placeholder={t('Optional')} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -674,35 +675,35 @@ export function OpenCodeModelDialog({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <FormField control={form.control} name="contextLimit" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Context Limit</FormLabel>
-                    <FormControl><Input {...field} inputMode="numeric" placeholder="e.g., 200000" /></FormControl>
+                    <FormLabel>{t('Context Limit')}</FormLabel>
+                    <FormControl><Input {...field} inputMode="numeric" placeholder={t('e.g., {value}', { value: '200000' })} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
 
                 <FormField control={form.control} name="inputLimit" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Input Limit</FormLabel>
-                    <FormControl><Input {...field} inputMode="numeric" placeholder="Optional" /></FormControl>
+                    <FormLabel>{t('Input Limit')}</FormLabel>
+                    <FormControl><Input {...field} inputMode="numeric" placeholder={t('Optional')} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
 
                 <FormField control={form.control} name="outputLimit" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Output Limit</FormLabel>
-                    <FormControl><Input {...field} inputMode="numeric" placeholder="e.g., 81920" /></FormControl>
+                    <FormLabel>{t('Output Limit')}</FormLabel>
+                    <FormControl><Input {...field} inputMode="numeric" placeholder={t('e.g., {value}', { value: '81920' })} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
               </div>
 
               <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
-                <h4 className="text-sm font-medium">Structured JSON fields</h4>
+                <h4 className="text-sm font-medium">{t('Structured JSON fields')}</h4>
 
                 <FormField control={form.control} name="optionsJson" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Options JSON</FormLabel>
+                    <FormLabel>{t('Options JSON')}</FormLabel>
                     <FormControl>
                       <Textarea {...field} className="min-h-[120px] font-mono text-xs" placeholder={`{
   "temperature": 1
@@ -714,7 +715,7 @@ export function OpenCodeModelDialog({
 
                 <FormField control={form.control} name="headersJson" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Headers JSON</FormLabel>
+                    <FormLabel>{t('Headers JSON')}</FormLabel>
                     <FormControl>
                       <Textarea {...field} className="min-h-[120px] font-mono text-xs" placeholder={`{
   "Authorization": "Bearer ..."
@@ -726,7 +727,7 @@ export function OpenCodeModelDialog({
 
                 <FormField control={form.control} name="capabilitiesJson" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Capabilities JSON</FormLabel>
+                    <FormLabel>{t('Capabilities JSON')}</FormLabel>
                     <FormControl>
                       <Textarea {...field} className="min-h-[120px] font-mono text-xs" placeholder={`{
   "reasoning": true
@@ -738,7 +739,7 @@ export function OpenCodeModelDialog({
 
                 <FormField control={form.control} name="costJson" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cost JSON</FormLabel>
+                    <FormLabel>{t('Cost JSON')}</FormLabel>
                     <FormControl>
                       <Textarea {...field} className="min-h-[120px] font-mono text-xs" placeholder={`{
   "input": 0.1,
@@ -751,7 +752,7 @@ export function OpenCodeModelDialog({
 
                 <FormField control={form.control} name="variantsJson" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Variants JSON</FormLabel>
+                    <FormLabel>{t('Variants JSON')}</FormLabel>
                     <FormControl>
                       <Textarea {...field} className="min-h-[120px] font-mono text-xs" placeholder={`{
   "fast": {}
@@ -764,9 +765,9 @@ export function OpenCodeModelDialog({
 
               <FormField control={form.control} name="extraJson" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Advanced Fields JSON</FormLabel>
+                  <FormLabel>{t('Advanced Fields JSON')}</FormLabel>
                   <FormControl>
-                    <Textarea {...field} className="min-h-[120px] font-mono text-xs" placeholder="Any unsupported model fields" />
+                    <Textarea {...field} className="min-h-[120px] font-mono text-xs" placeholder={t('Any unsupported model fields')} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -776,9 +777,9 @@ export function OpenCodeModelDialog({
         </div>
 
         <DialogFooter className="p-3 sm:p-4 border-t gap-2 pb-4">
-          <Button variant="outline" onClick={() => handleOpenChange(false)} className="flex-1 sm:flex-none">Cancel</Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} className="flex-1 sm:flex-none">{t('Cancel')}</Button>
           <Button onClick={() => form.handleSubmit(handleSubmit)()} disabled={!isValid} className="flex-1 sm:flex-none">
-            {isEditing ? 'Update' : 'Create'}
+            {isEditing ? t('Update') : t('Create')}
           </Button>
         </DialogFooter>
       </DialogContent>

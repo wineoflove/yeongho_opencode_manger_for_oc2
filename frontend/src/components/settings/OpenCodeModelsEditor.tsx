@@ -5,6 +5,7 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog'
 import { SettingsList, SettingsListRow } from '@/components/ui/settings-list'
 import { OpenCodeModelDialog, type NewProviderConfig } from './OpenCodeModelDialog'
 import type { ModelConfig, ProviderConfig } from '@/api/types/settings'
+import { t, tn } from '@/i18n/translate'
 
 export type ConfigModel = Partial<ModelConfig> & Record<string, unknown>
 export type ConfigProvider = Omit<Partial<ProviderConfig>, 'models' | 'env'> & {
@@ -147,7 +148,7 @@ export function OpenCodeModelsEditor({ providers, onChange }: OpenCodeModelsEdit
           <DialogTrigger asChild>
             <Button size="sm" onClick={() => openCreateDialog()}>
               <Plus className="h-4 w-4 mr-1" />
-              Add Model
+              {t('Add Model')}
             </Button>
           </DialogTrigger>
           <OpenCodeModelDialog
@@ -164,8 +165,8 @@ export function OpenCodeModelsEditor({ providers, onChange }: OpenCodeModelsEdit
       {totalModelCount === 0 ? (
         <SettingsList
           isEmpty
-          emptyTitle="No models configured"
-          emptyHint="Add your first model to get started."
+          emptyTitle={t('No models configured')}
+          emptyHint={t('Add your first model to get started.')}
         >
           <div />
         </SettingsList>
@@ -180,7 +181,7 @@ export function OpenCodeModelsEditor({ providers, onChange }: OpenCodeModelsEdit
                 <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
                   <Box className="h-3.5 w-3.5" />
                   <span>{providerName}</span>
-                  <span>{modelEntries.length} model{modelEntries.length !== 1 ? 's' : ''}</span>
+                  <span>{tn('{count} model', '{count} models', modelEntries.length)}</span>
                 </div>
                 <SettingsList isEmpty={false} maxHeightClassName="max-h-[420px]">
                   {modelEntries.map(([modelId, model]) => (
@@ -190,13 +191,13 @@ export function OpenCodeModelsEditor({ providers, onChange }: OpenCodeModelsEdit
                       description={<span className="font-mono">{modelId}</span>}
                       belowDescription={(model.limit?.context || model.limit?.output) && (
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Limits: {model.limit?.context && `Context ${model.limit.context}`}{model.limit?.context && model.limit?.output && ' / '}{model.limit?.output && `Output ${model.limit.output}`}
+                          {t('Limits:')} {model.limit?.context && t('Context {value}', { value: model.limit.context })}{model.limit?.context && model.limit?.output && ' / '}{model.limit?.output && t('Output {value}', { value: model.limit.output })}
                         </p>
                       )}
                       onClick={() => startEdit(providerId, modelId, model)}
-                      primaryAction={{ label: 'Edit', onClick: () => startEdit(providerId, modelId, model) }}
-                      actions={[{ label: 'Delete', destructive: true, onClick: () => deleteModel(providerId, modelId) }]}
-                      actionsLabel={`Actions for ${model.name || modelId}`}
+                      primaryAction={{ label: t('Edit'), onClick: () => startEdit(providerId, modelId, model) }}
+                      actions={[{ label: t('Delete'), destructive: true, onClick: () => deleteModel(providerId, modelId) }]}
+                      actionsLabel={t('Actions for {name}', { name: model.name || modelId })}
                     />
                   ))}
                 </SettingsList>

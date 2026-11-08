@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
+import { t, tn } from '@/i18n/translate'
 
 interface RestartServerDialogProps {
   open: boolean
@@ -25,26 +26,30 @@ export function RestartServerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[90%] sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Restart OpenCode Server?</DialogTitle>
+          <DialogTitle>{t('Restart OpenCode Server?')}</DialogTitle>
           <DialogDescription>
             {activeSessionCount && activeSessionCount > 0
-              ? `${activeSessionCount} session${activeSessionCount === 1 ? '' : 's'} ${activeSessionCount === 1 ? 'is' : 'are'} currently working. Restarting will interrupt ${activeSessionCount === 1 ? 'it' : 'them'}, and OpenCode resumes ${activeSessionCount === 1 ? 'it' : 'them'} automatically once the server is back.`
-              : 'Restart the OpenCode server after your changes are saved to apply them to the running server.'
+              ? tn(
+                  '{count} session is currently working. Restarting will interrupt it, and OpenCode resumes it automatically once the server is back.',
+                  '{count} sessions are currently working. Restarting will interrupt them, and OpenCode resumes them automatically once the server is back.',
+                  activeSessionCount,
+                )
+              : t('Restart the OpenCode server after your changes are saved to apply them to the running server.')
             }
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onCancel} disabled={isRestarting}>
-            Later
+            {t('Later')}
           </Button>
           <Button onClick={onConfirm} disabled={isConfirmDisabled}>
             {isRestarting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                Restarting...
+                {t('Restarting...')}
               </>
             ) : (
-              'Restart now'
+              t('Restart now')
             )}
           </Button>
         </DialogFooter>

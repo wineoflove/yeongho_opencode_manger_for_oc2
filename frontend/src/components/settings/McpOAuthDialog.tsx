@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, ExternalLink, Key, XCircle, CheckCircle } from 'lucide-react'
 import type { McpAuthStartResponse } from '@/api/mcp'
 import { mcpApi } from '@/api/mcp'
+import { t } from '@/i18n/translate'
 
 interface McpOAuthDialogProps {
   open: boolean
@@ -37,7 +38,7 @@ export function McpOAuthDialog({
   const popupRef = useRef<Window | null>(null)
   const doneRef = useRef(false)
 
-  const scopes = directory ? 'this location' : 'globally'
+  const scopes = directory ? t('this location') : t('globally')
 
   const stopAllPolling = useCallback(() => {
     if (flowPollingRef.current) {
@@ -92,7 +93,7 @@ export function McpOAuthDialog({
           handleSuccess()
         } else if (result.status === 'failed') {
           stopAllPolling()
-          setError('error' in result ? result.error : 'Authentication failed')
+          setError('error' in result ? result.error : t('Authentication failed'))
           setStep('error')
         }
       } catch {
@@ -150,7 +151,7 @@ export function McpOAuthDialog({
         flowIdRef.current = result.flowId
         setStep('ready')
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to start authentication')
+        setError(err instanceof Error ? err.message : t('Failed to start authentication'))
         setStep('error')
       }
     }
@@ -200,7 +201,7 @@ export function McpOAuthDialog({
       flowIdRef.current = result.flowId
       setStep('ready')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start authentication')
+      setError(err instanceof Error ? err.message : t('Failed to start authentication'))
       setStep('error')
     }
   }
@@ -211,10 +212,10 @@ export function McpOAuthDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5 shrink-0" />
-            <span className="truncate">Connect {serverName}</span>
+            <span className="truncate">{t('Connect {name}', { name: serverName })}</span>
           </DialogTitle>
           <DialogDescription>
-            Authenticate to use this MCP server {scopes}
+            {t('Authenticate to use this MCP server {scope}', { scope: scopes })}
           </DialogDescription>
         </DialogHeader>
 
@@ -229,21 +230,21 @@ export function McpOAuthDialog({
           {step === 'loading' && (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Preparing authentication...</span>
+              <span className="ml-2 text-sm text-muted-foreground">{t('Preparing authentication...')}</span>
             </div>
           )}
 
           {step === 'ready' && authUrl && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Click below to open the authorization page. After you approve access, this dialog will update automatically.
+                {t('Click below to open the authorization page. After you approve access, this dialog will update automatically.')}
               </p>
               <Button
                 onClick={handleOpenAuthPage}
                 className="w-full"
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
-                Open Authorization Page
+                {t('Open Authorization Page')}
               </Button>
               <a
                 href={authUrl}
@@ -264,10 +265,10 @@ export function McpOAuthDialog({
             <div className="space-y-4">
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="ml-2 text-sm text-muted-foreground">Waiting for authorization...</span>
+                <span className="ml-2 text-sm text-muted-foreground">{t('Waiting for authorization...')}</span>
               </div>
               <p className="text-xs text-center text-muted-foreground">
-                Complete the authorization in the popup window. This dialog will update automatically.
+                {t('Complete the authorization in the popup window. This dialog will update automatically.')}
               </p>
 
               {authUrl && (
@@ -278,7 +279,7 @@ export function McpOAuthDialog({
                   onClick={handleOpenAuthPage}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
-                  Re-open authorization popup
+                  {t('Re-open authorization popup')}
                 </Button>
               )}
 
@@ -289,7 +290,7 @@ export function McpOAuthDialog({
             <div className="flex flex-col items-center justify-center py-6 gap-2">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">
-                Checking authentication status...
+                {t('Checking authentication status...')}
               </p>
               {authUrl && (
                 <Button
@@ -299,7 +300,7 @@ export function McpOAuthDialog({
                   onClick={handleOpenAuthPage}
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  Re-open authorization page
+                  {t('Re-open authorization page')}
                 </Button>
               )}
             </div>
@@ -308,14 +309,14 @@ export function McpOAuthDialog({
           {step === 'success' && (
             <div className="flex flex-col items-center justify-center py-6 gap-2">
               <CheckCircle className="h-8 w-8 text-success" />
-              <p className="text-sm font-medium">Authentication successful</p>
+              <p className="text-sm font-medium">{t('Authentication successful')}</p>
             </div>
           )}
 
           {step === 'error' && !error && (
             <div className="flex flex-col items-center justify-center py-6 gap-2">
               <XCircle className="h-8 w-8 text-destructive" />
-              <p className="text-sm text-muted-foreground">Something went wrong</p>
+              <p className="text-sm text-muted-foreground">{t('Something went wrong')}</p>
             </div>
           )}
         </div>
@@ -323,7 +324,7 @@ export function McpOAuthDialog({
         <DialogFooter className="gap-2 sm:gap-0">
           {step === 'error' && (
             <Button variant="outline" onClick={handleRetry}>
-              Try Again
+              {t('Try Again')}
             </Button>
           )}
           {step !== 'success' && (
@@ -331,7 +332,7 @@ export function McpOAuthDialog({
               variant="outline"
               onClick={() => handleOpenChange(false)}
             >
-              Cancel
+              {t('Cancel')}
             </Button>
           )}
         </DialogFooter>

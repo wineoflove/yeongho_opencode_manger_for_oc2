@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { showToast } from '@/lib/toast'
 import { BLOCKED_SERVER_ENV_KEYS } from '@/api/types/settings'
 import { SettingsDisclosure } from './SettingsDisclosure'
+import { t } from '@/i18n/translate'
 
 interface EnvVar {
   key: string
@@ -55,15 +56,15 @@ export function ServerEnvVarsSettings() {
         serverEnvVars: filtered,
       })
       setNeedsRestart(true)
-      showToast.success('Environment variables saved')
+      showToast.success(t('Environment variables saved'))
     } catch {
-      showToast.error('Failed to save environment variables')
+      showToast.error(t('Failed to save environment variables'))
     }
   }
 
   return (
     <SettingsDisclosure
-      title="Server Environment Variables"
+      title={t('Server Environment Variables')}
       isOpen={isOpen}
       onToggle={() => setIsOpen((value) => !value)}
       contentClassName="space-y-3"
@@ -77,7 +78,7 @@ export function ServerEnvVarsSettings() {
         <Alert>
           <RotateCcw className="h-4 w-4" />
           <AlertDescription>
-            Restart the OpenCode server to apply environment variable changes.
+            {t('Restart the OpenCode server to apply environment variable changes.')}
           </AlertDescription>
         </Alert>
       )}
@@ -98,7 +99,7 @@ export function ServerEnvVarsSettings() {
                 <Input
                   value={envVar.value}
                   onChange={(event) => handleChange(index, 'value', event.target.value)}
-                  placeholder="value"
+                  placeholder={t('value')}
                   className="font-mono"
                 />
               </div>
@@ -116,7 +117,7 @@ export function ServerEnvVarsSettings() {
         })}
         {blockedKeys.length > 0 && (
           <p className="text-xs text-destructive">
-            Reserved keys cannot be overridden: {blockedKeys.join(', ')}
+            {t('Reserved keys cannot be overridden: {keys}', { keys: blockedKeys.join(', ') })}
           </p>
         )}
       </div>
@@ -124,7 +125,7 @@ export function ServerEnvVarsSettings() {
       <div className="flex gap-2 pt-1">
         <Button type="button" variant="outline" size="sm" onClick={handleAdd}>
           <Plus className="h-3 w-3 mr-1" />
-          Add variable
+          {t('Add variable')}
         </Button>
         <Button
           type="button"
@@ -132,13 +133,12 @@ export function ServerEnvVarsSettings() {
           onClick={handleSave}
           disabled={isUpdating || blockedKeys.length > 0}
         >
-          {isUpdating ? 'Saving...' : 'Save'}
+          {isUpdating ? t('Saving...') : t('Save')}
         </Button>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Variables are injected into the OpenCode server process at startup.
-        Changes require a server restart.
+        {t('Variables are injected into the OpenCode server process at startup. Changes require a server restart.')}
       </p>
     </SettingsDisclosure>
   )

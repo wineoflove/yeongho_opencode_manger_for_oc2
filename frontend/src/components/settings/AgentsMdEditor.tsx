@@ -8,6 +8,7 @@ import { useFindInText } from '@/lib/useFindInText'
 import { settingsApi } from '@/api/settings'
 import { useOpenCodeApplyFeedback } from '@/hooks/useOpenCodeApplyFeedback'
 import { showToast } from '@/lib/toast'
+import { t } from '@/i18n/translate'
 
 export function AgentsMdEditor() {
   const queryClient = useQueryClient()
@@ -41,7 +42,7 @@ export function AgentsMdEditor() {
       applyOpenCodeSaveFeedback({ appliedMessage: 'AGENTS.md saved', restartRequired: result.restartRequired })
     },
     onError: () => {
-      showToast.error('Failed to save AGENTS.md')
+      showToast.error(t('Failed to save AGENTS.md'))
     },
   })
 
@@ -58,7 +59,7 @@ export function AgentsMdEditor() {
       applyOpenCodeSaveFeedback({ appliedMessage: 'AGENTS.md reset to default', restartRequired })
     },
     onError: () => {
-      showToast.error('Failed to reset AGENTS.md')
+      showToast.error(t('Failed to reset AGENTS.md'))
     },
   })
 
@@ -85,7 +86,7 @@ export function AgentsMdEditor() {
   if (error) {
     return (
       <div className="text-center py-8 text-destructive">
-        Failed to load AGENTS.md
+        {t('Failed to load AGENTS.md')}
       </div>
     )
   }
@@ -95,7 +96,7 @@ export function AgentsMdEditor() {
       <div className="sticky top-0 z-10 flex flex-col gap-3 bg-background py-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
-            Global instructions for AI agents. This file is merged with repository-specific AGENTS.md files.
+            {t('Global instructions for AI agents. This file is merged with repository-specific AGENTS.md files.')}
           </p>
         </div>
         <div className="flex flex-shrink-0 gap-2">
@@ -111,7 +112,7 @@ export function AgentsMdEditor() {
             ) : (
               <RotateCcw className="h-4 w-4 mr-1" />
             )}
-            Reset to Default
+            {t('Reset to Default')}
           </Button>
           <Button
             size="sm"
@@ -124,7 +125,7 @@ export function AgentsMdEditor() {
             ) : (
               <Save className="h-4 w-4 mr-1" />
             )}
-            Save
+            {t('Save')}
           </Button>
         </div>
       </div>
@@ -138,24 +139,24 @@ export function AgentsMdEditor() {
           onPrev={prev}
           onNext={next}
           inputName="agents-md-find"
-          placeholder="Find in AGENTS.md..."
+          placeholder={t('Find in AGENTS.md...')}
         />
 
         <div className="h-[60dvh] min-h-[320px] sm:h-[55vh]">
           <CodeEditor
-            ariaLabel="AGENTS.md content"
+            ariaLabel={t('AGENTS.md content')}
             value={content}
             onChange={setContent}
             highlights={matches}
             activeHighlightIndex={currentMatchIndex}
             disabled={isSaving}
-            placeholder="# Agent Instructions&#10;&#10;Add global instructions for AI agents here..."
+            placeholder={t('# Agent Instructions\n\nAdd global instructions for AI agents here...')}
           />
         </div>
       </div>
 
       {hasChanges && (
-        <p className="text-xs text-warning">You have unsaved changes</p>
+        <p className="text-xs text-warning">{t('You have unsaved changes')}</p>
       )}
     </div>
   )

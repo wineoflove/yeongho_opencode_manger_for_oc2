@@ -14,6 +14,7 @@ import {
 import { buildAnswer, hasFields, hasMissingAnswers, resolveAnswers, setAnswerValue, visibleFields } from '@/lib/formFields'
 import { mapOAuthError } from '@/lib/oauthErrors'
 import { ProviderAuthField } from './ProviderAuthField'
+import { t } from '@/i18n/translate'
 
 interface OAuthAuthorizeDialogProps {
   providerId: string
@@ -62,7 +63,7 @@ export function OAuthAuthorizeDialog({
     const fields = visibleFields(method.form ?? [], answer)
 
     if (hasMissingAnswers(method.form ?? [], answer)) {
-      setError('Please complete all required authentication fields')
+      setError(t('Please complete all required authentication fields'))
       setSelectedMethodID(method.id)
       return
     }
@@ -116,9 +117,9 @@ export function OAuthAuthorizeDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="bg-card border-border w-full sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Connect to {providerName}</DialogTitle>
+          <DialogTitle>{t('Connect to {provider}', { provider: providerName })}</DialogTitle>
           <DialogDescription>
-            Select an authentication method to connect your {providerName} account.
+            {t('Select an authentication method to connect your {provider} account.', { provider: providerName })}
           </DialogDescription>
         </DialogHeader>
 
@@ -146,12 +147,12 @@ export function OAuthAuthorizeDialog({
                   >
                     <ExternalLink className="h-4 w-4 mr-2 shrink-0" />
                     <span className="truncate">
-                      {isLoading && selectedMethodID === method.id ? 'Authorizing...' : method.label}
+                      {isLoading && selectedMethodID === method.id ? t('Authorizing...') : method.label}
                     </span>
                   </Button>
                   {isBrowserLocal && (
                     <Badge variant="secondary" className="text-xs shrink-0">
-                      Localhost only
+                      {t('Localhost only')}
                     </Badge>
                   )}
                 </div>
@@ -173,14 +174,14 @@ export function OAuthAuthorizeDialog({
                       disabled={isLoading || !canSubmit}
                       className="w-full"
                     >
-                      {isLoading && selectedMethodID === method.id ? 'Authorizing...' : 'Continue'}
+                      {isLoading && selectedMethodID === method.id ? t('Authorizing...') : t('Continue')}
                     </Button>
                   </div>
                 )}
 
                 {isBrowserLocal && (
                   <p className="text-xs text-muted-foreground pl-1 break-words">
-                    This method relies on a callback server started by OpenCode and may not work when OCM is remote.
+                    {t('This method relies on a callback server started by OpenCode and may not work when OCM is remote.')}
                   </p>
                 )}
               </div>
@@ -189,7 +190,7 @@ export function OAuthAuthorizeDialog({
         </div>
 
         <div className="text-xs text-muted-foreground">
-          <p>• Some methods may require completing authorization in your browser</p>
+          <p>{t('• Some methods may require completing authorization in your browser')}</p>
         </div>
       </DialogContent>
     </Dialog>

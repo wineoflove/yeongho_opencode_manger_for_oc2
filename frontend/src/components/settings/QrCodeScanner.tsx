@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { t } from '@/i18n/translate'
 
 const MAX_SCAN_DIMENSION = 640
 const DECODE_INTERVAL_MS = 100
@@ -27,16 +28,16 @@ interface QrCodeScannerProps {
 function describeCameraError(error: unknown, fallbackHint: string): string {
   if (error instanceof DOMException) {
     if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
-      return `Camera permission was denied. Allow camera access for this site. ${fallbackHint}`
+      return `${t('Camera permission was denied. Allow camera access for this site.')} ${fallbackHint}`
     }
     if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
-      return `No camera was found on this device. ${fallbackHint}`
+      return `${t('No camera was found on this device.')} ${fallbackHint}`
     }
     if (error.name === 'NotReadableError') {
-      return `The camera is already in use by another application. ${fallbackHint}`
+      return `${t('The camera is already in use by another application.')} ${fallbackHint}`
     }
   }
-  return `The camera could not be started. ${fallbackHint}`
+  return `${t('The camera could not be started.')} ${fallbackHint}`
 }
 
 function fitScanDimensions(width: number, height: number): { width: number; height: number } {
@@ -52,9 +53,9 @@ export function QrCodeScanner({
   open,
   onOpenChange,
   onResult,
-  title = 'Scan pairing QR code',
-  description = 'Point the camera at the QR code shown by the OpenCode server you want to link.',
-  fallbackHint = 'Paste the pairing link instead.',
+  title = t('Scan pairing QR code'),
+  description = t('Point the camera at the QR code shown by the OpenCode server you want to link.'),
+  fallbackHint = t('Paste the pairing link instead.'),
 }: QrCodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const decoderRef = useRef<QrDecoder | null>(null)
@@ -136,12 +137,12 @@ export function QrCodeScanner({
 
     const startCamera = async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setError(`Camera access is not available in this browser. ${fallbackHint}`)
+        setError(`${t('Camera access is not available in this browser.')} ${fallbackHint}`)
         setIsStarting(false)
         return
       }
       if (!window.isSecureContext) {
-        setError(`Camera access requires a secure (HTTPS) connection. ${fallbackHint}`)
+        setError(`${t('Camera access requires a secure (HTTPS) connection.')} ${fallbackHint}`)
         setIsStarting(false)
         return
       }
@@ -149,7 +150,7 @@ export function QrCodeScanner({
         await loadDecoder()
       } catch {
         if (cancelled) return
-        setError(`The QR decoder could not be loaded. ${fallbackHint}`)
+        setError(`${t('The QR decoder could not be loaded.')} ${fallbackHint}`)
         setIsStarting(false)
         return
       }
@@ -197,14 +198,14 @@ export function QrCodeScanner({
             <video
               ref={videoRef}
               className="h-full w-full object-cover"
-              aria-label="QR code scanner preview"
+              aria-label={t('QR code scanner preview')}
               muted
               playsInline
             />
             {isStarting && !error && (
               <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 text-sm text-white">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Starting camera...
+                {t('Starting camera...')}
               </div>
             )}
           </div>
@@ -219,7 +220,7 @@ export function QrCodeScanner({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            {t('Close')}
           </Button>
         </DialogFooter>
       </DialogContent>

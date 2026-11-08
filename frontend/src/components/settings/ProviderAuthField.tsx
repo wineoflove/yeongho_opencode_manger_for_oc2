@@ -5,6 +5,7 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ExternalFieldCard } from '@/components/ui/external-field-card'
 import type { FormField, FormValue } from '@/api/oauth'
+import { t } from '@/i18n/translate'
 
 interface ProviderAuthFieldProps {
   field: FormField
@@ -69,7 +70,7 @@ function FieldControl({ field, value, disabled, onChange }: ProviderAuthFieldPro
         disabled={disabled}
       >
         <SelectTrigger className="bg-background border-border">
-          <SelectValue placeholder="Select an option" />
+          <SelectValue placeholder={t('Select an option')} />
         </SelectTrigger>
         <SelectContent>
           {field.options.map((option) => (

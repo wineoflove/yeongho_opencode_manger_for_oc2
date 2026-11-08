@@ -8,6 +8,7 @@ import { AgentDialog } from './AgentDialog'
 import { UploadFolderButton } from './UploadFolderButton'
 import { DirectoryFilesList } from './DirectoryFilesList'
 import type { OpenCodeDirectoryFileInfo } from '@/api/types/settings'
+import { t } from '@/i18n/translate'
 
 interface Agent {
   prompt?: string
@@ -73,7 +74,7 @@ export function AgentsEditor({ agents, directoryAgents = [], onChange }: AgentsE
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
-              Add Agent
+              {t('Add Agent')}
             </Button>
           </DialogTrigger>
           <AgentDialog
@@ -86,8 +87,8 @@ export function AgentsEditor({ agents, directoryAgents = [], onChange }: AgentsE
 
       <SettingsList
         isEmpty={!hasAgents}
-        emptyTitle="No agents configured"
-        emptyHint="Add your first agent to get started."
+        emptyTitle={t('No agents configured')}
+        emptyHint={t('Add your first agent to get started.')}
         maxHeightClassName="max-h-[calc(100dvh-300px)] sm:max-h-[420px]"
       >
         {Object.entries(agents).map(([name, agent]) => (
@@ -98,13 +99,13 @@ export function AgentsEditor({ agents, directoryAgents = [], onChange }: AgentsE
             badges={
               <>
                 {agent.mode && <Badge variant="outline" className="shrink-0">{agent.mode}</Badge>}
-                {agent.disable && <Badge variant="secondary" className="shrink-0">Disabled</Badge>}
+                {agent.disable && <Badge variant="secondary" className="shrink-0">{t('Disabled')}</Badge>}
               </>
             }
             onClick={() => startEdit(name, agent)}
-            primaryAction={{ label: 'Edit', onClick: () => startEdit(name, agent) }}
-            actions={[{ label: 'Delete', destructive: true, onClick: () => deleteAgent(name) }]}
-            actionsLabel={`Actions for ${name}`}
+            primaryAction={{ label: t('Edit'), onClick: () => startEdit(name, agent) }}
+            actions={[{ label: t('Delete'), destructive: true, onClick: () => deleteAgent(name) }]}
+            actionsLabel={t('Actions for {name}', { name })}
           />
         ))}
         <DirectoryFilesList kind="agents" files={directoryAgents} />

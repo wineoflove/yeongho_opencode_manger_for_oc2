@@ -11,6 +11,7 @@ import { useDeleteSkill } from '@/hooks/useDeleteSkill'
 import { invalidateSkillCaches } from '@/lib/queryInvalidation'
 import type { SkillFileInfo, CreateSkillRequest, UpdateSkillRequest, SkillScope } from '@opencode-manager/shared'
 import { toast } from 'sonner'
+import { t } from '@/i18n/translate'
 
 interface SkillsEditorProps {
   managedSkills?: SkillFileInfo[]
@@ -28,11 +29,11 @@ export function SkillsEditor({ managedSkills = [] }: SkillsEditorProps) {
     mutationFn: (data: CreateSkillRequest) => settingsApi.createSkill(data),
     onSuccess: () => {
       invalidateSkillCaches(queryClient)
-      toast.success('Skill created successfully')
+      toast.success(t('Skill created successfully'))
       setDialogOpen(false)
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to create skill')
+      toast.error(error instanceof Error ? error.message : t('Failed to create skill'))
     },
   })
 
@@ -41,12 +42,12 @@ export function SkillsEditor({ managedSkills = [] }: SkillsEditorProps) {
       settingsApi.updateSkill(name, scope, data, repoId),
     onSuccess: () => {
       invalidateSkillCaches(queryClient)
-      toast.success('Skill updated successfully')
+      toast.success(t('Skill updated successfully'))
       setDialogOpen(false)
       setEditingSkill(null)
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to update skill')
+      toast.error(error instanceof Error ? error.message : t('Failed to update skill'))
     },
   })
 
@@ -74,11 +75,11 @@ export function SkillsEditor({ managedSkills = [] }: SkillsEditorProps) {
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <Button type="button" variant="outline" onClick={() => setInstallDialogOpen(true)} size="sm">
             <Download className="h-4 w-4 mr-1" />
-            Install Skill
+            {t('Install Skill')}
           </Button>
           <Button type="button" onClick={handleCreate} size="sm" className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4 mr-1" />
-            Create Skill
+            {t('Create Skill')}
           </Button>
         </div>
       </div>
@@ -87,10 +88,10 @@ export function SkillsEditor({ managedSkills = [] }: SkillsEditorProps) {
         isLoading={false}
         data={managedSkills}
         error={null}
-        primaryAction={{ label: 'Edit', onClick: handleEdit }}
-        rowActions={[{ label: 'Delete', onClick: setDeleteSkill, destructive: true }]}
-        emptyTitle="No skills created"
-        emptyHint="Create or install your first skill to get started."
+        primaryAction={{ label: t('Edit'), onClick: handleEdit }}
+        rowActions={[{ label: t('Delete'), onClick: setDeleteSkill, destructive: true }]}
+        emptyTitle={t('No skills created')}
+        emptyHint={t('Create or install your first skill to get started.')}
         maxHeightClassName="max-h-[calc(100dvh-300px)] sm:max-h-[420px]"
       />
 
@@ -112,8 +113,8 @@ export function SkillsEditor({ managedSkills = [] }: SkillsEditorProps) {
         onOpenChange={(open) => !open && setDeleteSkill(null)}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteSkill(null)}
-        title="Delete Skill"
-        description="Delete this managed skill directory and bundled files? This action cannot be undone."
+        title={t('Delete Skill')}
+        description={t('Delete this managed skill directory and bundled files? This action cannot be undone.')}
         itemName={deleteSkill?.name}
         isDeleting={isDeleting}
       />

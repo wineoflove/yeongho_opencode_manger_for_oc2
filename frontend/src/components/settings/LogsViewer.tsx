@@ -11,30 +11,32 @@ import { useManagerLogs } from '@/hooks/useManagerLogs'
 import { getOpenCodeServerIssue, useServerHealth, type OpenCodeServerIssue } from '@/hooks/useServerHealth'
 import { DEFAULTS } from '@/config'
 import { cn } from '@/lib/utils'
+import { msg, t } from '@/i18n/translate'
+import { intlLocale } from '@/i18n/format'
 
 const ISSUE_TITLES: Record<OpenCodeServerIssue['state'], string> = {
-  failed: 'OpenCode server failed',
-  recovering: 'OpenCode server is recovering',
-  unhealthy: 'OpenCode server is unhealthy',
+  failed: msg('OpenCode server failed'),
+  recovering: msg('OpenCode server is recovering'),
+  unhealthy: msg('OpenCode server is unhealthy'),
 }
 
 type LevelFilter = ManagerLogLevel | 'all'
 type SourceFilter = ManagerLogSource | 'all'
 
 const SOURCE_LABELS: Record<ManagerLogSource, string> = {
-  manager: 'Manager',
-  opencode: 'OpenCode server',
+  manager: msg('Manager'),
+  opencode: msg('OpenCode server'),
 }
 
 const LEVEL_OPTIONS: Array<{ value: LevelFilter; label: string }> = [
-  { value: 'all', label: 'All levels' },
-  { value: 'info', label: 'Info and above' },
-  { value: 'warn', label: 'Warnings and above' },
-  { value: 'error', label: 'Errors' },
+  { value: 'all', label: msg('All levels') },
+  { value: 'info', label: msg('Info and above') },
+  { value: 'warn', label: msg('Warnings and above') },
+  { value: 'error', label: msg('Errors') },
 ]
 
 const SOURCE_OPTIONS: Array<{ value: SourceFilter; label: string }> = [
-  { value: 'all', label: 'All sources' },
+  { value: 'all', label: msg('All sources') },
   { value: 'manager', label: SOURCE_LABELS.manager },
   { value: 'opencode', label: SOURCE_LABELS.opencode },
 ]
@@ -90,25 +92,25 @@ export function LogsViewer() {
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-0">
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Select value={level} onValueChange={(value) => setLevel(value as LevelFilter)}>
-            <SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none" aria-label="Log level filter">
+            <SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none" aria-label={t('Log level filter')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {LEVEL_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.label)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={source} onValueChange={(value) => setSource(value as SourceFilter)}>
-            <SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none" aria-label="Log source filter">
+            <SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none" aria-label={t('Log source filter')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {SOURCE_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {t(option.label)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -116,31 +118,40 @@ export function LogsViewer() {
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search messages"
+            placeholder={t('Search messages')}
             className="order-last w-full sm:order-none sm:w-56"
-            aria-label="Search log messages"
+            aria-label={t('Search log messages')}
           />
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" className="px-2 sm:px-3" aria-label={paused ? 'Resume' : 'Pause'} onClick={() => setPaused((value) => !value)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="px-2 sm:px-3"
+              aria-label={paused ? t('Resume') : t('Pause')}
+              onClick={() => setPaused((value) => !value)}
+            >
               {paused ? <Play /> : <Pause />}
-              <span className="hidden sm:inline">{paused ? 'Resume' : 'Pause'}</span>
+              <span className="hidden sm:inline">{paused ? t('Resume') : t('Pause')}</span>
             </Button>
-            <Button variant="outline" size="sm" className="px-2 sm:px-3" aria-label="Clear" onClick={clear}>
+            <Button variant="outline" size="sm" className="px-2 sm:px-3" aria-label={t('Clear')} onClick={clear}>
               <Trash2 />
-              <span className="hidden sm:inline">Clear</span>
+              <span className="hidden sm:inline">{t('Clear')}</span>
             </Button>
-            <CopyButton content={copyContent} title="Copy log entries" variant="ghost" />
+            <CopyButton content={copyContent} title={t('Copy log entries')} variant="ghost" />
           </div>
         </div>
         {serverIssue && (
           <Alert variant={serverIssue.state === 'failed' ? 'destructive' : 'default'} className="shrink-0">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>{ISSUE_TITLES[serverIssue.state]}</AlertTitle>
+            <AlertTitle>{t(ISSUE_TITLES[serverIssue.state])}</AlertTitle>
             <AlertDescription className="space-y-2">
-              <p className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs">{serverIssue.message}</p>
+              <p className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs">
+                {serverIssue.message}
+              </p>
               {serverIssue.attemptedRecoveryActions.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Recovery attempted: {serverIssue.attemptedRecoveryActions.map((action) => action.replaceAll('_', ' ')).join(', ')}
+                  {t('Recovery attempted:')}{' '}
+                  {serverIssue.attemptedRecoveryActions.map((action) => action.replaceAll('_', ' ')).join(', ')}
                 </p>
               )}
               {(level !== 'error' || source !== 'all') && (
@@ -152,7 +163,7 @@ export function LogsViewer() {
                     setSource('all')
                   }}
                 >
-                  Show errors only
+                  {t('Show errors only')}
                 </Button>
               )}
             </AlertDescription>
@@ -164,23 +175,18 @@ export function LogsViewer() {
           className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-2 font-mono text-xs"
         >
           {entries.length === 0 ? (
-            <p className="p-4 text-center font-sans text-muted-foreground">No log entries captured yet.</p>
+            <p className="p-4 text-center font-sans text-muted-foreground">{t('No log entries captured yet.')}</p>
           ) : (
             displayedEntries.map((entry) => (
               <div key={entry.seq} className="flex min-w-0 gap-2">
                 <div className="flex w-20 shrink-0 flex-col items-start gap-1 border-r border-border pr-2 text-xs sm:w-auto sm:flex-row sm:items-center sm:gap-2 sm:border-r-0 sm:pr-0">
                   <span className="whitespace-nowrap text-muted-foreground">
-                    {new Date(entry.timestamp).toLocaleTimeString()}
+                    {new Date(entry.timestamp).toLocaleTimeString(intlLocale())}
                   </span>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded px-1.5 py-0.5 uppercase',
-                      LEVEL_CHIP_CLASSES[entry.level]
-                    )}
-                  >
+                  <span className={cn('shrink-0 rounded px-1.5 py-0.5 uppercase', LEVEL_CHIP_CLASSES[entry.level])}>
                     {entry.level}
                   </span>
-                  <span className="max-w-full truncate text-muted-foreground">{SOURCE_LABELS[entry.source]}</span>
+                  <span className="max-w-full truncate text-muted-foreground">{t(SOURCE_LABELS[entry.source])}</span>
                 </div>
                 <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{entry.message}</span>
               </div>
@@ -189,7 +195,10 @@ export function LogsViewer() {
         </div>
         {dropped > 0 && (
           <p className="shrink-0 text-xs text-muted-foreground">
-            {dropped} earlier entries dropped (buffer holds {DEFAULTS.LOGS.BUFFER_CAPACITY})
+            {t('{count} earlier entries dropped (buffer holds {capacity})', {
+              count: dropped,
+              capacity: DEFAULTS.LOGS.BUFFER_CAPACITY,
+            })}
           </p>
         )}
       </CardContent>

@@ -13,14 +13,15 @@ import type { SkillFileInfo, CreateSkillRequest, UpdateSkillRequest, SkillScope 
 import type { Repo } from '@/api/types'
 import { listRepos } from '@/api/repos'
 import { useQuery } from '@tanstack/react-query'
+import { msg, t } from '@/i18n/translate'
 
 const skillFormSchema = z.object({
   name: z.string()
-    .min(1, 'Skill name is required')
-    .max(64, 'Skill name must be 64 characters or less')
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Must be lowercase letters, numbers, and hyphens only'),
-  description: z.string().min(1, 'Description is required').max(1024, 'Description must be 1024 characters or less'),
-  body: z.string().min(1, 'Skill body is required'),
+    .min(1, msg('Skill name is required'))
+    .max(64, msg('Skill name must be 64 characters or less'))
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, msg('Must be lowercase letters, numbers, and hyphens only')),
+  description: z.string().min(1, msg('Description is required')).max(1024, msg('Description must be 1024 characters or less')),
+  body: z.string().min(1, msg('Skill body is required')),
   scope: z.enum(['global', 'project']),
 })
 
@@ -68,7 +69,7 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
 
   const handleSubmit = (values: SkillFormValues) => {
     if (!editingSkill && values.scope === 'project' && !selectedRepoId) {
-      form.setError('scope', { message: 'Please select a repository for project-scoped skills' })
+      form.setError('scope', { message: t('Please select a repository for project-scoped skills') })
       return
     }
 
@@ -106,7 +107,7 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent mobileFullscreen className="sm:max-w-2xl sm:max-h-[85vh] gap-0 flex flex-col p-0 md:p-6 pb-safe">
         <DialogHeader className="p-4 sm:p-6 border-b flex flex-row items-center justify-between space-y-0">
-          <DialogTitle>{editingSkill ? 'Edit Skill' : 'Create Skill'}</DialogTitle>
+          <DialogTitle>{editingSkill ? t('Edit Skill') : t('Create Skill')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-2 sm:p-4">
@@ -117,7 +118,7 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Skill Name</FormLabel>
+                    <FormLabel>{t('Skill Name')}</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -127,7 +128,7 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
                       />
                     </FormControl>
                     <FormDescription>
-                      Use lowercase letters, numbers, and hyphens only
+                      {t('Use lowercase letters, numbers, and hyphens only')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -139,11 +140,11 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t('Description')}</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Brief description of what this skill does"
+                        placeholder={t('Brief description of what this skill does')}
                       />
                     </FormControl>
                     <FormMessage />
@@ -156,7 +157,7 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
                 name="body"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Skill Body</FormLabel>
+                    <FormLabel>{t('Skill Body')}</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
@@ -175,16 +176,16 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
                 name="scope"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Scope</FormLabel>
+                    <FormLabel>{t('Scope')}</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value} disabled={!!editingSkill}>
                       <FormControl>
                         <SelectTrigger className={editingSkill ? 'bg-muted' : ''}>
-                          <SelectValue placeholder="Select scope" />
+                          <SelectValue placeholder={t('Select scope')} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="global">Global</SelectItem>
-                        <SelectItem value="project">Project</SelectItem>
+                        <SelectItem value="global">{t('Global')}</SelectItem>
+                        <SelectItem value="project">{t('Project')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -194,14 +195,14 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
 
               {scope === 'project' && (
                 <FormItem>
-                  <FormLabel>Repository</FormLabel>
+                  <FormLabel>{t('Repository')}</FormLabel>
                   <FormControl>
                     <Select
                       value={selectedRepoId?.toString()}
                       onValueChange={(value) => setSelectedRepoId(value ? parseInt(value, 10) : undefined)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select repository" />
+                        <SelectValue placeholder={t('Select repository')} />
                       </SelectTrigger>
                       <SelectContent>
                         {repos.map((repo) => (
@@ -221,14 +222,14 @@ export function SkillDialog({ open, onOpenChange, onSubmit, editingSkill }: Skil
 
         <DialogFooter className="flex flex-row gap-2 pt-2 border-t border-border sm:justify-end pb-4 p-3">
           <Button variant="outline" onClick={() => handleOpenChange(false)} className="flex-1 sm:flex-none">
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             onClick={() => form.handleSubmit(handleSubmit)()}
             disabled={!form.formState.isValid}
             className="flex-1 sm:flex-none"
           >
-            {editingSkill ? 'Update' : 'Create'}
+            {editingSkill ? t('Update') : t('Create')}
           </Button>
         </DialogFooter>
       </DialogContent>

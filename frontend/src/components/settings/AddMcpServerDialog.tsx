@@ -12,6 +12,7 @@ import {
   type McpTimeoutConfig,
 } from '@opencode-manager/shared/opencode'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { t } from '@/i18n/translate'
 
 interface AddMcpServerDialogProps {
   open: boolean
@@ -57,7 +58,7 @@ function KeyValueRows({ label, hint, entries, onChange, keyPlaceholder, valuePla
           variant="outline"
           size="sm"
           className='h-6'
-          aria-label={`Add ${label}`}
+          aria-label={t('Add {label}', { label })}
           onClick={() => onChange([...entries, { key: '', value: '' }])}
         >
           +
@@ -69,21 +70,21 @@ function KeyValueRows({ label, hint, entries, onChange, keyPlaceholder, valuePla
             value={entry.key}
             onChange={(e) => updateEntry(index, 'key', e.target.value)}
             placeholder={keyPlaceholder}
-            aria-label={`${label} name ${index + 1}`}
+            aria-label={t('{label} name {number}', { label, number: index + 1 })}
             className="bg-background border-border font-mono"
           />
           <Input
             value={entry.value}
             onChange={(e) => updateEntry(index, 'value', e.target.value)}
             placeholder={valuePlaceholder}
-            aria-label={`${label} value ${index + 1}`}
+            aria-label={t('{label} value {number}', { label, number: index + 1 })}
             className="bg-background border-border font-mono"
           />
           <Button
             type="button"
             variant="outline"
             size="icon"
-            aria-label={`Remove ${label} ${index + 1}`}
+            aria-label={t('Remove {label} {number}', { label, number: index + 1 })}
             onClick={() => onChange(entries.filter((_, i) => i !== index))}
           >
             x
@@ -126,7 +127,7 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
     if (serverType === 'local') {
       const commandArray = command.split(' ').filter((arg) => arg.trim())
       if (commandArray.length === 0) {
-        throw new Error('Command is required for local MCP servers')
+        throw new Error(t('Command is required for local MCP servers'))
       }
 
       const environmentVariables = toRecord(environment)
@@ -140,7 +141,7 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
     }
 
     if (!url.trim()) {
-      throw new Error('URL is required for remote MCP servers')
+      throw new Error(t('URL is required for remote MCP servers'))
     }
 
     const requestHeaders = toRecord(headers)
@@ -197,41 +198,41 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent mobileFullscreen className="sm:max-w-3xl sm:max-h-[85vh] gap-0 flex flex-col p-0 md:p-6">
         <DialogHeader className="p-4 sm:p-6 border-b flex flex-row items-center justify-between space-y-0">
-          <DialogTitle>Add MCP Server</DialogTitle>
+          <DialogTitle>{t('Add MCP Server')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-2 sm:p-4">
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="serverId">Server ID</Label>
+              <Label htmlFor="serverId">{t('Server ID')}</Label>
               <Input
                 id="serverId"
                 value={serverId}
                 onChange={(e) => setServerId(e.target.value)}
-                placeholder="e.g., filesystem, git, my-server"
+                placeholder={t('e.g., filesystem, git, my-server')}
                 className="bg-background border-border"
               />
               <p className="text-xs text-muted-foreground">
-                Unique identifier for this MCP server (lowercase, no spaces)
+                {t('Unique identifier for this MCP server (lowercase, no spaces)')}
               </p>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="serverType">Server Type</Label>
+              <Label htmlFor="serverType">{t('Server Type')}</Label>
               <Select value={serverType} onValueChange={(value: 'local' | 'remote') => setServerType(value)}>
                 <SelectTrigger className="bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="local">Local (Command)</SelectItem>
-                  <SelectItem value="remote">Remote (HTTP)</SelectItem>
+                  <SelectItem value="local">{t('Local (Command)')}</SelectItem>
+                  <SelectItem value="remote">{t('Remote (HTTP)')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {serverType === 'local' ? (
               <div className="space-y-1.5">
-                <Label htmlFor="command">Command</Label>
+                <Label htmlFor="command">{t('Command')}</Label>
                 <Input
                   id="command"
                   value={command}
@@ -240,12 +241,12 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
                   className="bg-background border-border font-mono"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Command and arguments to run the MCP server
+                  {t('Command and arguments to run the MCP server')}
                 </p>
               </div>
             ) : (
               <div className="space-y-1.5">
-                <Label htmlFor="url">Server URL</Label>
+                <Label htmlFor="url">{t('Server URL')}</Label>
                 <Input
                   id="url"
                   value={url}
@@ -254,7 +255,7 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
                   className="bg-background border-border font-mono"
                 />
                 <p className="text-xs text-muted-foreground">
-                  URL of the remote MCP server
+                  {t('URL of the remote MCP server')}
                 </p>
               </div>
             )}
@@ -267,41 +268,41 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
                     checked={oauthEnabled}
                     onCheckedChange={setOauthEnabled}
                   />
-                  <Label htmlFor="oauth">Enable OAuth</Label>
+                  <Label htmlFor="oauth">{t('Enable OAuth')}</Label>
                 </div>
                 {oauthEnabled && (
                   <div className="space-y-3 pl-4 border-l-2 border-border">
                     <p className="text-xs text-muted-foreground">
-                      Leave fields blank to use the server's default OAuth discovery
+                      {t("Leave fields blank to use the server's default OAuth discovery")}
                     </p>
                     <div className="space-y-1.5">
-                      <Label htmlFor="oauthClientId">Client ID</Label>
+                      <Label htmlFor="oauthClientId">{t('Client ID')}</Label>
                       <Input
                         id="oauthClientId"
                         value={oauthClientId}
                         onChange={(e) => setOauthClientId(e.target.value)}
-                        placeholder="Optional"
+                        placeholder={t('Optional')}
                         className="bg-background border-border font-mono"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="oauthClientSecret">Client Secret</Label>
+                      <Label htmlFor="oauthClientSecret">{t('Client Secret')}</Label>
                       <Input
                         id="oauthClientSecret"
                         type="password"
                         value={oauthClientSecret}
                         onChange={(e) => setOauthClientSecret(e.target.value)}
-                        placeholder="Optional"
+                        placeholder={t('Optional')}
                         className="bg-background border-border font-mono"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="oauthScope">Scope</Label>
+                      <Label htmlFor="oauthScope">{t('Scope')}</Label>
                       <Input
                         id="oauthScope"
                         value={oauthScope}
                         onChange={(e) => setOauthScope(e.target.value)}
-                        placeholder="e.g., read write"
+                        placeholder={t('e.g., read write')}
                         className="bg-background border-border font-mono"
                       />
                     </div>
@@ -312,18 +313,18 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
 
             {serverType === 'local' && (
               <KeyValueRows
-                label="Environment Variables"
-                hint="Environment variables to set when running the MCP server"
+                label={t('Environment Variables')}
+                hint={t('Environment variables to set when running the MCP server')}
                 entries={environment}
                 onChange={setEnvironment}
                 keyPlaceholder="API_KEY"
-                valuePlaceholder="your-api-key-here"
+                valuePlaceholder={t('your-api-key-here')}
               />
             )}
 
             {serverType === 'remote' && (
               <KeyValueRows
-                label="Headers"
+                label={t('Headers')}
                 hint="HTTP headers sent with every request, for example Authorization: Bearer <token>. Turn OAuth off when authenticating with a token."
                 entries={headers}
                 onChange={setHeaders}
@@ -333,7 +334,7 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="timeout">Timeout (ms)</Label>
+              <Label htmlFor="timeout">{t('Timeout (ms)')}</Label>
               <Input
                 id="timeout"
                 value={timeout}
@@ -342,7 +343,7 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
                 className="bg-background border-border"
               />
               <p className="text-xs text-muted-foreground">
-                Timeout in milliseconds for listing and calling tools
+                {t('Timeout in milliseconds for listing and calling tools')}
               </p>
             </div>
 
@@ -353,7 +354,7 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
                   checked={enabled}
                   onCheckedChange={setEnabled}
                 />
-                <Label htmlFor="enabled">Connect immediately after adding</Label>
+                <Label htmlFor="enabled">{t('Connect immediately after adding')}</Label>
               </div>
             )}
           </div>
@@ -361,7 +362,7 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
 
         <DialogFooter className="p-3 sm:p-4 border-t gap-2 pb-4">
           <Button variant="outline" onClick={handleClose} className="flex-1 sm:flex-none">
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             onClick={handleAdd}
@@ -369,7 +370,7 @@ export function AddMcpServerDialog({ open, onOpenChange, onSubmit, showConnectTo
             className="flex-1 sm:flex-none"
           >
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Add MCP Server
+            {t('Add MCP Server')}
           </Button>
         </DialogFooter>
       </DialogContent>

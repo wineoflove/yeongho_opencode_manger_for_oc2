@@ -11,10 +11,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { settingsApi } from '@/api/settings'
 import { invalidateConfigCaches } from '@/lib/queryInvalidation'
+import { msg, t, tn } from '@/i18n/translate'
 
 const KIND_NOUN: Record<'agents' | 'commands', string> = {
-  agents: 'agent',
-  commands: 'command',
+  agents: msg('agent'),
+  commands: msg('command'),
 }
 
 const DIRECTORY_INPUT_PROPS = {
@@ -36,7 +37,7 @@ export function UploadFolderButton({ kind }: UploadFolderButtonProps) {
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
-  const noun = KIND_NOUN[kind]
+  const noun = t(KIND_NOUN[kind])
 
   const openPicker = (inputRef: React.RefObject<HTMLInputElement | null>) => {
     requestAnimationFrame(() => inputRef.current?.click())
@@ -51,7 +52,7 @@ export function UploadFolderButton({ kind }: UploadFolderButtonProps) {
 
     const files = selectedFiles.filter(isMarkdownFile)
     if (files.length === 0) {
-      toast.error(`No markdown ${kind} files found`)
+      toast.error(t('No markdown {kind} files found', { kind }))
       return
     }
 
@@ -59,9 +60,9 @@ export function UploadFolderButton({ kind }: UploadFolderButtonProps) {
       setIsUploading(true)
       const result = await settingsApi.installOpenCodeDirectoryFiles({ kind, files })
       invalidateConfigCaches(queryClient)
-      toast.success(`Uploaded ${result.filesInstalled.length} ${noun} file${result.filesInstalled.length === 1 ? '' : 's'}`)
+      toast.success(tn('Uploaded {count} {kind} file', 'Uploaded {count} {kind} files', result.filesInstalled.length, { kind: noun }))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : `Failed to upload ${kind}`)
+      toast.error(error instanceof Error ? error.message : t('Failed to upload {kind}', { kind }))
     } finally {
       setIsUploading(false)
     }
@@ -73,18 +74,18 @@ export function UploadFolderButton({ kind }: UploadFolderButtonProps) {
         <DropdownMenuTrigger asChild>
           <Button size="sm" variant="outline" disabled={isUploading}>
             <Upload className="h-4 w-4 mr-1" />
-            {isUploading ? 'Uploading...' : 'Upload'}
+            {isUploading ? t('Uploading...') : t('Upload')}
             <ChevronDown className="h-4 w-4 ml-1" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={() => openPicker(fileInputRef)}>
             <FileUp className="h-4 w-4 mr-2" />
-            Upload File
+            {t('Upload File')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => openPicker(folderInputRef)}>
             <FolderUp className="h-4 w-4 mr-2" />
-            Upload Folder
+            {t('Upload Folder')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

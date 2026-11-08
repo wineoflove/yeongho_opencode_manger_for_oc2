@@ -24,20 +24,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { QrCodeScanner } from './QrCodeScanner'
+import { msg, t } from '@/i18n/translate'
 
 export interface OpenCodeServerFormValues {
   name: string
@@ -67,18 +60,18 @@ function isHttpUrl(value: string): boolean {
 }
 
 const serverFormSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be 100 characters or fewer'),
+  name: z.string().trim().min(1, msg('Name is required')).max(100, msg('Name must be 100 characters or fewer')),
   baseUrl: z
     .string()
     .trim()
-    .min(1, 'URL is required')
-    .refine(isHttpUrl, 'Enter a URL starting with http:// or https://'),
+    .min(1, msg('URL is required'))
+    .refine(isHttpUrl, msg('Enter a URL starting with http:// or https://')),
   username: z
     .string()
     .trim()
-    .min(1, 'Username is required')
-    .max(100, 'Username must be 100 characters or fewer'),
-  password: z.string().max(1024, 'Password is too long'),
+    .min(1, msg('Username is required'))
+    .max(100, msg('Username must be 100 characters or fewer')),
+  password: z.string().max(1024, msg('Password is too long')),
   enabled: z.boolean(),
 })
 
@@ -102,32 +95,29 @@ function buildDefaultValues(server?: OpenCodeServer | null): ServerFormValues {
 function TestResultSummary({ result }: { result: OpenCodeServerTestResult }) {
   if (!result.ok) {
     return (
-      <div role="status" className="flex items-start gap-2 rounded-md border border-destructive/40 p-2 text-sm text-destructive">
+      <div
+        role="status"
+        className="flex items-start gap-2 rounded-md border border-destructive/40 p-2 text-sm text-destructive"
+      >
         <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
-        <span className="break-words">{result.error ?? 'Connection failed'}</span>
+        <span className="break-words">{result.error ?? t('Connection failed')}</span>
       </div>
     )
   }
   return (
     <div role="status" className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm">
       <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-      <span>Connected — OpenCode {result.version ?? 'unknown version'}</span>
+      <span>{t('Connected — OpenCode {version}', { version: result.version ?? t('unknown version') })}</span>
       {result.versionSupported ? (
-        <Badge variant="secondary">Supported</Badge>
+        <Badge variant="secondary">{t('Supported')}</Badge>
       ) : (
-        <Badge variant="destructive">Unsupported version</Badge>
+        <Badge variant="destructive">{t('Unsupported version')}</Badge>
       )}
     </div>
   )
 }
 
-export function OpenCodeServerDialog({
-  open,
-  onOpenChange,
-  server,
-  onSubmit,
-  onTest,
-}: OpenCodeServerDialogProps) {
+export function OpenCodeServerDialog({ open, onOpenChange, server, onSubmit, onTest }: OpenCodeServerDialogProps) {
   const form = useForm<ServerFormValues>({
     resolver: zodResolver(serverFormSchema),
     defaultValues: buildDefaultValues(server),
@@ -156,9 +146,7 @@ export function OpenCodeServerDialog({
   const passwordValue = form.watch('password')
   const transportWarning = sendsCredentialsInClear(baseUrlValue)
   const isEditing = Boolean(server)
-  const originChanged = Boolean(
-    server && isHttpUrl(baseUrlValue) && !haveSameUrlOrigin(server.baseUrl, baseUrlValue),
-  )
+  const originChanged = Boolean(server && isHttpUrl(baseUrlValue) && !haveSameUrlOrigin(server.baseUrl, baseUrlValue))
   const needsCredentialsForOriginChange =
     Boolean(server?.hasPassword) && originChanged && !passwordValue && !clearPassword && !pairingLink
   const isSubmitting = form.formState.isSubmitting
@@ -167,9 +155,14 @@ export function OpenCodeServerDialog({
     const link = parseOpenCodeServerLink(text)
     if (!link) {
       const version = readOpenCodeServerLinkVersion(text)
-      setLinkError(version !== null && version !== OPENCODE_SERVER_LINK_VERSION
-        ? `This pairing link uses link version ${version}, but this Manager expects version ${OPENCODE_SERVER_LINK_VERSION}. Update the Manager or the ocm CLI and generate a new QR code.`
-        : 'That is not a valid OpenCode pairing link.')
+      setLinkError(
+        version !== null && version !== OPENCODE_SERVER_LINK_VERSION
+          ? t(
+              'This pairing link uses link version {version}, but this Manager expects version {expected}. Update the Manager or the ocm CLI and generate a new QR code.',
+              { version, expected: OPENCODE_SERVER_LINK_VERSION },
+            )
+          : t('That is not a valid OpenCode pairing link.'),
+      )
       return
     }
     setPairingLink(link)
@@ -202,7 +195,7 @@ export function OpenCodeServerDialog({
     try {
       setTestResult(await onTest(collectValues()))
     } catch (error) {
-      setTestError(error instanceof Error ? error.message : 'Connection test failed')
+      setTestError(error instanceof Error ? error.message : t('Connection test failed'))
     } finally {
       setIsTesting(false)
     }
@@ -214,7 +207,7 @@ export function OpenCodeServerDialog({
       onOpenChange(false)
     } catch (error) {
       form.setError('root', {
-        message: error instanceof Error ? error.message : 'Failed to save the server',
+        message: error instanceof Error ? error.message : t('Failed to save the server'),
       })
     }
   })
@@ -223,9 +216,9 @@ export function OpenCodeServerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent mobileFullscreen className="sm:max-w-2xl sm:max-h-[85vh] gap-0 flex flex-col p-0 md:p-6">
         <DialogHeader className="border-b p-4 sm:p-6">
-          <DialogTitle>{isEditing ? 'Edit server' : 'Add server'}</DialogTitle>
+          <DialogTitle>{isEditing ? t('Edit server') : t('Add server')}</DialogTitle>
           <DialogDescription>
-            Link a remote OpenCode server so its sessions appear in this Manager.
+            {t('Link a remote OpenCode server so its sessions appear in this Manager.')}
           </DialogDescription>
         </DialogHeader>
 
@@ -236,19 +229,19 @@ export function OpenCodeServerDialog({
                 <section className="space-y-3 rounded-lg border border-border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="text-sm font-medium">Pair from QR code</p>
+                      <p className="text-sm font-medium">{t('Pair from QR code')}</p>
                       <p className="text-xs text-muted-foreground">
-                        Scan the code shown by the server, or paste its pairing link.
+                        {t('Scan the code shown by the server, or paste its pairing link.')}
                       </p>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsScannerOpen(true)}>
                       <ScanLine className="mr-2 h-4 w-4" />
-                      Scan QR
+                      {t('Scan QR')}
                     </Button>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="pairing-link">Pairing link</Label>
+                    <Label htmlFor="pairing-link">{t('Pairing link')}</Label>
                     <Textarea
                       id="pairing-link"
                       value={linkInput}
@@ -268,13 +261,13 @@ export function OpenCodeServerDialog({
                         onClick={() => applyPairingLink(linkInput)}
                         disabled={!linkInput.trim()}
                       >
-                        Use link
+                        {t('Use link')}
                       </Button>
                       {pairingLink && (
                         <>
-                          <Badge variant="secondary">Pairing with {pairingLink.name}</Badge>
+                          <Badge variant="secondary">{t('Pairing with {name}', { name: pairingLink.name })}</Badge>
                           <Button type="button" variant="ghost" size="sm" onClick={clearPairing}>
-                            Clear
+                            {t('Clear')}
                           </Button>
                         </>
                       )}
@@ -293,9 +286,9 @@ export function OpenCodeServerDialog({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>{t('Name')}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Kitchen workstation" />
+                      <Input {...field} placeholder={t('Kitchen workstation')} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -311,7 +304,7 @@ export function OpenCodeServerDialog({
                     <FormControl>
                       <Input {...field} placeholder="https://opencode.example.com" className="font-mono" />
                     </FormControl>
-                    <FormDescription>The base URL of the remote OpenCode server.</FormDescription>
+                    <FormDescription>{t('The base URL of the remote OpenCode server.')}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -321,8 +314,9 @@ export function OpenCodeServerDialog({
                 <div className="flex items-start gap-2 rounded-md border border-warning/40 p-2 text-sm text-warning">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
-                    This URL is not HTTPS, so credentials travel unencrypted. Use HTTPS unless the server is on a
-                    private network.
+                    {t(
+                      'This URL is not HTTPS, so credentials travel unencrypted. Use HTTPS unless the server is on a private network.',
+                    )}
                   </span>
                 </div>
               )}
@@ -332,7 +326,7 @@ export function OpenCodeServerDialog({
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>{t('Username')}</FormLabel>
                     <FormControl>
                       <Input {...field} autoComplete="username" />
                     </FormControl>
@@ -348,20 +342,22 @@ export function OpenCodeServerDialog({
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Password</FormLabel>
+                        <FormLabel>{t('Password')}</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
                             type="password"
                             autoComplete="new-password"
                             disabled={clearPassword}
-                            placeholder={isEditing ? 'Leave blank to keep the current password' : 'Server password'}
+                            placeholder={
+                              isEditing ? t('Leave blank to keep the current password') : t('Server password')
+                            }
                           />
                         </FormControl>
                         <FormDescription>
                           {isEditing
-                            ? 'Leave blank to keep the current password.'
-                            : 'Password used to authenticate with the remote server.'}
+                            ? t('Leave blank to keep the current password.')
+                            : t('Password used to authenticate with the remote server.')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -369,9 +365,14 @@ export function OpenCodeServerDialog({
                   />
 
                   {needsCredentialsForOriginChange && (
-                    <div role="status" className="flex items-start gap-2 rounded-md border border-warning/40 p-2 text-sm text-warning">
+                    <div
+                      role="status"
+                      className="flex items-start gap-2 rounded-md border border-warning/40 p-2 text-sm text-warning"
+                    >
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>Changing the server address requires re-entering the password or pairing again.</span>
+                      <span>
+                        {t('Changing the server address requires re-entering the password or pairing again.')}
+                      </span>
                     </div>
                   )}
 
@@ -383,7 +384,7 @@ export function OpenCodeServerDialog({
                         onCheckedChange={(checked) => setClearPassword(checked === true)}
                       />
                       <Label htmlFor="clear-password" className="font-normal">
-                        Clear stored password
+                        {t('Clear stored password')}
                       </Label>
                     </div>
                   )}
@@ -396,11 +397,11 @@ export function OpenCodeServerDialog({
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-3">
                     <div className="space-y-0.5">
-                      <FormLabel>Enabled</FormLabel>
-                      <FormDescription>Connect to this server when the Manager starts.</FormDescription>
+                      <FormLabel>{t('Enabled')}</FormLabel>
+                      <FormDescription>{t('Connect to this server when the Manager starts.')}</FormDescription>
                     </div>
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} aria-label="Enabled" />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} aria-label={t('Enabled')} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -410,7 +411,7 @@ export function OpenCodeServerDialog({
                 <div className="space-y-2">
                   <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={isTesting}>
                     {isTesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Test connection
+                    {t('Test connection')}
                   </Button>
                   {testResult && <TestResultSummary result={testResult} />}
                   {testError && (
@@ -432,11 +433,11 @@ export function OpenCodeServerDialog({
 
         <DialogFooter className="gap-2 border-t p-3 pb-4 sm:p-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button onClick={() => void handleSubmit()} disabled={isSubmitting} className="flex-1 sm:flex-none">
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEditing ? 'Save changes' : 'Add server'}
+            {isEditing ? t('Save changes') : t('Add server')}
           </Button>
         </DialogFooter>
       </DialogContent>

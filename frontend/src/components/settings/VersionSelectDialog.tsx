@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { settingsApi } from '@/api/settings'
 import { showToast } from '@/lib/toast'
 import { refreshOpenCodeServerCaches } from '@/lib/queryInvalidation'
+import { t } from '@/i18n/translate'
+import { intlLocale } from '@/i18n/format'
 
 interface VersionSelectDialogProps {
   open: boolean
@@ -32,38 +34,52 @@ export function VersionSelectDialog({ open, onOpenChange }: VersionSelectDialogP
     },
     onError: (error) => {
       if (error && typeof error === 'object' && 'response' in error) {
-        const response = (error as { response?: { data?: { recovered?: boolean; recoveryMessage?: string; newVersion?: string } } }).response
+        const response = (
+          error as {
+            response?: {
+              data?: {
+                recovered?: boolean
+                recoveryMessage?: string
+                newVersion?: string
+              }
+            }
+          }
+        ).response
         const data = response?.data
-        
+
         if (data?.recovered && data.newVersion) {
           refreshOpenCodeServerCaches(queryClient, data.newVersion)
-          showToast.success(`Install failed but server recovered at v${data.newVersion}`)
+          showToast.success(
+            t('Install failed but server recovered at v{version}', {
+              version: data.newVersion,
+            }),
+          )
         } else {
           refreshOpenCodeServerCaches(queryClient)
-          showToast.error(data?.recoveryMessage || 'Failed to install version')
+          showToast.error(data?.recoveryMessage || t('Failed to install version'))
         }
       } else {
         refreshOpenCodeServerCaches(queryClient)
-        showToast.error('Failed to install version')
+        showToast.error(t('Failed to install version'))
       }
     },
   })
 
   const handleInstall = () => {
     if (!selectedVersion) return
-    showToast.loading(`Installing OpenCode v${selectedVersion}...`, { id: 'install-version' })
+    showToast.loading(t('Installing OpenCode v{version}...', { version: selectedVersion }), { id: 'install-version' })
     installMutation.mutate(selectedVersion, {
       onSettled: () => {
         showToast.dismiss('install-version')
-      }
+      },
     })
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(undefined, {
+    return new Date(dateString).toLocaleDateString(intlLocale(), {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     })
   }
 
@@ -71,9 +87,11 @@ export function VersionSelectDialog({ open, onOpenChange }: VersionSelectDialogP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Select OpenCode Version</DialogTitle>
+          <DialogTitle>{t('Select OpenCode Version')}</DialogTitle>
           <DialogDescription>
-            Choose an OpenCode 2 release to install. Current version: {data?.currentVersion ? `v${data.currentVersion}` : 'Unknown'}
+            {t('Choose an OpenCode 2 release to install. Current version: {version}', {
+              version: data?.currentVersion ? `v${data.currentVersion}` : t('Unknown'),
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -83,11 +101,7 @@ export function VersionSelectDialog({ open, onOpenChange }: VersionSelectDialogP
           </div>
         )}
 
-        {error && (
-          <div className="text-center py-8 text-destructive">
-            Failed to fetch versions
-          </div>
-        )}
+        {error && <div className="text-center py-8 text-destructive">{t('Failed to fetch versions')}</div>}
 
         {data && (
           <>
@@ -116,13 +130,11 @@ export function VersionSelectDialog({ open, onOpenChange }: VersionSelectDialogP
                             v{release.version}
                             {isCurrent && (
                               <span className="text-xs px-1.5 py-0.5 rounded bg-success/20 text-success">
-                                Current
+                                {t('Current')}
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {formatDate(release.publishedAt)}
-                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{formatDate(release.publishedAt)}</div>
                         </div>
                         {isSelected && <Check className="h-4 w-4 text-primary" />}
                       </div>
@@ -133,12 +145,8 @@ export function VersionSelectDialog({ open, onOpenChange }: VersionSelectDialogP
             </div>
 
             <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={installMutation.isPending}
-              >
-                Cancel
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={installMutation.isPending}>
+                {t('Cancel')}
               </Button>
               <Button
                 onClick={handleInstall}
@@ -150,7 +158,7 @@ export function VersionSelectDialog({ open, onOpenChange }: VersionSelectDialogP
                 ) : (
                   <Download className="h-4 w-4 mr-2" />
                 )}
-                {selectedVersion ? `Install` : 'Select version'}
+                {selectedVersion ? t('Install') : t('Select version')}
               </Button>
             </div>
           </>

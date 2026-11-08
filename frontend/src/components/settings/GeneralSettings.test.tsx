@@ -7,6 +7,7 @@ import { useVersionCheck } from '@/hooks/useVersionCheck'
 import type { UserPreferences } from '@/api/types/settings'
 import type { VersionInfo } from '@/api/settings'
 import { createUseSettingsMock } from '@/test/test-utils'
+import { setLocale } from '@/i18n/locale'
 
 vi.mock('@/hooks/useSettings')
 vi.mock('@/hooks/useVersionCheck')
@@ -124,5 +125,48 @@ describe('GeneralSettings', () => {
     render(<GeneralSettings />)
 
     expect(screen.getByText('Saving...')).toBeInTheDocument()
+  })
+
+  it('shows the language select with the current locale and the redraw hint', () => {
+    mockUseSettings()
+    mockVersionInfo()
+    render(<GeneralSettings />)
+
+    expect(screen.getByRole('combobox', { name: 'Language' })).toHaveTextContent('English')
+    expect(screen.getByText('Changing the language redraws the screen.')).toBeInTheDocument()
+  })
+
+  it('switches to Korean, stores the choice and saves it to settings', async () => {
+    const user = userEvent.setup()
+    const updateSettings = vi.fn()
+    mockUseSettings({ updateSettings })
+    mockVersionInfo()
+    render(<GeneralSettings />)
+
+    await user.click(screen.getByRole('combobox', { name: 'Language' }))
+    await user.click(screen.getByRole('option', { name: '한국어' }))
+
+    expect(localStorage.getItem('oc:locale')).toBe('ko')
+    expect(document.documentElement.lang).toBe('ko')
+    expect(updateSettings).toHaveBeenCalledWith({ locale: 'ko' })
+    expect(screen.getByRole('combobox', { name: '언어' })).toHaveTextContent('한국어')
+    expect(screen.getByText('언어를 바꾸면 화면이 다시 그려집니다.')).toBeInTheDocument()
+  })
+
+  it('switches back to English from Korean', async () => {
+    setLocale('ko')
+    const user = userEvent.setup()
+    const updateSettings = vi.fn()
+    mockUseSettings({ preferences: { ...basePreferences, locale: 'ko' }, updateSettings })
+    mockVersionInfo()
+    render(<GeneralSettings />)
+
+    await user.click(screen.getByRole('combobox', { name: '언어' }))
+    await user.click(screen.getByRole('option', { name: 'English' }))
+
+    expect(localStorage.getItem('oc:locale')).toBe('en')
+    expect(document.documentElement.lang).toBe('en')
+    expect(updateSettings).toHaveBeenCalledWith({ locale: 'en' })
+    expect(screen.getByRole('combobox', { name: 'Language' })).toHaveTextContent('English')
   })
 })

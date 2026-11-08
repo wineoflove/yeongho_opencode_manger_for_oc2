@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 type RenderSvg = (typeof import('uqr'))['renderSVG']
 
@@ -41,7 +42,7 @@ export function PairingQrCode({ value, label, blurred = false }: PairingQrCodePr
   if (loadFailed) {
     return (
       <p className="text-sm text-destructive">
-        The QR code could not be loaded. Reload the page and try again.
+        {t('The QR code could not be loaded. Reload the page and try again.')}
       </p>
     )
   }
@@ -51,7 +52,7 @@ export function PairingQrCode({ value, label, blurred = false }: PairingQrCodePr
   if (!source) {
     return (
       <p className="text-sm text-destructive">
-        This QR code holds too much data. Remove some remote access headers.
+        {t('This QR code holds too much data. Remove some remote access headers.')}
       </p>
     )
   }

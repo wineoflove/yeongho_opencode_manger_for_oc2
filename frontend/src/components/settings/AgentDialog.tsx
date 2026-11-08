@@ -11,11 +11,12 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ModelCombobox } from '@/components/model/ModelCombobox'
 import { configModelRef, formatOpenCodeModelRef } from '@opencode-manager/shared/opencode'
+import { msg, t } from '@/i18n/translate'
 
 const agentFormSchema = z.object({
-  name: z.string().min(1, 'Agent name is required').regex(/^[a-z0-9-]+$/, 'Must be lowercase letters, numbers, and hyphens only'),
+  name: z.string().min(1, msg('Agent name is required')).regex(/^[a-z0-9-]+$/, msg('Must be lowercase letters, numbers, and hyphens only')),
   description: z.string().optional(),
-  prompt: z.string().min(1, 'Prompt is required'),
+  prompt: z.string().min(1, msg('Prompt is required')),
   mode: z.enum(['subagent', 'primary', 'all']),
   temperature: z.number().min(0).max(2),
   topP: z.number().min(0).max(1),
@@ -133,7 +134,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent mobileFullscreen keyboardAware className="sm:max-w-2xl sm:max-h-[85vh] gap-0 flex flex-col p-0 md:p-6 pb-safe">
         <DialogHeader className="p-4 sm:p-6 border-b flex flex-row items-center justify-between space-y-0">
-          <DialogTitle>{editingAgent ? 'Edit Agent' : 'Create Agent'}</DialogTitle>
+          <DialogTitle>{editingAgent ? t('Edit Agent') : t('Create Agent')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-2 sm:p-4">
@@ -144,7 +145,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Agent Name</FormLabel>
+                    <FormLabel>{t('Agent Name')}</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -154,7 +155,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                       />
                     </FormControl>
                     <FormDescription>
-                      Use lowercase letters, numbers, and hyphens only
+                      {t('Use lowercase letters, numbers, and hyphens only')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -166,11 +167,11 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t('Description')}</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Brief description of what the agent does"
+                        placeholder={t('Brief description of what the agent does')}
                       />
                     </FormControl>
                     <FormMessage />
@@ -183,11 +184,11 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                 name="prompt"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Prompt</FormLabel>
+                    <FormLabel>{t('Prompt')}</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="The system prompt that defines the agent's behavior and role"
+                        placeholder={t("The system prompt that defines the agent's behavior and role")}
                         rows={6}
                         className="font-mono md:text-sm"
                       />
@@ -203,17 +204,17 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                   name="mode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mode</FormLabel>
+                      <FormLabel>{t('Mode')}</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select mode" />
+                            <SelectValue placeholder={t('Select mode')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="subagent">Subagent</SelectItem>
-                          <SelectItem value="primary">Primary</SelectItem>
-                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="subagent">{t('Subagent')}</SelectItem>
+                          <SelectItem value="primary">{t('Primary')}</SelectItem>
+                          <SelectItem value="all">{t('All')}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -226,7 +227,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                   name="temperature"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Temperature</FormLabel>
+                      <FormLabel>{t('Temperature')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -247,7 +248,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                   name="topP"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Top P</FormLabel>
+                      <FormLabel>{t('Top P')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -269,15 +270,15 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                 name="model"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Model</FormLabel>
+                    <FormLabel>{t('Model')}</FormLabel>
                     <FormControl>
                       <ModelCombobox
                         id="agent-model"
-                        ariaLabel="Model"
+                        ariaLabel={t('Model')}
                         value={field.value || ''}
                         onChange={field.onChange}
                         enabled={open}
-                        placeholder="OpenCode default"
+                        placeholder={t('OpenCode default')}
                         allowCustomValue
                         showClear
                       />
@@ -288,7 +289,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
               />
 
               <div className="space-y-2">
-                <div className="text-sm font-medium">Tools Configuration</div>
+                <div className="text-sm font-medium">{t('Tools Configuration')}</div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <FormField
                     control={form.control}
@@ -301,7 +302,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <FormLabel className="font-normal">Write</FormLabel>
+                        <FormLabel className="font-normal">{t('Write')}</FormLabel>
                       </FormItem>
                     )}
                   />
@@ -317,7 +318,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <FormLabel className="font-normal">Edit</FormLabel>
+                        <FormLabel className="font-normal">{t('Edit')}</FormLabel>
                       </FormItem>
                     )}
                   />
@@ -349,7 +350,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <FormLabel className="font-normal">Web Fetch</FormLabel>
+                        <FormLabel className="font-normal">{t('Web Fetch')}</FormLabel>
                       </FormItem>
                     )}
                   />
@@ -357,14 +358,14 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
               </div>
 
               <div className="space-y-2">
-                <div className="text-sm font-medium">Permissions</div>
+                <div className="text-sm font-medium">{t('Permissions')}</div>
                 <div className="grid grid-cols-3 gap-2 text-sm">
                   <FormField
                     control={form.control}
                     name="editPermission"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Edit</FormLabel>
+                        <FormLabel className="text-xs">{t('Edit')}</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -372,9 +373,9 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="ask">Ask</SelectItem>
-                            <SelectItem value="allow">Allow</SelectItem>
-                            <SelectItem value="deny">Deny</SelectItem>
+                            <SelectItem value="ask">{t('Ask')}</SelectItem>
+                            <SelectItem value="allow">{t('Allow')}</SelectItem>
+                            <SelectItem value="deny">{t('Deny')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -395,9 +396,9 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="ask">Ask</SelectItem>
-                            <SelectItem value="allow">Allow</SelectItem>
-                            <SelectItem value="deny">Deny</SelectItem>
+                            <SelectItem value="ask">{t('Ask')}</SelectItem>
+                            <SelectItem value="allow">{t('Allow')}</SelectItem>
+                            <SelectItem value="deny">{t('Deny')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -410,7 +411,7 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                     name="webfetchPermission"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Web Fetch</FormLabel>
+                        <FormLabel className="text-xs">{t('Web Fetch')}</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -418,9 +419,9 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="ask">Ask</SelectItem>
-                            <SelectItem value="allow">Allow</SelectItem>
-                            <SelectItem value="deny">Deny</SelectItem>
+                            <SelectItem value="ask">{t('Ask')}</SelectItem>
+                            <SelectItem value="allow">{t('Allow')}</SelectItem>
+                            <SelectItem value="deny">{t('Deny')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -436,9 +437,9 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">Disable agent</FormLabel>
+                      <FormLabel className="text-base">{t('Disable agent')}</FormLabel>
                       <FormDescription>
-                        Prevent this agent from being used
+                        {t('Prevent this agent from being used')}
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -456,14 +457,14 @@ export function AgentDialog({ open, onOpenChange, onSubmit, editingAgent }: Agen
 
         <DialogFooter className="p-3 sm:p-4 border-t gap-2 pb-4">
           <Button variant="outline" onClick={() => handleOpenChange(false)} className="h-11 flex-1 sm:h-9 sm:flex-none">
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             onClick={() => form.handleSubmit(handleSubmit)()}
             disabled={!form.formState.isValid}
             className="h-11 flex-1 sm:h-9 sm:flex-none"
           >
-            {editingAgent ? 'Update' : 'Create'}
+            {editingAgent ? t('Update') : t('Create')}
           </Button>
         </DialogFooter>
       </DialogContent>

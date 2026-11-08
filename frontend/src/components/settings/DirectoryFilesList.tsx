@@ -10,6 +10,7 @@ import { SettingsListRow } from '@/components/ui/settings-list'
 import { settingsApi } from '@/api/settings'
 import { invalidateConfigCaches } from '@/lib/queryInvalidation'
 import type { OpenCodeDirectoryFileInfo } from '@/api/types/settings'
+import { t } from '@/i18n/translate'
 
 interface DirectoryFilesListProps {
   kind: 'agents' | 'commands'
@@ -43,11 +44,11 @@ export function DirectoryFilesList({ kind, files }: DirectoryFilesListProps) {
       }),
     onSuccess: () => {
       invalidateConfigCaches(queryClient)
-      toast.success('File saved')
+      toast.success(t('File saved'))
       setEditingFile(null)
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to save file')
+      toast.error(error instanceof Error ? error.message : t('Failed to save file'))
     },
   })
 
@@ -55,11 +56,11 @@ export function DirectoryFilesList({ kind, files }: DirectoryFilesListProps) {
     mutationFn: () => settingsApi.deleteOpenCodeDirectoryFile(kind, deletingFile!.relativePath),
     onSuccess: () => {
       invalidateConfigCaches(queryClient)
-      toast.success('File deleted')
+      toast.success(t('File deleted'))
       setDeletingFile(null)
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete file')
+      toast.error(error instanceof Error ? error.message : t('Failed to delete file'))
     },
   })
 
@@ -71,12 +72,12 @@ export function DirectoryFilesList({ kind, files }: DirectoryFilesListProps) {
           <SettingsListRow
             key={`file:${file.relativePath}`}
             title={<span title={file.relativePath}>{file.name}</span>}
-            description={isNested ? `Uploaded file: ${file.relativePath}` : undefined}
-            badges={<Badge variant="secondary" className="shrink-0">File</Badge>}
+            description={isNested ? t('Uploaded file: {path}', { path: file.relativePath }) : undefined}
+            badges={<Badge variant="secondary" className="shrink-0">{t('File')}</Badge>}
             onClick={() => setEditingFile(file)}
-            primaryAction={{ label: 'Edit', onClick: () => setEditingFile(file) }}
-            actions={[{ label: 'Delete', destructive: true, onClick: () => setDeletingFile(file) }]}
-            actionsLabel={`Actions for ${file.name}`}
+            primaryAction={{ label: t('Edit'), onClick: () => setEditingFile(file) }}
+            actions={[{ label: t('Delete'), destructive: true, onClick: () => setDeletingFile(file) }]}
+            actionsLabel={t('Actions for {name}', { name: file.name })}
           />
         )
       })}
@@ -92,21 +93,21 @@ export function DirectoryFilesList({ kind, files }: DirectoryFilesListProps) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               disabled={isLoadingContent}
-              aria-label={editingFile?.relativePath ?? 'File content'}
+              aria-label={editingFile?.relativePath ?? t('File content')}
               className="h-full min-h-0 flex-1 field-sizing-fixed resize-none font-mono md:text-sm"
             />
           </div>
 
           <DialogFooter className="flex flex-row gap-2 pt-2 border-t border-border sm:justify-end pb-4 p-3">
             <Button variant="outline" onClick={() => setEditingFile(null)} className="h-11 flex-1 sm:h-9 sm:flex-none">
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               onClick={() => updateMutation.mutate()}
               disabled={isLoadingContent || updateMutation.isPending}
               className="h-11 flex-1 sm:h-9 sm:flex-none"
             >
-              {updateMutation.isPending ? 'Saving...' : 'Save'}
+              {updateMutation.isPending ? t('Saving...') : t('Save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -117,8 +118,8 @@ export function DirectoryFilesList({ kind, files }: DirectoryFilesListProps) {
         onOpenChange={(open) => !open && setDeletingFile(null)}
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setDeletingFile(null)}
-        title="Delete File"
-        description="Are you sure you want to delete this uploaded file?"
+        title={t('Delete File')}
+        description={t('Are you sure you want to delete this uploaded file?')}
         itemName={deletingFile?.relativePath}
         isDeleting={deleteMutation.isPending}
       />

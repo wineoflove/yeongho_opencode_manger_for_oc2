@@ -23,6 +23,7 @@ import { Settings2, Keyboard, Code, ChevronLeft, Key, GitBranch, Server, User, V
 import { Button } from '@/components/ui/button'
 import { useSettingsDialog, isSettingsContentTab, type SettingsContentTab } from '@/hooks/useSettingsDialog'
 import { DESKTOP_MEDIA_QUERY, useMediaQuery } from '@/hooks/useMediaQuery'
+import { t } from '@/i18n/translate'
 
 type SettingsView = 'menu' | SettingsContentTab
 
@@ -43,8 +44,8 @@ function OpenCodeSettings({ onOpenVersionDialog }: { onOpenVersionDialog: () => 
       <div className="group/opencode-settings space-y-4" data-opencode-settings>
         <ServerHealthStatus onOpenVersionDialog={onOpenVersionDialog} />
         <OpenCodeConfigManager />
-        <section className="space-y-4 border-t border-border pt-4" aria-label="Server maintenance">
-          <h2 className="text-lg font-semibold">Server maintenance</h2>
+        <section className="space-y-4 border-t border-border pt-4" aria-label={t('Server maintenance')}>
+          <h2 className="text-lg font-semibold">{t('Server maintenance')}</h2>
           <div className="grid grid-cols-1 items-start gap-x-6 gap-y-4 @min-[1000px]:grid-cols-2">
             <OpenCodeServerAuthSettings isOpen={authSectionsOpen} onToggle={toggleAuthSections} />
             <ManagerTokenSettings isOpen={authSectionsOpen} onToggle={toggleAuthSections} />
@@ -129,16 +130,16 @@ export function SettingsDialog() {
   }, [isOpen, isDesktop, selectedTab, pushSectionHistory])
 
   const menuItems: Array<{ id: SettingsContentTab; icon: LucideIcon; label: string; description: string }> = [
-    { id: 'account', icon: User, label: 'Account', description: 'Profile, passkeys, devices, and sign out' },
-    { id: 'general', icon: Settings2, label: 'General Settings', description: 'App preferences and behavior' },
-    { id: 'notifications', icon: Bell, label: 'Notifications', description: 'Push notification preferences' },
-    { id: 'voice', icon: Volume2, label: 'Voice', description: 'Text-to-speech and speech-to-text settings' },
-    { id: 'git', icon: GitBranch, label: 'Git', description: 'Git identity and credentials for repositories' },
-    { id: 'shortcuts', icon: Keyboard, label: 'Keyboard Shortcuts', description: 'Customize keyboard shortcuts' },
-    { id: 'servers', icon: Server, label: 'Servers', description: 'Link remote OpenCode servers' },
-    { id: 'opencode', icon: Code, label: 'OpenCode Config', description: 'Manage OpenCode configurations, commands, and agents' },
-    { id: 'logs', icon: ScrollText, label: 'Logs', description: 'Live manager and OpenCode server logs' },
-    { id: 'providers', icon: Key, label: 'Providers', description: 'Manage AI provider API keys' },
+    { id: 'account', icon: User, label: t('Account'), description: t('Profile, passkeys, devices, and sign out') },
+    { id: 'general', icon: Settings2, label: t('General Settings'), description: t('App preferences and behavior') },
+    { id: 'notifications', icon: Bell, label: t('Notifications'), description: t('Push notification preferences') },
+    { id: 'voice', icon: Volume2, label: t('Voice'), description: t('Text-to-speech and speech-to-text settings') },
+    { id: 'git', icon: GitBranch, label: 'Git', description: t('Git identity and credentials for repositories') },
+    { id: 'shortcuts', icon: Keyboard, label: t('Keyboard Shortcuts'), description: t('Customize keyboard shortcuts') },
+    { id: 'servers', icon: Server, label: t('Servers'), description: t('Link remote OpenCode servers') },
+    { id: 'opencode', icon: Code, label: t('OpenCode Config'), description: t('Manage OpenCode configurations, commands, and agents') },
+    { id: 'logs', icon: ScrollText, label: t('Logs'), description: t('Live manager and OpenCode server logs') },
+    { id: 'providers', icon: Key, label: t('Providers'), description: t('Manage AI provider API keys') },
   ]
 
   const handleOpenMobileView = useCallback((view: SettingsContentTab) => {
@@ -166,16 +167,16 @@ export function SettingsDialog() {
           onPointerDownOutside={(e) => e.preventDefault()}
           data-settings-dialog
         >
-         <DialogTitle className="sr-only">Settings</DialogTitle>
+         <DialogTitle className="sr-only">{t('Settings')}</DialogTitle>
          {isDesktop && (
          <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
            <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-             <h2 className="text-lg font-semibold text-foreground">Settings</h2>
+             <h2 className="text-lg font-semibold text-foreground">{t('Settings')}</h2>
              <Button
                variant="ghost"
                size="icon"
                onClick={close}
-               aria-label="Close"
+               aria-label={t('Close')}
                className="text-muted-foreground hover:text-foreground"
              >
                <X className="w-4 h-4" />
@@ -228,21 +229,21 @@ export function SettingsDialog() {
                     variant="ghost"
                     size="icon"
                     onClick={handleSettingsBack}
-                    aria-label="Back"
+                    aria-label={t('Back')}
                     className="text-muted-foreground hover:text-foreground min-w-[44px] min-h-[44px]"
                   >
                     <ChevronLeft className="w-6 h-6" />
                   </Button>
                 )}
                <h2 className="min-w-0 text-xl font-semibold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-                 {mobileView === 'menu' ? 'Settings' : menuItems.find(item => item.id === mobileView)?.label}
+                 {mobileView === 'menu' ? t('Settings') : menuItems.find(item => item.id === mobileView)?.label}
                </h2>
              </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={close}
-                aria-label="Close"
+                aria-label={t('Close')}
                 className="text-muted-foreground hover:text-foreground min-w-[44px] min-h-[44px] flex-shrink-0"
               >
                <X className="w-6 h-6" />

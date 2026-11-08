@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatRelativeTime } from '@/i18n/format'
 import { describeUserAgent } from '@opencode-manager/shared/utils'
 import type { PairedDevice } from '@opencode-manager/shared/schemas'
 import { usePairedDevices, useRevokePairedDevice } from '@/hooks/useDevicePairing'
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { DeleteDialog } from '@/components/ui/delete-dialog'
 import { AlertCircle, Loader2, MonitorSmartphone, Trash2 } from 'lucide-react'
+import { t } from '@/i18n/translate'
 
 function deviceLabel(device: PairedDevice): string {
   return device.deviceName?.trim() || describeUserAgent(device.userAgent)
@@ -19,11 +20,8 @@ export function PairedDevicesSettings() {
   const revoke = useRevokePairedDevice()
   const [deviceToRevoke, setDeviceToRevoke] = useState<PairedDevice | null>(null)
 
-  const error = revoke.error instanceof Error
-    ? revoke.error.message
-    : revoke.error
-      ? 'Failed to revoke device'
-      : null
+  const error =
+    revoke.error instanceof Error ? revoke.error.message : revoke.error ? t('Failed to revoke device') : null
 
   const handleConfirmRevoke = () => {
     if (!deviceToRevoke) return
@@ -36,10 +34,10 @@ export function PairedDevicesSettings() {
       <CardHeader className="pb-2 sm:pb-4">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <MonitorSmartphone className="h-4 w-4 sm:h-5 sm:w-5" />
-          Paired devices
+          {t('Paired devices')}
         </CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          Every signed-in browser and app. Revoking one signs out only that device.
+          {t('Every signed-in browser and app. Revoking one signs out only that device.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4">
@@ -55,7 +53,7 @@ export function PairedDevicesSettings() {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : !devices || devices.length === 0 ? (
-          <p className="text-xs sm:text-sm text-muted-foreground">No paired devices.</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">{t('No paired devices.')}</p>
         ) : (
           <div className="space-y-2">
             {devices.map((device) => {
@@ -71,13 +69,15 @@ export function PairedDevicesSettings() {
                       <p className="truncate text-sm font-medium">{label}</p>
                       {device.isCurrent && (
                         <Badge variant="secondary" className="shrink-0">
-                          This device
+                          {t('This device')}
                         </Badge>
                       )}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
                       {device.ipAddress ? `${device.ipAddress} · ` : null}
-                      Signed in {formatDistanceToNow(new Date(device.createdAt), { addSuffix: true })}
+                      {t('Signed in {time}', {
+                        time: formatRelativeTime(device.createdAt),
+                      })}
                     </p>
                   </div>
                   {!device.isCurrent && (
@@ -85,7 +85,7 @@ export function PairedDevicesSettings() {
                       variant="ghost"
                       size="icon"
                       className="ml-2 h-8 w-8 shrink-0"
-                      aria-label={`Revoke ${label}`}
+                      aria-label={t('Revoke {device}', { device: label })}
                       onClick={() => setDeviceToRevoke(device)}
                       disabled={revoke.isPending}
                     >
@@ -104,8 +104,14 @@ export function PairedDevicesSettings() {
         onOpenChange={(open) => !open && setDeviceToRevoke(null)}
         onConfirm={handleConfirmRevoke}
         onCancel={() => setDeviceToRevoke(null)}
-        title="Revoke device"
-        description={deviceToRevoke ? `${deviceLabel(deviceToRevoke)} will be signed out.` : ''}
+        title={t('Revoke device')}
+        description={
+          deviceToRevoke
+            ? t('{device} will be signed out.', {
+                device: deviceLabel(deviceToRevoke),
+              })
+            : ''
+        }
         isDeleting={revoke.isPending}
       />
     </Card>
