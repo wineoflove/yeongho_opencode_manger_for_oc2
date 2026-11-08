@@ -175,7 +175,11 @@ const readAsDataUrl = (file: Blob): Promise<string> =>
  * other or larger file (up to 500MB) is uploaded to the server and attached as a note naming its stored path, so the
  * agent reads it with local tools instead of receiving its bytes inline.
  */
-export async function readPromptAttachment(file: File, directory?: string): Promise<AttachmentReadResult> {
+export async function readPromptAttachment(
+  file: File,
+  directory?: string,
+  sessionID?: string,
+): Promise<AttachmentReadResult> {
   const kind = classifyAttachment(file)
   const limit = kind === 'text' ? MAX_TEXT_ATTACHMENT_BYTES : MAX_BINARY_ATTACHMENT_BYTES
   if (file.size > limit) {
@@ -211,7 +215,7 @@ export async function readPromptAttachment(file: File, directory?: string): Prom
     if (kind === 'file' || file.size > inlineLimit) {
       if (!directory)
         return { ok: false, reason: t('A session directory is required to upload {filename}', { filename: file.name }) }
-      const uploaded = await uploadPromptFile(file, directory)
+      const uploaded = await uploadPromptFile(file, directory, sessionID)
       const context = JSON.stringify({ filename: file.name, path: uploaded.path, size: uploaded.size })
       const dataUrl = await readAsDataUrl(
         new Blob(

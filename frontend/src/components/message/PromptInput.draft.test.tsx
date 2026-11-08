@@ -328,7 +328,7 @@ describe('PromptInput per-session composer draft', () => {
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
     expect(fileInput).not.toHaveAttribute('accept')
     fireEvent.change(fileInput, { target: { files: [new File(['zip-bytes'], 'logs.zip', { type: 'application/zip' })] } })
-    await waitFor(() => expect(mocks.uploadPromptFile).toHaveBeenCalledWith(expect.any(File), '/test'))
+    await waitFor(() => expect(mocks.uploadPromptFile).toHaveBeenCalledWith(expect.any(File), '/test', 'session-a'))
     const send = container.querySelector('[data-submit-prompt]') as HTMLButtonElement
     expect(send).toBeDisabled()
     await act(async () => finish({ path: '/test/.attachments/file-abc/original.zip', size: 9 }))

@@ -27,7 +27,7 @@ export function usePromptFileUploads(
     try {
       for (const file of files) {
         if (!scope.active) break
-        const result = await readPromptAttachment(file, scope.directory)
+        const result = await readPromptAttachment(file, scope.directory, scope.sessionID)
         if (!scope.active) break
         if (result.ok) onAttachment(result.attachment)
         else showToast.error(t(result.reason))
