@@ -1,4 +1,5 @@
 import "../sw?worker";
+import { t } from "@/i18n/translate";
 
 type UpdateCallback = () => void;
 
@@ -122,7 +123,7 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
   try {
     rawData = window.atob(base64);
   } catch {
-    throw new Error(`Invalid base64 string: ${base64String.slice(0, 20)}...`);
+    throw new Error(t("Invalid base64 string: {value}...", { value: base64String.slice(0, 20) }));
   }
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {

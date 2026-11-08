@@ -1,4 +1,5 @@
 import { FetchError } from '@opencode-manager/shared'
+import { t } from '@/i18n/translate'
 
 export interface ParsedError {
   title: string
@@ -16,16 +17,16 @@ export function parseNetworkError(error: unknown): ParsedError {
     if (error instanceof FetchError) {
       if (error.statusCode === 502) {
         return {
-          title: 'Server Unavailable',
-          message: 'The OpenCode server is not responding. It may need to be restarted.',
+          title: t('Server Unavailable'),
+          message: t('The OpenCode server is not responding. It may need to be restarted.'),
           isRetryable: true,
         }
       }
 
-      if (error.statusCode === 524) {
+      if (error.statusCode === 524 || error.statusCode === 408 || error.code === 'TIMEOUT') {
         return {
-          title: 'Request Timeout',
-          message: 'The request took too long to complete. Please try again.',
+          title: t('Request Timeout'),
+          message: t('The request took too long to complete. Please try again.'),
           isRetryable: true,
         }
       }
@@ -35,8 +36,8 @@ export function parseNetworkError(error: unknown): ParsedError {
 
     if (message.includes('timeout') || message.includes('etimedout')) {
       return {
-        title: 'Request Timeout',
-        message: 'The request took too long to complete. Please try again.',
+        title: t('Request Timeout'),
+        message: t('The request took too long to complete. Please try again.'),
         isRetryable: true,
       }
     }
@@ -50,30 +51,30 @@ export function parseNetworkError(error: unknown): ParsedError {
       message.includes('econnreset')
     ) {
       return {
-        title: 'Connection Failed',
-        message: 'Could not connect to the server. Please check your connection.',
+        title: t('Connection Failed'),
+        message: t('Could not connect to the server. Please check your connection.'),
         isRetryable: true,
       }
     }
 
     if (message.includes('502') || message.includes('bad gateway')) {
       return {
-        title: 'Server Unavailable',
-        message: 'The OpenCode server is not responding. It may need to be restarted.',
+        title: t('Server Unavailable'),
+        message: t('The OpenCode server is not responding. It may need to be restarted.'),
         isRetryable: true,
       }
     }
 
     return {
-      title: 'Error',
+      title: t('Error'),
       message: error.message,
       isRetryable: true,
     }
   }
 
   return {
-    title: 'Error',
-    message: 'An unexpected error occurred',
+    title: t('Error'),
+    message: t('An unexpected error occurred'),
     isRetryable: true,
   }
 }
@@ -88,26 +89,32 @@ export function getOpenCodeApiErrorMessage(error: unknown, fallback: string): st
     let message = error.detail || error.message || fallback
 
     if (error.validationIssues && error.validationIssues.length > 0) {
-      const issues = error.validationIssues
-        .map((issue) => `${issue.path}: ${issue.message}`)
-        .join('; ')
-      message = `Validation failed: ${issues}`
+      const issues = error.validationIssues.map((issue) => `${issue.path}: ${issue.message}`).join('; ')
+      message = t('Validation failed: {issues}', { issues })
     }
 
     return message
   }
 
   if (error && typeof error === 'object' && 'response' in error) {
-    const response = (error as { response?: { data?: { details?: string; error?: string; validationIssues?: Array<{ path: string; message: string }> } } }).response
+    const response = (
+      error as {
+        response?: {
+          data?: {
+            details?: string
+            error?: string
+            validationIssues?: Array<{ path: string; message: string }>
+          }
+        }
+      }
+    ).response
     const data = response?.data
 
     let message = data?.details || data?.error || fallback
 
     if (data?.validationIssues && data.validationIssues.length > 0) {
-      const issues = data.validationIssues
-        .map((issue) => `${issue.path}: ${issue.message}`)
-        .join('; ')
-      message = `Validation failed: ${issues}`
+      const issues = data.validationIssues.map((issue) => `${issue.path}: ${issue.message}`).join('; ')
+      message = t('Validation failed: {issues}', { issues })
     }
 
     return message

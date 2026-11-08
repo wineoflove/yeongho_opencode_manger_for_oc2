@@ -1,5 +1,6 @@
 import { SessionSandboxResourcesSchema, type SessionSandboxResources } from '@opencode-manager/shared/schemas'
 import type { useSandboxToggle } from '@/hooks/useSandboxToggle'
+import { t } from '@/i18n/translate'
 
 export type SandboxToggleState = ReturnType<typeof useSandboxToggle>
 
@@ -28,14 +29,14 @@ export function parseSandboxResourceInput(
   if (!trimmedCpus || !trimmedMemory) {
     return {
       kind: 'invalid',
-      message: 'Enter both CPUs and memory, or leave both empty to use the server defaults.',
+      message: t('Enter both CPUs and memory, or leave both empty to use the server defaults.'),
     }
   }
   const parsedCpus = Number(trimmedCpus)
   if (!Number.isInteger(parsedCpus) || !cpusSchema.safeParse(parsedCpus).success) {
     return {
       kind: 'invalid',
-      message: `CPUs must be a whole number from ${SANDBOX_CPUS_MIN} to ${SANDBOX_CPUS_MAX}.`,
+      message: t('CPUs must be a whole number from {min} to {max}.', { min: SANDBOX_CPUS_MIN, max: SANDBOX_CPUS_MAX }),
     }
   }
   const parsedMemory = Number(trimmedMemory)
@@ -43,7 +44,7 @@ export function parseSandboxResourceInput(
   if (!Number.isFinite(parsedMemory) || !memoryMibSchema.safeParse(memoryMib).success) {
     return {
       kind: 'invalid',
-      message: `Memory must be between ${SANDBOX_MEMORY_GIB_MIN} and ${SANDBOX_MEMORY_GIB_MAX} GiB.`,
+      message: t('Memory must be between {min} and {max} GiB.', { min: SANDBOX_MEMORY_GIB_MIN, max: SANDBOX_MEMORY_GIB_MAX }),
     }
   }
   return { kind: 'valid', resources: { cpus: parsedCpus, memoryMib } }

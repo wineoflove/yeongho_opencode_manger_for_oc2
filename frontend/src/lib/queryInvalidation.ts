@@ -21,10 +21,7 @@ export function invalidateShellCaches(queryClient: QueryClient) {
  * @param directory Directory the info describes; a missing directory keeps the placeholder key.
  * @param serverId Server that owns the directory; defaults to the local one.
  */
-export function vcsInfoQueryKey(
-  directory: string | null | undefined,
-  serverId: string = LOCAL_OPENCODE_SERVER_ID,
-) {
+export function vcsInfoQueryKey(directory: string | null | undefined, serverId: string = LOCAL_OPENCODE_SERVER_ID) {
   return [...serverScopedKey(['opencode', 'vcs', directory ?? ''], serverId), 'info']
 }
 
@@ -42,7 +39,10 @@ export function invalidateVcsInfoCache(
   serverId: string = LOCAL_OPENCODE_SERVER_ID,
 ) {
   if (!directory) return
-  queryClient.invalidateQueries({ queryKey: vcsInfoQueryKey(directory, serverId), exact: true })
+  queryClient.invalidateQueries({
+    queryKey: vcsInfoQueryKey(directory, serverId),
+    exact: true,
+  })
 }
 
 export function childSessionReconciliationQueryKey(sessionID: string | null | undefined) {
@@ -52,27 +52,31 @@ export function childSessionReconciliationQueryKey(sessionID: string | null | un
 export function invalidateChildSessionCaches(queryClient: QueryClient, sessionIDs?: string[]) {
   if (sessionIDs) {
     for (const sessionID of sessionIDs) {
-      queryClient.invalidateQueries({ queryKey: childSessionReconciliationQueryKey(sessionID) })
+      queryClient.invalidateQueries({
+        queryKey: childSessionReconciliationQueryKey(sessionID),
+      })
     }
     return
   }
-  queryClient.invalidateQueries({ queryKey: ['opencode', 'session-reconcile'] })
+  queryClient.invalidateQueries({
+    queryKey: ['opencode', 'session-reconcile'],
+  })
 }
 
 export function invalidateProviderCaches(queryClient: QueryClient) {
-  queryClient.invalidateQueries({ queryKey: ['provider-credentials'] })
-  queryClient.invalidateQueries({ queryKey: ['provider-auth-methods'] })
-  queryClient.invalidateQueries({ queryKey: ['opencode', 'providers'] })
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['provider-credentials'] }),
+    queryClient.invalidateQueries({ queryKey: ['provider-auth-methods'] }),
+    queryClient.invalidateQueries({ queryKey: ['opencode', 'providers'] }),
+    queryClient.invalidateQueries({ queryKey: ['provider-accounts'] }),
+  ])
 }
 
 interface ConfigInvalidationOptions {
   skipOpenCodeConfig?: boolean
 }
 
-export function invalidateConfigCaches(
-  queryClient: QueryClient,
-  options: ConfigInvalidationOptions = {},
-) {
+export function invalidateConfigCaches(queryClient: QueryClient, options: ConfigInvalidationOptions = {}) {
   queryClient.invalidateQueries({ queryKey: ['opencode', 'config'] })
   queryClient.invalidateQueries({ queryKey: ['opencode', 'agents'] })
   queryClient.invalidateQueries({ queryKey: ['opencode', 'commands'] })
@@ -88,12 +92,12 @@ export function invalidateConfigCaches(
 
 export function refreshOpenCodeServerCaches(queryClient: QueryClient, version?: string) {
   if (version) {
-    queryClient.setQueryData<Record<string, unknown>>(['health'], (oldData) => (
-      oldData ? { ...oldData, opencodeVersion: version } : oldData
-    ))
-    queryClient.setQueryData<Record<string, unknown>>(['opencode-versions'], (oldData) => (
-      oldData ? { ...oldData, currentVersion: version } : oldData
-    ))
+    queryClient.setQueryData<Record<string, unknown>>(['health'], (oldData) =>
+      oldData ? { ...oldData, opencodeVersion: version } : oldData,
+    )
+    queryClient.setQueryData<Record<string, unknown>>(['opencode-versions'], (oldData) =>
+      oldData ? { ...oldData, currentVersion: version } : oldData,
+    )
   }
   invalidateConfigCaches(queryClient)
   queryClient.invalidateQueries({ queryKey: ['opencode-versions'] })
@@ -199,7 +203,9 @@ export function invalidateRepoGitCachesDebounced(queryClient: QueryClient, repoI
     repoId,
     setTimeout(() => {
       timers.delete(repoId)
-      invalidateRepoGitCaches(queryClient, repoId, { invalidateRepoListStatus: true })
+      invalidateRepoGitCaches(queryClient, repoId, {
+        invalidateRepoListStatus: true,
+      })
     }, delayMs),
   )
 }
@@ -208,9 +214,7 @@ export function invalidateSessionCaches(queryClient: QueryClient) {
   queryClient.invalidateQueries({
     predicate: (query) =>
       query.queryKey[0] === 'opencode' &&
-      (query.queryKey[1] === 'sessions' ||
-        query.queryKey[1] === 'session' ||
-        query.queryKey[1] === 'transcript'),
+      (query.queryKey[1] === 'sessions' || query.queryKey[1] === 'session' || query.queryKey[1] === 'transcript'),
   })
 }
 
@@ -228,8 +232,7 @@ export function activeWorkSessionsQueryKey(serverId: string): readonly unknown[]
 
 export function invalidateSessionListCaches(queryClient: QueryClient) {
   queryClient.invalidateQueries({
-    predicate: (query) =>
-      query.queryKey[0] === 'opencode' && SESSION_LIST_QUERY_GROUPS.has(String(query.queryKey[1])),
+    predicate: (query) => query.queryKey[0] === 'opencode' && SESSION_LIST_QUERY_GROUPS.has(String(query.queryKey[1])),
   })
 }
 
@@ -250,11 +253,7 @@ interface SessionListInvalidationState {
 
 const sessionListInvalidationStates = new WeakMap<QueryClient, Map<string, SessionListInvalidationState>>()
 
-function sessionListQueryMatchesDirectories(
-  queryKey: readonly unknown[],
-  directories: Set<string>,
-  serverId: string,
-) {
+function sessionListQueryMatchesDirectories(queryKey: readonly unknown[], directories: Set<string>, serverId: string) {
   if (queryKey[0] !== 'opencode') return false
   if (!SESSION_LIST_QUERY_GROUPS.has(String(queryKey[1]))) return false
   if (sessionListQueryServerId(queryKey) !== serverId) return false
@@ -264,11 +263,7 @@ function sessionListQueryMatchesDirectories(
   return directoryKey.split('|').some((directory) => directories.has(directory))
 }
 
-function flushSessionListInvalidation(
-  queryClient: QueryClient,
-  state: SessionListInvalidationState,
-  serverId: string,
-) {
+function flushSessionListInvalidation(queryClient: QueryClient, state: SessionListInvalidationState, serverId: string) {
   if (state.invalidateAll) {
     queryClient.invalidateQueries({
       predicate: (query) =>

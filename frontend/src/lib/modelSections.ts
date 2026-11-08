@@ -10,6 +10,7 @@ import {
   type Provider,
 } from '@/api/providers'
 import { compareCatalogModels, parseOpenCodeModelRef } from '@opencode-manager/shared/opencode'
+import { t } from '@/i18n/translate'
 
 export interface ModelOption {
   value: string
@@ -83,9 +84,9 @@ export function buildModelSections(
 
   const recentOptions = pinOptions(modelState?.recent)
   const sections: ModelSection[] = [
-    ...(defaultOption ? [{ key: 'default', title: 'Default', options: [defaultOption] }] : []),
-    { key: 'favorites', title: 'Favorites', icon: Star, options: favoriteOptions },
-    { key: 'recent', title: 'Recent', icon: Clock, options: recentOptions },
+    ...(defaultOption ? [{ key: 'default', title: t('Default'), options: [defaultOption] }] : []),
+    { key: 'favorites', title: t('Favorites'), icon: Star, options: favoriteOptions },
+    { key: 'recent', title: t('Recent'), icon: Clock, options: recentOptions },
     ...providerSections.map((section) => ({
       ...section,
       options: section.options.filter((option) => !pinnedValues.has(option.value)),
@@ -133,7 +134,7 @@ export function filterModelSections(sections: ModelSection[], query: string): Mo
     ...matches.filter((option) => !favoriteValues.has(option.value)),
   ]
   if (results.length === 0) return []
-  return [{ key: 'results', title: 'Results', options: results }]
+  return [{ key: 'results', title: t('Results'), options: results }]
 }
 
 export function toModelComboboxOptions(sections: ModelSection[], defaultRef?: string | null): ComboboxOption[] {
@@ -142,7 +143,7 @@ export function toModelComboboxOptions(sections: ModelSection[], defaultRef?: st
       const isDefault = defaultRef != null && option.value === defaultRef
       return {
         value: isDefault ? '' : option.value,
-        label: isDefault ? `Default: ${option.label}` : option.label,
+        label: isDefault ? t('Default: {name}', { name: option.label }) : option.label,
         description: isDefault ? undefined : option.value,
         group: section.title,
       }

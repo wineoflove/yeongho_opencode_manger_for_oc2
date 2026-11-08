@@ -20,21 +20,37 @@ describe('refreshOpenCodeServerCaches', () => {
     refreshOpenCodeServerCaches(queryClient)
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['health'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode-versions'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['opencode-versions'],
+    })
   })
 
   it('updates both OpenCode version caches when the new version is known', () => {
     const queryClient = new QueryClient()
-    queryClient.setQueryData(['health'], { opencodeVersion: '1.0.0', status: 'healthy' })
-    queryClient.setQueryData(['opencode-versions'], { currentVersion: '1.0.0', versions: [] })
+    queryClient.setQueryData(['health'], {
+      opencodeVersion: '1.0.0',
+      status: 'healthy',
+    })
+    queryClient.setQueryData(['opencode-versions'], {
+      currentVersion: '1.0.0',
+      versions: [],
+    })
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
 
     refreshOpenCodeServerCaches(queryClient, '1.0.1')
 
-    expect(queryClient.getQueryData(['health'])).toEqual({ opencodeVersion: '1.0.1', status: 'healthy' })
-    expect(queryClient.getQueryData(['opencode-versions'])).toEqual({ currentVersion: '1.0.1', versions: [] })
+    expect(queryClient.getQueryData(['health'])).toEqual({
+      opencodeVersion: '1.0.1',
+      status: 'healthy',
+    })
+    expect(queryClient.getQueryData(['opencode-versions'])).toEqual({
+      currentVersion: '1.0.1',
+      versions: [],
+    })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['health'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode-versions'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['opencode-versions'],
+    })
   })
 })
 
@@ -45,7 +61,9 @@ describe('invalidateConfigCaches', () => {
 
     invalidateConfigCaches(queryClient)
 
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode-config'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['opencode-config'],
+    })
   })
 
   it('skips the OpenCode config file cache while still invalidating dependents', () => {
@@ -54,8 +72,12 @@ describe('invalidateConfigCaches', () => {
 
     invalidateConfigCaches(queryClient, { skipOpenCodeConfig: true })
 
-    expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['opencode-config'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'config'] })
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ['opencode-config'],
+    })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['opencode', 'config'],
+    })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['health'] })
   })
 })
@@ -79,7 +101,10 @@ describe('invalidateRepoGitCaches', () => {
     invalidateRepoGitCaches(queryClient, 1, { invalidateRepoListStatus: true })
 
     expect(invalidateQueries).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['reposGitStatus'], predicate: expect.any(Function) }),
+      expect.objectContaining({
+        queryKey: ['reposGitStatus'],
+        predicate: expect.any(Function),
+      }),
     )
   })
 
@@ -124,17 +149,41 @@ describe('invalidateRepoGitCachesDebounced', () => {
 })
 
 describe('invalidateProviderCaches', () => {
+  it('marks cached account lists stale after provider authentication changes', async () => {
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(['provider-accounts', 'anthropic'], {
+      accounts: [],
+    })
+    queryClient.setQueryData(['provider-accounts', 'openai'], { accounts: [] })
+    try {
+      await invalidateProviderCaches(queryClient)
+      expect(queryClient.getQueryState(['provider-accounts', 'anthropic'])?.isInvalidated).toBe(true)
+      expect(queryClient.getQueryState(['provider-accounts', 'openai'])?.isInvalidated).toBe(true)
+    } finally {
+      queryClient.clear()
+    }
+  })
   it('invalidates only the provider query keys that have active queries', () => {
     const queryClient = new QueryClient()
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
 
     invalidateProviderCaches(queryClient)
 
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['provider-credentials'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['provider-auth-methods'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'providers'] })
-    expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['providers'] })
-    expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['providers-for-execution-model'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['provider-credentials'],
+    })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['provider-auth-methods'],
+    })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['opencode', 'providers'],
+    })
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ['providers'],
+    })
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ['providers-for-execution-model'],
+    })
   })
 })
 
@@ -156,8 +205,10 @@ describe('invalidateProviderCachesDebounced', () => {
 
     vi.advanceTimersByTime(200)
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(3)
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'providers'] })
+    expect(invalidateQueries).toHaveBeenCalledTimes(4)
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['opencode', 'providers'],
+    })
   })
 })
 
@@ -171,8 +222,14 @@ describe('invalidateSessionListCachesDebounced', () => {
   it('invalidates only the session lists that include the event directory', () => {
     vi.useFakeTimers()
     const queryClient = new QueryClient()
-    queryClient.setQueryData(sessionListKey('/a'), { pages: [], pageParams: [] })
-    queryClient.setQueryData(sessionListKey('/b'), { pages: [], pageParams: [] })
+    queryClient.setQueryData(sessionListKey('/a'), {
+      pages: [],
+      pageParams: [],
+    })
+    queryClient.setQueryData(sessionListKey('/b'), {
+      pages: [],
+      pageParams: [],
+    })
 
     invalidateSessionListCachesDebounced(queryClient, '/a')
     vi.advanceTimersByTime(200)
@@ -184,8 +241,14 @@ describe('invalidateSessionListCachesDebounced', () => {
   it('merges directories reported within the debounce window into one flush', () => {
     vi.useFakeTimers()
     const queryClient = new QueryClient()
-    queryClient.setQueryData(sessionListKey('/a|/b'), { pages: [], pageParams: [] })
-    queryClient.setQueryData(sessionListKey('/c'), { pages: [], pageParams: [] })
+    queryClient.setQueryData(sessionListKey('/a|/b'), {
+      pages: [],
+      pageParams: [],
+    })
+    queryClient.setQueryData(sessionListKey('/c'), {
+      pages: [],
+      pageParams: [],
+    })
 
     invalidateSessionListCachesDebounced(queryClient, '/a')
     invalidateSessionListCachesDebounced(queryClient, '/b')
@@ -198,8 +261,14 @@ describe('invalidateSessionListCachesDebounced', () => {
   it('invalidates every session list when called without a directory', () => {
     vi.useFakeTimers()
     const queryClient = new QueryClient()
-    queryClient.setQueryData(sessionListKey('/a'), { pages: [], pageParams: [] })
-    queryClient.setQueryData(sessionListKey('/b'), { pages: [], pageParams: [] })
+    queryClient.setQueryData(sessionListKey('/a'), {
+      pages: [],
+      pageParams: [],
+    })
+    queryClient.setQueryData(sessionListKey('/b'), {
+      pages: [],
+      pageParams: [],
+    })
 
     invalidateSessionListCachesDebounced(queryClient)
     vi.advanceTimersByTime(200)
@@ -212,7 +281,10 @@ describe('invalidateSessionListCachesDebounced', () => {
     vi.useFakeTimers()
     const queryClient = new QueryClient()
     const remoteListKey = ['opencode', 'sessions', '/repo', { allDirectories: true }, 'srv_a']
-    queryClient.setQueryData(sessionListKey('/repo'), { pages: [], pageParams: [] })
+    queryClient.setQueryData(sessionListKey('/repo'), {
+      pages: [],
+      pageParams: [],
+    })
     queryClient.setQueryData(remoteListKey, { pages: [], pageParams: [] })
 
     invalidateSessionListCachesDebounced(queryClient, '/repo', 'srv_a')
@@ -256,7 +328,11 @@ describe('invalidateQueryKeysDebounced', () => {
     vi.advanceTimersByTime(200)
 
     expect(invalidateQueries).toHaveBeenCalledTimes(2)
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode', 'config'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['opencode-config'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['opencode', 'config'],
+    })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['opencode-config'],
+    })
   })
 })

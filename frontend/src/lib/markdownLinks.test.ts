@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getLocalLinkPath, getWorkspaceFilePath, resolvePathFromFile, isExternalLink } from './markdownLinks'
+import { markdownUrlTransform } from './markdownRehypePlugins'
 
 const FROM = 'opencode-manager/ocm-link-test/index.md'
 
@@ -84,5 +85,25 @@ describe('isExternalLink', () => {
     expect(isExternalLink('http://example.com')).toBe(true)
     expect(isExternalLink('recaps/a.html')).toBe(false)
     expect(isExternalLink(undefined)).toBe(false)
+  })
+})
+
+describe('file URL links', () => {
+  it('returns the decoded absolute path of a host-less file URL', () => {
+    expect(getLocalLinkPath('file:///Users/me/repo/notes%20v2.md')).toBe('/Users/me/repo/notes v2.md')
+    expect(getLocalLinkPath('FILE:///tmp/report.md#section')).toBe('/tmp/report.md')
+  })
+
+  it('rejects remote-host and malformed file URLs', () => {
+    expect(getLocalLinkPath('file://server/share/report.md')).toBeNull()
+    expect(getLocalLinkPath('file:///bad%E0%A4%A.md')).toBeNull()
+  })
+
+  it('keeps file links through the markdown URL transform but still strips other unsafe schemes', () => {
+    const node = { type: 'element', tagName: 'a', properties: {}, children: [] } as Parameters<typeof markdownUrlTransform>[2]
+    expect(markdownUrlTransform('file:///tmp/report.md', 'href', node)).toBe('file:///tmp/report.md')
+    expect(markdownUrlTransform('file://server/share.md', 'href', node)).toBe('')
+    expect(markdownUrlTransform('javascript:alert(1)', 'href', node)).toBe('')
+    expect(markdownUrlTransform('file:///tmp/image.png', 'src', node)).toBe('')
   })
 })

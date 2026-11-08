@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionMessageAssistant, SessionMessageAssistantTool } from '@opencode-manager/shared/opencode'
-import { explorationFailureCount, explorationLabel, groupExplorationParts } from './explorationGroups'
+import { afterEach } from 'vitest'
+import { explorationElapsedMs, explorationFailureCount, explorationLabel, groupExplorationParts } from './explorationGroups'
+import { setLocale } from '@/i18n/locale'
 
 const tool = (id: string, name: string, status: 'completed' | 'running' = 'completed'): SessionMessageAssistantTool =>
   status === 'completed'
@@ -19,18 +21,32 @@ const text = (value: string): SessionMessageAssistant['content'][number] => ({ t
 const reasoning = (value: string): SessionMessageAssistant['content'][number] => ({ type: 'reasoning', text: value })
 
 describe('groupExplorationParts', () => {
-  it('collapses consecutive exploration tools and breaks runs on visible non-exploration parts', () => {
+  it('collapses consecutive tool calls, including commands and edits, and breaks runs on visible text', () => {
     const items = groupExplorationParts(
-      [tool('a', 'read'), tool('b', 'grep'), text('found it'), tool('c', 'read'), tool('d', 'shell'), tool('e', 'glob')],
+      [tool('a', 'read'), tool('b', 'grep'), text('found it'), tool('c', 'read'), tool('d', 'shell'), tool('e', 'edit')],
       false,
     )
     expect(items.map((item) => (item.type === 'exploration' ? item.parts.map((part) => part.id) : item.part.type))).toEqual([
       ['a', 'b'],
       'text',
-      ['c'],
-      'tool',
-      ['e'],
+      ['c', 'd', 'e'],
     ])
+  })
+
+  it('keeps a lone command or edit inline but groups a lone exploration call', () => {
+    const items = groupExplorationParts([tool('a', 'shell'), text('then'), tool('b', 'read'), text('and'), tool('c', 'write')], false)
+    expect(items.map((item) => (item.type === 'exploration' ? 'group' : item.part.type))).toEqual([
+      'tool',
+      'text',
+      'group',
+      'text',
+      'tool',
+    ])
+  })
+
+  it('never groups subagent or other tools outside the activity set', () => {
+    const items = groupExplorationParts([tool('a', 'read'), tool('b', 'subagent'), tool('c', 'read')], false)
+    expect(items.map((item) => item.type)).toEqual(['exploration', 'part', 'exploration'])
   })
 
   it('does not let hidden reasoning or blank text split a run', () => {
@@ -72,5 +88,34 @@ describe('explorationFailureCount', () => {
   it('counts only errored members', () => {
     expect(explorationFailureCount([tool('a', 'read'), failedTool('b', 'read'), failedTool('c', 'glob')])).toBe(2)
     expect(explorationFailureCount([tool('a', 'read')])).toBe(0)
+  })
+})
+
+describe('mixed activity labels', () => {
+  afterEach(() => {
+    setLocale('en')
+  })
+
+  it('labels runs that include commands or edits as work with per-category counts', () => {
+    expect(explorationLabel([tool('a', 'read'), tool('b', 'shell'), tool('c', 'edit'), tool('d', 'write')])).toBe(
+      'Worked: 1 read, 1 command, 2 edits',
+    )
+    expect(explorationLabel([tool('a', 'shell'), tool('b', 'shell', 'running')])).toBe('Working: 2 commands')
+  })
+
+  it('localizes headings and category counts in Korean', () => {
+    setLocale('ko')
+    expect(explorationLabel([tool('a', 'read'), tool('b', 'read'), tool('c', 'grep')])).toBe('탐색함: 읽기 2, 검색 1')
+    expect(explorationLabel([tool('a', 'shell'), tool('b', 'edit', 'running')])).toBe('작업 중: 명령 1, 수정 1')
+  })
+})
+
+describe('explorationElapsedMs', () => {
+  it('spans first creation to last completion, or to now while a call is open', () => {
+    const first = { ...tool('a', 'read'), time: { created: 1_000, ran: 1_000, completed: 3_000 } }
+    const second = { ...tool('b', 'shell'), time: { created: 2_000, ran: 2_000, completed: 9_000 } }
+    expect(explorationElapsedMs([first, second], 50_000)).toBe(8_000)
+    const open = { ...tool('c', 'shell', 'running'), time: { created: 4_000, ran: 4_000 } }
+    expect(explorationElapsedMs([first, open], 10_000)).toBe(9_000)
   })
 })

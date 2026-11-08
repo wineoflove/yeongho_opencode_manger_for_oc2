@@ -8,6 +8,7 @@ import {
   getOriginOnlyBranchNames,
   shortenPath,
 } from './utils'
+import { getLocale, setLocale } from '@/i18n/locale'
 
 describe('shortenPath', () => {
   it('keeps short paths and collapses the leading segments of long ones', () => {
@@ -258,5 +259,20 @@ describe('formatShortRelativeTime', () => {
     expect(formatShortRelativeTime(at(2 * 24 * 60 * 60_000), now)).toBe('2d ago')
     expect(formatShortRelativeTime(at(14 * 24 * 60 * 60_000), now)).toBe('2w ago')
     expect(formatShortRelativeTime(at(60 * 24 * 60 * 60_000), now)).toBe('2mo ago')
+  })
+
+  it('formats each threshold in Korean', () => {
+    const previous = getLocale()
+    setLocale('ko')
+    try {
+      expect(formatShortRelativeTime(at(30_000), now)).toBe('방금')
+      expect(formatShortRelativeTime(at(5 * 60_000), now)).toBe('5분 전')
+      expect(formatShortRelativeTime(at(3 * 60 * 60_000), now)).toBe('3시간 전')
+      expect(formatShortRelativeTime(at(2 * 24 * 60 * 60_000), now)).toBe('2일 전')
+      expect(formatShortRelativeTime(at(14 * 24 * 60 * 60_000), now)).toBe('2주 전')
+      expect(formatShortRelativeTime(at(60 * 24 * 60 * 60_000), now)).toBe('2개월 전')
+    } finally {
+      setLocale(previous)
+    }
   })
 })

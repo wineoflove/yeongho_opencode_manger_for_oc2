@@ -1,10 +1,24 @@
 const URL_SCHEME = /^[a-z][a-z\d+.-]*:/i
+const FILE_URL = /^file:/i
+
+/** Decoded absolute path of a host-less `file:` URL, or null for remote hosts, relative paths and malformed URLs. */
+export function getFileUrlPath(href: string): string | null {
+  try {
+    const url = new URL(href)
+    if (url.protocol !== 'file:' || url.hostname || !url.pathname.startsWith('/')) return null
+    return decodeURIComponent(url.pathname).replace(/(.)\/+$/, '$1')
+  } catch {
+    return null
+  }
+}
 
 /**
  * Extracts the local file path a markdown link points at, decoded and without query or fragment.
- * Returns null for anchors, protocol-relative URLs, links with a URL scheme, and malformed encodings.
+ * Host-less `file:` URLs yield their absolute path. Returns null for anchors, protocol-relative URLs, links with any
+ * other URL scheme, and malformed encodings.
  */
 export function getLocalLinkPath(href: string | undefined): string | null {
+  if (href && FILE_URL.test(href)) return getFileUrlPath(href)
   if (!href || href.startsWith('#') || href.startsWith('//') || URL_SCHEME.test(href)) {
     return null
   }

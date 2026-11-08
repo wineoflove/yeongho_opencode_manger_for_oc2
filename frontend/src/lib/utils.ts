@@ -3,8 +3,14 @@ import { twMerge } from "tailwind-merge"
 import type { CSSProperties } from "react"
 import type { Repo } from "@/api/types"
 import type { GitBranch } from "@/api/repos"
+import { ASSISTANT_REPO_ID, getRepoDisplayName as getSharedRepoDisplayName } from '@opencode-manager/shared/utils'
+import { t } from '@/i18n/translate'
 
-export { getRepoDisplayName } from '@opencode-manager/shared/utils'
+/** Returns the repository name shown in the UI, translating the built-in assistant entry. */
+export function getRepoDisplayName(repo: Parameters<typeof getSharedRepoDisplayName>[0]): string {
+  const name = getSharedRepoDisplayName(repo)
+  return repo.id === ASSISTANT_REPO_ID ? t(name) : name
+}
 
 export function getRepoBranchLabel(repo: Pick<Repo, 'currentBranch' | 'branch'>): string | null {
   return repo.currentBranch || repo.branch || null
@@ -74,12 +80,12 @@ export function formatShortRelativeTime(date: Date, now: Date = new Date()): str
   const diffWeeks = Math.floor(diffDays / 7)
   const diffMonths = Math.floor(diffDays / 30)
 
-  if (diffSeconds < 60) return 'just now'
-  if (diffMinutes < 60) return `${diffMinutes}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  if (diffWeeks < 4) return `${diffWeeks}w ago`
-  return `${diffMonths}mo ago`
+  if (diffSeconds < 60) return t('just now')
+  if (diffMinutes < 60) return t('{count}m ago', { count: diffMinutes })
+  if (diffHours < 24) return t('{count}h ago', { count: diffHours })
+  if (diffDays < 7) return t('{count}d ago', { count: diffDays })
+  if (diffWeeks < 4) return t('{count}w ago', { count: diffWeeks })
+  return t('{count}mo ago', { count: diffMonths })
 }
 
 export const GPU_ACCELERATED_STYLE: CSSProperties = {
