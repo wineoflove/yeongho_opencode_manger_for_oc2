@@ -7,6 +7,7 @@ import { parseNetworkError } from '@/lib/opencode-errors'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { t } from '@/i18n/translate'
 
 interface OpenDirectoryDialogProps {
   serverId: string
@@ -50,15 +51,15 @@ export function OpenDirectoryDialog({ serverId, open, onOpenChange }: OpenDirect
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Open directory</DialogTitle>
+          <DialogTitle>{t('Open directory')}</DialogTitle>
           <DialogDescription>
-            Start a session in an absolute path on the linked server.
+            {t('Start a session in an absolute path on the linked server.')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="open-directory-path" className="text-sm font-medium">
-              Directory
+              {t('Directory')}
             </label>
             <Input
               id="open-directory-path"
@@ -85,7 +86,7 @@ export function OpenDirectoryDialog({ serverId, open, onOpenChange }: OpenDirect
               onClick={() => onOpenChange(false)}
               disabled={createSession.isPending}
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button type="submit" disabled={!canSubmit}>
               {createSession.isPending ? (
@@ -93,7 +94,7 @@ export function OpenDirectoryDialog({ serverId, open, onOpenChange }: OpenDirect
               ) : (
                 <Plus className="mr-1 h-4 w-4" />
               )}
-              Start session
+              {t('Start session')}
             </Button>
           </div>
         </form>

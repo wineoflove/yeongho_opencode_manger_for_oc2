@@ -14,6 +14,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { RemoteSchedulesDialog } from '@/components/schedules/RemoteSchedulesButton'
 import { RemoteMultiRun } from '@/components/repo/RemoteMultiRunButton'
+import { t } from '@/i18n/translate'
 
 interface RemoteProjectRowActionsProps {
   serverId: string
@@ -80,11 +81,11 @@ export function RemoteProjectRowActions({ serverId, directory }: RemoteProjectRo
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              aria-label="Project actions"
+              aria-label={t('Project actions')}
               size="sm"
               variant="ghost"
               className="h-8 w-8 p-0"
-              title="Project actions"
+              title={t('Project actions')}
               onClick={(event) => event.stopPropagation()}
             >
               <MoreVertical className="w-4 h-4" />
@@ -107,15 +108,15 @@ export function RemoteProjectRowActions({ serverId, directory }: RemoteProjectRo
               ) : (
                 <Plus className="w-4 h-4 mr-2" />
               )}
-              New session
+              {t('New session')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setSchedulesOpen(true)}>
               <CalendarClock className="w-4 h-4 mr-2" />
-              Schedules
+              {t('Schedules')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleMultiRunOpen}>
               <Layers className="w-4 h-4 mr-2" />
-              Multi-run
+              {t('Multi-run')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -123,7 +124,7 @@ export function RemoteProjectRowActions({ serverId, directory }: RemoteProjectRo
         <TooltipProvider delayDuration={200}>
           <div className="flex items-center gap-1">
             <ProjectActionButton
-              label="New session"
+              label={t('New session')}
               onClick={() => {
                 void handleNewSession()
               }}
@@ -131,10 +132,10 @@ export function RemoteProjectRowActions({ serverId, directory }: RemoteProjectRo
             >
               {createSession.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </ProjectActionButton>
-            <ProjectActionButton label="Schedules" onClick={() => setSchedulesOpen(true)}>
+            <ProjectActionButton label={t('Schedules')} onClick={() => setSchedulesOpen(true)}>
               <CalendarClock className="w-4 h-4" />
             </ProjectActionButton>
-            <ProjectActionButton label="Multi-run" onClick={handleMultiRunOpen}>
+            <ProjectActionButton label={t('Multi-run')} onClick={handleMultiRunOpen}>
               <Layers className="w-4 h-4" />
             </ProjectActionButton>
           </div>

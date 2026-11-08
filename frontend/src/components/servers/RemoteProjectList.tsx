@@ -19,6 +19,7 @@ import { RemoteProjectRowActions } from '@/components/servers/RemoteProjectRowAc
 import { RepoCardShell } from '@/components/repo/RepoCardShell'
 import { RepoCardSkeleton } from '@/components/repo/RepoCardSkeleton'
 import { RepoSearchInput } from '@/components/repo/RepoSearchInput'
+import { t } from '@/i18n/translate'
 
 interface RemoteProjectCardProps {
   project: OpenCodeProject
@@ -57,8 +58,8 @@ function OpenDirectoryTrigger({ onClick }: { onClick: () => void }) {
     <Button
       variant="ghost"
       size="icon"
-      aria-label="Open directory"
-      title="Open directory"
+      aria-label={t('Open directory')}
+      title={t('Open directory')}
       className="h-9 w-9 shrink-0"
       onClick={onClick}
     >
@@ -123,9 +124,9 @@ function RemoteProjectListContent({ serverId }: { serverId: string }) {
       {!serversLoading && !serversUnavailable && !server ? (
         <LinkedServerStateCard
           icon={Server}
-          title="Server not found"
-          description="This linked server is no longer configured."
-          actionLabel="Open server settings"
+          title={t('Server not found')}
+          description={t('This linked server is no longer configured.')}
+          actionLabel={t('Open server settings')}
           onAction={openSettings}
         />
       ) : null}
@@ -135,9 +136,9 @@ function RemoteProjectListContent({ serverId }: { serverId: string }) {
       {isDisabled ? (
         <LinkedServerStateCard
           icon={Server}
-          title="This server is disabled"
-          description="Enable it in Settings → Servers to browse its projects and sessions."
-          actionLabel="Open server settings"
+          title={t('This server is disabled')}
+          description={t('Enable it in Settings → Servers to browse its projects and sessions.')}
+          actionLabel={t('Open server settings')}
           onAction={openSettings}
         />
       ) : null}
@@ -146,13 +147,13 @@ function RemoteProjectListContent({ serverId }: { serverId: string }) {
         <Card className="flex flex-col items-center gap-3 p-6 text-center">
           <Server className="h-8 w-8 text-muted-foreground" />
           <div>
-            <p className="font-medium">Could not load projects</p>
+            <p className="font-medium">{t('Could not load projects')}</p>
             <p className="text-sm text-muted-foreground">
-              {error instanceof Error ? error.message : 'The server did not respond.'}
+              {error instanceof Error ? error.message : t('The server did not respond.')}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            Retry
+            {t('Retry')}
           </Button>
         </Card>
       ) : null}
@@ -163,9 +164,9 @@ function RemoteProjectListContent({ serverId }: { serverId: string }) {
         ) : projects.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-12 text-center">
             <FolderGit2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="font-medium">No projects on this server yet</p>
+            <p className="font-medium">{t('No projects on this server yet')}</p>
             <p className="text-sm text-muted-foreground">
-              Start a session in a directory to create one.
+              {t('Start a session in a directory to create one.')}
             </p>
             <div className="mt-4">
               <OpenDirectoryTrigger onClick={() => setOpenDirectoryOpen(true)} />
@@ -177,7 +178,7 @@ function RemoteProjectListContent({ serverId }: { serverId: string }) {
               <RepoSearchInput
                 value={searchQuery}
                 onValueChange={setSearchQuery}
-                placeholder="Search projects..."
+                placeholder={t('Search projects...')}
                 name="remote-project-search"
               />
               <OpenDirectoryTrigger onClick={() => setOpenDirectoryOpen(true)} />
@@ -188,7 +189,7 @@ function RemoteProjectListContent({ serverId }: { serverId: string }) {
                   <div className="text-center p-12">
                     <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                     <p className="text-muted-foreground">
-                      No projects found matching "{searchQuery}"
+                      {t('No projects found matching "{query}"', { query: searchQuery })}
                     </p>
                   </div>
                 ) : (
