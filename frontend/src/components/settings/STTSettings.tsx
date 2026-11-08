@@ -14,6 +14,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Combobox } from '@/components/ui/combobox'
 import { DEFAULT_STT_CONFIG } from '@/api/types/settings'
 import { VOICE_PAUSE_OPTIONS_MS, formatVoicePauseMs } from '@opencode-manager/shared/opencode'
+import { t } from '@/i18n/translate'
+import { RepoErrorText } from '@/components/repo/RepoErrorText'
 
 const sttFormSchema = z.object({
   enabled: z.boolean(),
@@ -30,7 +32,7 @@ const sttFormSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['endpoint'],
-        message: 'Endpoint is required for external provider',
+        message: t('Endpoint is required for external provider'),
       })
     }
   }
@@ -188,19 +190,19 @@ export function STTSettings() {
   return (
     <div className="bg-card border border-border rounded-lg p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-foreground">Speech-to-Text</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t('Speech-to-Text')}</h2>
         <div className="flex items-center gap-2 text-sm">
           {saveStatus === 'saved' && (
             <>
               <CheckCircle2 className="h-4 w-4 text-success" />
-              <span className="text-success">Saved</span>
+              <span className="text-success">{t('Saved')}</span>
             </>
           )}
           {saveStatus === 'idle' && isDirty && isValid && (
-            <span className="text-warning">Unsaved changes</span>
+            <span className="text-warning">{t('Unsaved changes')}</span>
           )}
           {saveStatus === 'idle' && !isDirty && (
-            <span className="text-muted-foreground">All changes saved</span>
+            <span className="text-muted-foreground">{t('All changes saved')}</span>
           )}
         </div>
       </div>
@@ -213,9 +215,9 @@ export function STTSettings() {
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-4">
                 <div className="space-y-0.5">
-                  <FormLabel className="text-base">Enable STT</FormLabel>
+                  <FormLabel className="text-base">{t('Enable STT')}</FormLabel>
                   <FormDescription>
-                    Allow speech-to-text input for voice messages
+                    {t('Allow speech-to-text input for voice messages')}
                   </FormDescription>
                 </div>
                 <FormControl>
@@ -237,23 +239,23 @@ export function STTSettings() {
                 name="provider"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Provider</FormLabel>
+                    <FormLabel>{t('Provider')}</FormLabel>
                     <FormControl>
                       <Combobox
                         value={field.value}
                         onChange={field.onChange}
                         options={[
-                          ...(isWebSpeechAvailable ? [{ value: 'builtin', label: 'Built-in Browser' }] : []),
-                          { value: 'external', label: 'External API (OpenAI Whisper)' },
+                          ...(isWebSpeechAvailable ? [{ value: 'builtin', label: t('Built-in Browser') }] : []),
+                          { value: 'external', label: t('External API (OpenAI Whisper)') },
                         ]}
-                        placeholder="Select provider..."
+                        placeholder={t('Select provider...')}
                         allowCustomValue={false}
                       />
                     </FormControl>
                     <FormDescription>
                       {watchProvider === 'builtin' 
-                        ? "Uses browser's built-in speech recognition (free, requires Chrome/Safari/Edge)"
-                        : "Uses OpenAI Whisper API or compatible endpoint (requires API key)"
+                        ? t("Uses browser's built-in speech recognition (free, requires Chrome/Safari/Edge)")
+                        : t('Uses OpenAI Whisper API or compatible endpoint (requires API key)')
                       }
                     </FormDescription>
                     <FormMessage />
@@ -268,7 +270,7 @@ export function STTSettings() {
                     name="endpoint"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>API Endpoint</FormLabel>
+                        <FormLabel>{t('API Endpoint')}</FormLabel>
                         <FormControl>
                           <input
                             type="text"
@@ -278,7 +280,7 @@ export function STTSettings() {
                           />
                         </FormControl>
                         <FormDescription>
-                          Base URL for the Whisper-compatible API (e.g., OpenAI, local Whisper server)
+                          {t('Base URL for the Whisper-compatible API (e.g., OpenAI, local Whisper server)')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -290,7 +292,7 @@ export function STTSettings() {
                     name="apiKey"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>API Key</FormLabel>
+                        <FormLabel>{t('API Key')}</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <input
@@ -309,7 +311,7 @@ export function STTSettings() {
                           </div>
                         </FormControl>
                         <FormDescription>
-                          Your API key for the speech-to-text service (optional for some servers)
+                          {t('Your API key for the speech-to-text service (optional for some servers)')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -322,7 +324,7 @@ export function STTSettings() {
                     render={({ field }) => (
                       <FormItem>
                         <div className="flex items-center justify-between">
-                          <FormLabel>Model</FormLabel>
+                          <FormLabel>{t('Model')}</FormLabel>
                           <button
                             type="button"
                             onClick={() => fetchModels(true)}
@@ -330,7 +332,7 @@ export function STTSettings() {
                             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 disabled:opacity-50"
                           >
                             <RefreshCw className={`h-3 w-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
-                            Refresh
+                            {t('Refresh')}
                           </button>
                         </div>
                         <FormControl>
@@ -341,13 +343,13 @@ export function STTSettings() {
                               value: model,
                               label: model,
                             }))}
-                            placeholder="Select model..."
+                            placeholder={t('Select model...')}
                             disabled={isLoadingModels}
                             allowCustomValue={true}
                           />
                         </FormControl>
                         <FormDescription>
-                          The speech-to-text model to use (e.g., whisper-1)
+                          {t('The speech-to-text model to use (e.g., whisper-1)')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -363,7 +365,7 @@ export function STTSettings() {
                     name="language"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Language</FormLabel>
+                        <FormLabel>{t('Language')}</FormLabel>
                         <FormControl>
                           <Combobox
                             value={field.value}
@@ -372,13 +374,13 @@ export function STTSettings() {
                               value: lang,
                               label: lang.replace('-', ' - ')
                             }))}
-                            placeholder="Select language..."
+                            placeholder={t('Select language...')}
                             disabled={!isWebSpeechAvailable}
                             allowCustomValue={false}
                           />
                         </FormControl>
                         <FormDescription>
-                          Select the language for speech recognition
+                          {t('Select the language for speech recognition')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -386,17 +388,17 @@ export function STTSettings() {
                   />
 
                   <FormItem>
-                    <Label>Pause before sending</Label>
+                    <Label>{t('Pause before sending')}</Label>
                     <Combobox
                       value={String(pauseMs)}
                       onChange={(value) => setPauseMs(Number(value))}
                       options={voicePauseOptions}
-                      placeholder="Select pause..."
+                      placeholder={t('Select pause...')}
                       allowCustomValue={false}
-                      ariaLabel="Pause before sending"
+                      ariaLabel={t('Pause before sending')}
                     />
                     <p className="text-sm text-muted-foreground">
-                      Voice conversation sends after this much silence. Uses your browser's speech recognition; other providers send when you tap.
+                      {t("Voice conversation sends after this much silence. Uses your browser's speech recognition; other providers send when you tap.")}
                     </p>
                   </FormItem>
                 </>
@@ -406,33 +408,33 @@ export function STTSettings() {
                 <div className="rounded-lg bg-warning/10 border border-warning/20 p-4">
                   <div className="text-sm text-warning flex items-start gap-2">
                     <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <div>{sttError}</div>
+                    <div><RepoErrorText message={sttError} /></div>
                   </div>
                 </div>
               )}
 
               <div className="flex flex-row items-center justify-between rounded-lg border border-border p-4">
                 <div className="space-y-0.5 flex-1 mr-4">
-                  <div className="text-base font-medium">Test STT</div>
+                  <div className="text-base font-medium">{t('Test STT')}</div>
                   <p className="text-sm text-muted-foreground">
                     {watchProvider === 'external' 
-                      ? 'Record audio, then click Stop to transcribe'
-                      : 'Verify your speech recognition is working'
+                      ? t('Record audio, then click Stop to transcribe')
+                      : t('Verify your speech recognition is working')
                     }
                   </p>
                   {(isTesting || isProcessing) && (
                     <div className="mt-2 p-2 bg-muted rounded max-h-24 overflow-y-auto">
-                      <p className="text-sm">{testTranscript || (isProcessing ? 'Processing...' : 'Listening...')}</p>
+                      <p className="text-sm">{testTranscript || (isProcessing ? t('Processing...') : t('Listening...'))}</p>
                       {isRecording && (
                         <div className="flex items-center gap-1 mt-1">
                           <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                          <span className="text-xs text-muted-foreground">Recording...</span>
+                          <span className="text-xs text-muted-foreground">{t('Recording...')}</span>
                         </div>
                       )}
                       {isProcessing && !isRecording && (
                         <div className="flex items-center gap-1 mt-1">
                           <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                          <span className="text-xs text-muted-foreground">Transcribing...</span>
+                          <span className="text-xs text-muted-foreground">{t('Transcribing...')}</span>
                         </div>
                       )}
                     </div>
@@ -441,7 +443,7 @@ export function STTSettings() {
                     <div className="mt-2 p-2 bg-success/10 border border-success/20 rounded max-h-24 overflow-y-auto">
                       <div className="flex items-center gap-1 mb-1">
                         <CheckCircle2 className="h-3 w-3 text-success" />
-                        <span className="text-xs font-medium text-success">Test successful</span>
+                        <span className="text-xs font-medium text-success">{t('Test successful')}</span>
                       </div>
                       <p className="text-sm text-success">{testTranscript}</p>
                     </div>
@@ -450,7 +452,7 @@ export function STTSettings() {
                     <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded">
                       <div className="flex items-center gap-1">
                         <XCircle className="h-3 w-3 text-destructive" />
-                        <span className="text-xs font-medium text-destructive">Test failed - {sttError || 'no speech detected'}</span>
+                        <span className="text-xs font-medium text-destructive">{t('Test failed - {reason}', { reason: sttError || t('no speech detected') })}</span>
                       </div>
                     </div>
                   )}
@@ -472,17 +474,17 @@ export function STTSettings() {
                   {isRecording ? (
                     <>
                       <MicOff className="w-4 h-4" />
-                      Stop
+                      {t('Stop')}
                     </>
                   ) : isProcessing ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Processing
+                      {t('Processing')}
                     </>
                   ) : (
                     <>
                       <Mic className="w-4 h-4" />
-                      Test
+                      {t('Test')}
                     </>
                   )}
                 </button>

@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '@/config'
 import { fetchWrapper, FetchError } from './fetchWrapper'
+import { t } from '@/i18n/translate'
 
 export interface STTModelsResponse {
   models: string[]
@@ -35,19 +36,19 @@ export const sttApi = {
     })
   },
 
-  transcribe: async (
-    audioBlob: Blob,
-    userId = 'default',
-    signal?: AbortSignal
-  ): Promise<STTTranscribeResponse> => {
+  transcribe: async (audioBlob: Blob, userId = 'default', signal?: AbortSignal): Promise<STTTranscribeResponse> => {
     const formData = new FormData()
 
     const type = audioBlob.type
-    const extension =
-      type.includes('wav') ? 'wav' :
-      type.includes('webm') ? 'webm' :
-      type.includes('ogg') ? 'ogg' :
-      type.includes('mp4') ? 'm4a' : 'wav'
+    const extension = type.includes('wav')
+      ? 'wav'
+      : type.includes('webm')
+        ? 'webm'
+        : type.includes('ogg')
+          ? 'ogg'
+          : type.includes('mp4')
+            ? 'm4a'
+            : 'wav'
     formData.append('audio', audioBlob, `recording.${extension}`)
 
     const urlObj = new URL(`${API_BASE_URL}/api/stt/transcribe`, window.location.origin)
@@ -77,8 +78,8 @@ export const sttApi = {
       signal?.removeEventListener('abort', onAbort)
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Transcription failed' }))
-        throw new FetchError(data.error || 'Transcription failed', response.status)
+        const data = await response.json().catch(() => ({ error: t('Transcription failed') }))
+        throw new FetchError(data.error || t('Transcription failed'), response.status)
       }
 
       return response.json()
@@ -86,11 +87,11 @@ export const sttApi = {
       clearTimeout(timeoutId)
       signal?.removeEventListener('abort', onAbort)
 
-      if (error instanceof Error && error.name === 'AbortError') {
+      if ((error instanceof Error || error instanceof DOMException) && error.name === 'AbortError') {
         if (signal?.aborted && !timeoutFired) {
-          throw new FetchError('Transcription canceled', 499, 'CANCELED')
+          throw new FetchError(t('Transcription canceled'), 499, 'CANCELED')
         }
-        throw new FetchError('Transcription timeout', 408, 'TIMEOUT')
+        throw new FetchError(t('Transcription timeout'), 408, 'TIMEOUT')
       }
       throw error
     }

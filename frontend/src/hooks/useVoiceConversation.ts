@@ -22,15 +22,12 @@ import type {
   VoiceSessionStatus,
   VoiceSpokenMessage,
 } from '@opencode-manager/shared/opencode'
-import {
-  listSessionInstructionKeys,
-  putSessionInstruction,
-  removeSessionInstruction,
-} from '@/api/opencode'
+import { listSessionInstructionKeys, putSessionInstruction, removeSessionInstruction } from '@/api/opencode'
 import { useSTT } from '@/hooks/useSTT'
 import { useTTS } from '@/hooks/useTTS'
 import { sanitizeForTTS } from '@/lib/utils'
 import type { SttEndOfSpeechReason } from '@/lib/webSpeechRecognizer'
+import { msg, t } from '@/i18n/translate'
 
 /** Everything the voice conversation loop needs from the view that owns it. */
 export interface UseVoiceConversationInput {
@@ -111,11 +108,11 @@ interface TimeoutRef {
   current: ReturnType<typeof setTimeout> | null
 }
 
-const STT_UNAVAILABLE_NOTICE = 'Turn on speech-to-text in Voice settings'
+const STT_UNAVAILABLE_NOTICE = msg('Turn on speech-to-text in Voice settings')
 
-const VOICE_INSTRUCTIONS_NOTICE = 'Replies may include code and paths'
+const VOICE_INSTRUCTIONS_NOTICE = msg('Replies may include code and paths')
 
-const TURN_NOT_DELIVERED_MESSAGE = "The message didn't reach the session"
+const TURN_NOT_DELIVERED_MESSAGE = msg("The message didn't reach the session")
 
 const TURN_NOT_DELIVERED_TIMEOUT_MS = 3000
 
@@ -127,11 +124,11 @@ const SPEAKING_WATCHDOG_PER_CHARACTER_MS = 80
 
 const SPEAKING_WATCHDOG_MAX_MS = 180_000
 
-const SPEAKING_STALLED_MESSAGE = 'Reading the reply stopped responding'
+const SPEAKING_STALLED_MESSAGE = msg('Reading the reply stopped responding')
 
-const REPLY_READ_FAILED_MESSAGE = 'Reading the reply failed'
+const REPLY_READ_FAILED_MESSAGE = msg('Reading the reply failed')
 
-const STT_FAILED_MESSAGE = 'Speech recognition failed'
+const STT_FAILED_MESSAGE = msg('Speech recognition failed')
 
 const LISTENING_MAX_TURN_MS = 120_000
 
@@ -140,13 +137,13 @@ const STT_STOP_TIMEOUT_MS = 10_000
 const STT_PLACEHOLDERS = ['Recording...', 'Processing...']
 
 const ORB_LABELS: Record<VoicePhase, string> = {
-  off: 'Voice conversation',
-  listening: 'Send now',
-  sending: 'Sending',
-  working: 'Add a message',
-  speaking: 'Skip reply',
-  recording: 'Send to queue',
-  paused: 'Resume voice conversation',
+  off: msg('Voice conversation'),
+  listening: msg('Send now'),
+  sending: msg('Sending'),
+  working: msg('Add a message'),
+  speaking: msg('Skip reply'),
+  recording: msg('Send to queue'),
+  paused: msg('Resume voice conversation'),
 }
 
 /**
@@ -206,7 +203,7 @@ function capturedWords(text: string): string {
  * @returns The error message, or a generic fallback.
  */
 function errorMessage(error: unknown): string {
-  return error instanceof Error && error.message ? error.message : 'The turn could not be sent'
+  return error instanceof Error && error.message ? error.message : t('The turn could not be sent')
 }
 
 /**
@@ -252,14 +249,10 @@ function removeVoiceInstructionAfterInstall(
  * @param hasHeldReading Whether the conversation is paused mid-reply.
  * @returns The accessibility label for the orb.
  */
-function orbLabelFor(
-  phase: VoicePhase,
-  canStopAgent: boolean,
-  hasHeldReading: boolean,
-): string {
-  if (phase === 'speaking') return canStopAgent ? 'Add a message' : ORB_LABELS.speaking
-  if (phase === 'paused') return hasHeldReading ? 'Continue reading' : ORB_LABELS.paused
-  return ORB_LABELS[phase]
+function orbLabelFor(phase: VoicePhase, canStopAgent: boolean, hasHeldReading: boolean): string {
+  if (phase === 'speaking') return canStopAgent ? t('Add a message') : t(ORB_LABELS.speaking)
+  if (phase === 'paused') return hasHeldReading ? t('Continue reading') : t(ORB_LABELS.paused)
+  return t(ORB_LABELS[phase])
 }
 
 /**
@@ -277,9 +270,7 @@ function orbLabelFor(
  * turn controls owned by the caller.
  * @returns The conversation state, its status, its orb labels and the controls for it.
  */
-export function useVoiceConversation(
-  input: UseVoiceConversationInput,
-): VoiceConversationController {
+export function useVoiceConversation(input: UseVoiceConversationInput): VoiceConversationController {
   const {
     sessionID,
     serverId,
@@ -295,10 +286,7 @@ export function useVoiceConversation(
   const tts = useTTS()
   const stt = useSTT()
 
-  const [state, dispatch] = useReducer(
-    reduceVoiceConversation,
-    INITIAL_VOICE_CONVERSATION_STATE,
-  )
+  const [state, dispatch] = useReducer(reduceVoiceConversation, INITIAL_VOICE_CONVERSATION_STATE)
   const [playbackHeld, setPlaybackHeld] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -405,21 +393,18 @@ export function useVoiceConversation(
     return capturedWords(sttRef.current?.transcript ?? '')
   }, [waitForCaptureSettled])
 
-  const handleEndOfSpeech = useCallback(
-    (reason: SttEndOfSpeechReason, finalText: string) => {
-      if (exitInFlightRef.current) return
-      const phase = phaseRef.current
-      if (phase !== 'listening' && phase !== 'recording') return
-      if (reason === 'no-speech') {
-        sttRef.current?.abortRecording()
-        dispatch(phase === 'recording' ? { type: 'record-ended' } : { type: 'no-speech' })
-        return
-      }
-      if (phase === 'recording') void endRecordingRef.current?.(finalText)
-      else void endTurnRef.current?.(finalText)
-    },
-    [],
-  )
+  const handleEndOfSpeech = useCallback((reason: SttEndOfSpeechReason, finalText: string) => {
+    if (exitInFlightRef.current) return
+    const phase = phaseRef.current
+    if (phase !== 'listening' && phase !== 'recording') return
+    if (reason === 'no-speech') {
+      sttRef.current?.abortRecording()
+      dispatch(phase === 'recording' ? { type: 'record-ended' } : { type: 'no-speech' })
+      return
+    }
+    if (phase === 'recording') void endRecordingRef.current?.(finalText)
+    else void endTurnRef.current?.(finalText)
+  }, [])
 
   const failCapture = useCallback((message: string) => {
     const phase = phaseRef.current
@@ -440,7 +425,7 @@ export function useVoiceConversation(
     if (started) return
     if (turnGenerationRef.current !== generation) return
     if (phaseRef.current !== phase) return
-    failCapture(sttRef.current?.error ?? STT_FAILED_MESSAGE)
+    failCapture(sttRef.current?.error ?? t(STT_FAILED_MESSAGE))
   }, [pauseMs, handleEndOfSpeech, failCapture])
 
   const endTurn = useCallback(
@@ -450,8 +435,7 @@ export function useVoiceConversation(
       const generation = turnGenerationRef.current
       endTurnInFlightRef.current = true
       try {
-        const text =
-          finalText === undefined ? await stopCapture() : capturedWords(finalText)
+        const text = finalText === undefined ? await stopCapture() : capturedWords(finalText)
         if (turnGenerationRef.current !== generation) return
         if (phaseRef.current !== 'listening') return
         dispatch({ type: 'transcript', text })
@@ -484,8 +468,7 @@ export function useVoiceConversation(
       const generation = turnGenerationRef.current
       endTurnInFlightRef.current = true
       try {
-        const text =
-          finalText === undefined ? await stopCapture() : capturedWords(finalText)
+        const text = finalText === undefined ? await stopCapture() : capturedWords(finalText)
         if (turnGenerationRef.current !== generation) return
         if (phaseRef.current !== 'recording') return
         dispatch({ type: 'record-ended' })
@@ -550,7 +533,7 @@ export function useVoiceConversation(
             speakingIdRef.current = null
             dispatch({
               type: 'error',
-              message: error ? `${REPLY_READ_FAILED_MESSAGE}: ${error}` : REPLY_READ_FAILED_MESSAGE,
+              message: error ? `${t(REPLY_READ_FAILED_MESSAGE)}: ${error}` : t(REPLY_READ_FAILED_MESSAGE),
               source: 'playback',
             })
             return
@@ -569,16 +552,17 @@ export function useVoiceConversation(
 
   useEffect(() => {
     if (state.phase !== 'speaking') return
-    const estimated =
-      SPEAKING_WATCHDOG_BASE_MS +
-      speakingTextRef.current.length * SPEAKING_WATCHDOG_PER_CHARACTER_MS
-    speakingWatchdogRef.current = setTimeout(() => {
-      speakingWatchdogRef.current = null
-      speakTokenRef.current += 1
-      speakingIdRef.current = null
-      latestRef.current.tts.stop()
-      dispatch({ type: 'error', message: SPEAKING_STALLED_MESSAGE, source: 'playback' })
-    }, Math.min(SPEAKING_WATCHDOG_MAX_MS, estimated))
+    const estimated = SPEAKING_WATCHDOG_BASE_MS + speakingTextRef.current.length * SPEAKING_WATCHDOG_PER_CHARACTER_MS
+    speakingWatchdogRef.current = setTimeout(
+      () => {
+        speakingWatchdogRef.current = null
+        speakTokenRef.current += 1
+        speakingIdRef.current = null
+        latestRef.current.tts.stop()
+        dispatch({ type: 'error', message: t(SPEAKING_STALLED_MESSAGE), source: 'playback' })
+      },
+      Math.min(SPEAKING_WATCHDOG_MAX_MS, estimated),
+    )
     return clearSpeakingWatchdog
   }, [state.phase, clearSpeakingWatchdog])
 
@@ -602,9 +586,7 @@ export function useVoiceConversation(
     if (maxTurnTimerRef.current === null) {
       maxTurnTimerRef.current = setTimeout(() => {
         maxTurnTimerRef.current = null
-        void (state.phase === 'recording'
-          ? endRecordingRef.current?.()
-          : endTurnRef.current?.())
+        void (state.phase === 'recording' ? endRecordingRef.current?.() : endTurnRef.current?.())
       }, LISTENING_MAX_TURN_MS)
     }
   }, [
@@ -666,7 +648,7 @@ export function useVoiceConversation(
       if (pendingPromptCount === 0 && noDeliveryTimerRef.current === null) {
         noDeliveryTimerRef.current = setTimeout(() => {
           noDeliveryTimerRef.current = null
-          dispatch({ type: 'send-failed', message: TURN_NOT_DELIVERED_MESSAGE })
+          dispatch({ type: 'send-failed', message: t(TURN_NOT_DELIVERED_MESSAGE) })
         }, TURN_NOT_DELIVERED_TIMEOUT_MS)
       }
       return
@@ -705,7 +687,7 @@ export function useVoiceConversation(
   const start = useCallback(() => {
     if (phaseRef.current !== 'off') return
     if (!canStart) {
-      setNotice(STT_UNAVAILABLE_NOTICE)
+      setNotice(t(STT_UNAVAILABLE_NOTICE))
       return
     }
     const latest = latestRef.current
@@ -729,7 +711,7 @@ export function useVoiceConversation(
       VOICE_MODE_INSTRUCTION_KEY,
       VOICE_MODE_INSTRUCTIONS,
       latest.serverId,
-    ).catch(() => setNotice(VOICE_INSTRUCTIONS_NOTICE))
+    ).catch(() => setNotice(t(VOICE_INSTRUCTIONS_NOTICE)))
   }, [canStart, invalidateTurn])
 
   const requestPause = useCallback(
@@ -844,8 +826,7 @@ export function useVoiceConversation(
     pendingTurnBaselineRef.current = null
     const resumeBaseline = pendingTurnBaseline ?? baselineIdRef.current
     const hasUnspoken =
-      resumeBaseline !== null &&
-      findNextUnspokenMessage(latest.messages, resumeBaseline, spokenIdsRef.current) !== null
+      resumeBaseline !== null && findNextUnspokenMessage(latest.messages, resumeBaseline, spokenIdsRef.current) !== null
     dispatch({
       type: 'resume',
       busy: latest.status !== 'idle' || pendingTurnBaseline !== null || hasUnspoken,
@@ -869,11 +850,7 @@ export function useVoiceConversation(
         return
       case 'speaking':
         if (latest.status === 'idle') {
-          for (const message of listUnspokenMessages(
-            latest.messages,
-            baselineIdRef.current,
-            spokenIdsRef.current,
-          )) {
+          for (const message of listUnspokenMessages(latest.messages, baselineIdRef.current, spokenIdsRef.current)) {
             spokenIdsRef.current.add(message.id)
           }
           speakTokenRef.current += 1
@@ -932,13 +909,7 @@ export function useVoiceConversation(
         pendingPut,
       )
     }
-  }, [
-    sessionID,
-    clearWorkingTimers,
-    clearSpeakingWatchdog,
-    clearListeningTimers,
-    invalidateTurn,
-  ])
+  }, [sessionID, clearWorkingTimers, clearSpeakingWatchdog, clearListeningTimers, invalidateTurn])
 
   useEffect(() => {
     let cancelled = false
@@ -967,7 +938,7 @@ export function useVoiceConversation(
     const wasError = previousSttErrorRef.current
     previousSttErrorRef.current = stt.isError
     if (!stt.isError || wasError) return
-    failCapture(stt.error ?? STT_FAILED_MESSAGE)
+    failCapture(stt.error ?? t(STT_FAILED_MESSAGE))
   }, [stt.isError, stt.error, failCapture])
 
   const hasHeldReading = state.phase === 'paused' && playbackHeld

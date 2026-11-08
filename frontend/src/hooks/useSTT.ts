@@ -5,6 +5,7 @@ import { AudioRecorder } from '@/lib/audioRecorder'
 import { sttApi } from '@/api/stt'
 import { FetchError } from '@/api/fetchWrapper'
 import { DEFAULT_STT_CONFIG, type STTConfig } from '@/api/types/settings'
+import { t } from '@/i18n/translate'
 
 const STT_START_TIMEOUT_MS = 10_000
 
@@ -202,7 +203,7 @@ export function useSTT(userId = 'default') {
           return
         }
         
-        flashError(err instanceof Error ? err.message : 'Transcription failed')
+        flashError(err instanceof Error ? err.message : t('Transcription failed'))
       } finally {
         setIsProcessing(false)
         setState('idle')
@@ -251,7 +252,7 @@ export function useSTT(userId = 'default') {
     }
     resetToIdle()
     setIsError(true)
-    setError('Microphone start timed out')
+    setError(t('Microphone start timed out'))
   }, [isExternalProvider, disposeAudioRecorder, resetToIdle])
 
   const runStartupWithTimeout = useCallback(
@@ -281,7 +282,7 @@ export function useSTT(userId = 'default') {
           return false
         }
         setIsError(true)
-        setError(err instanceof Error ? err.message : 'Failed to start recording')
+        setError(err instanceof Error ? err.message : t('Failed to start recording'))
         return false
       }
     },
@@ -290,13 +291,13 @@ export function useSTT(userId = 'default') {
 
   const startRecording = useCallback(async (options?: StartRecordingOptions): Promise<boolean> => {
     if (!isSupported) {
-      setError('Speech recognition is not supported in this browser')
+      setError(t('Speech recognition is not supported in this browser'))
       setIsError(true)
       return false
     }
 
     if (!isEnabled) {
-      setError('Speech recognition is not enabled')
+      setError(t('Speech recognition is not enabled'))
       setIsError(true)
       return false
     }

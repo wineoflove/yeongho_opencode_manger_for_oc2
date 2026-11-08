@@ -1,6 +1,7 @@
 import { Loader2, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTTS } from '@/hooks/useTTS'
+import { t } from '@/i18n/translate'
 
 interface TTSButtonProps {
   messageId: string
@@ -16,7 +17,7 @@ export function TTSButton({ messageId, content, className }: TTSButtonProps) {
   }
 
   const isThisPlaying = (isPlaying || isLoading) && activeMessageId === messageId
-  const label = isThisPlaying ? 'Stop playback' : 'Read aloud'
+  const label = isThisPlaying ? t('Stop playback') : t('Read aloud')
 
   const handleClick = () => {
     if (isThisPlaying) {

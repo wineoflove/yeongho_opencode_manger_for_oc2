@@ -5,6 +5,7 @@ import { API_BASE_URL } from '@/config'
 import { TTSContext, type TTSState, type TTSConfig, type TTSEndReason, type SpeakMessageOptions } from './tts-context'
 import { sanitizeForTTS } from '@/lib/utils'
 import { getWebSpeechSynthesizer, isWebSpeechSupported } from '@/lib/webSpeechSynthesizer'
+import { msg, t } from '@/i18n/translate'
 
 export {
   TTSContext,
@@ -18,7 +19,7 @@ export {
 const SENTENCE_REGEX = /(?<=[.!?])\s+/
 const SENTENCES_PER_CHUNK = 2
 const QUEUE_PAUSE_MS = 600
-const PLAYBACK_BLOCKED_MESSAGE = 'Audio playback was blocked by the browser'
+const PLAYBACK_BLOCKED_MESSAGE = msg('Audio playback was blocked by the browser')
 const SILENT_WAV_DATA_URI =
   'data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YaAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA'
 
@@ -37,7 +38,7 @@ function isNotAllowedError(error: unknown): boolean {
 }
 
 function playbackErrorMessage(error: unknown, fallback: string): string {
-  if (isNotAllowedError(error)) return PLAYBACK_BLOCKED_MESSAGE
+  if (isNotAllowedError(error)) return t(PLAYBACK_BLOCKED_MESSAGE)
   return error instanceof Error && error.message ? error.message : fallback
 }
 
@@ -252,26 +253,26 @@ export function TTSProvider({ children }: TTSProviderProps) {
       if (playbackIdRef.current !== playbackId) return null
 
       if (!response.ok) {
-        let errorMessage = 'TTS request failed'
+        let errorMessage = msg('TTS request failed')
         try {
           const errorData = await response.json()
           errorMessage = errorData.error || errorData.details || errorMessage
         } catch {
-          if (response.status === 401) errorMessage = 'Invalid API key'
-          else if (response.status === 429) errorMessage = 'Rate limit exceeded'
-          else if (response.status >= 500) errorMessage = 'Service unavailable'
+          if (response.status === 401) errorMessage = t('Invalid API key')
+          else if (response.status === 429) errorMessage = t('Rate limit exceeded')
+          else if (response.status >= 500) errorMessage = t('Service unavailable')
         }
         throw new Error(errorMessage)
       }
 
       const contentType = response.headers.get('content-type')
       if (!contentType?.includes('audio')) {
-        throw new Error('Invalid response from TTS service')
+        throw new Error(t('Invalid response from TTS service'))
       }
 
       const blob = await response.blob()
       if (blob.size === 0) {
-        throw new Error('Empty audio response')
+        throw new Error(t('Empty audio response'))
       }
 
       return blob
@@ -346,7 +347,7 @@ export function TTSProvider({ children }: TTSProviderProps) {
 
       player.onerror = () => {
         if (playbackIdRef.current !== playbackId) return
-        failPlayback('Audio playback failed')
+        failPlayback(t('Audio playback failed'))
       }
 
       player.src = url
@@ -356,26 +357,26 @@ export function TTSProvider({ children }: TTSProviderProps) {
       }
     } catch (err) {
       if (playbackIdRef.current !== playbackId) return
-      failPlayback(playbackErrorMessage(err, 'TTS failed'))
+      failPlayback(playbackErrorMessage(err, msg('TTS failed')))
     }
   }, [getPlayer, getChunkAudio, prefetchChunk, advanceQueue, failPlayback, settleSpeechRequest])
 
   // Builtin Web Speech synthesis - takes explicit config and optional messageId
   const speakBuiltinWithConfig = useCallback(async (text: string, config: TTSConfig, messageId: string | null = null): Promise<boolean> => {
     if (!isWebSpeechSupported()) {
-      failPlayback('Web Speech API not supported in this browser')
+      failPlayback(t('Web Speech API not supported in this browser'))
       return false
     }
 
     if (!text?.trim()) {
-      failPlayback('No text provided')
+      failPlayback(t('No text provided'))
       return false
     }
 
     const sanitizedText = sanitizeForTTS(text)
     
     if (!sanitizedText?.trim()) {
-      failPlayback('No readable content after sanitization')
+      failPlayback(t('No readable content after sanitization'))
       return false
     }
 
@@ -425,7 +426,7 @@ export function TTSProvider({ children }: TTSProviderProps) {
       return true
     } catch (err) {
       if (playbackIdRef.current !== playbackId) return false
-      failPlayback(err instanceof Error && err.message ? err.message : 'TTS failed')
+      failPlayback(err instanceof Error && err.message ? err.message : msg('TTS failed'))
       return false
     }
   }, [resetPlayback, advanceQueue, failPlayback, getSynthesizer, settleSpeechRequest])
@@ -456,7 +457,7 @@ export function TTSProvider({ children }: TTSProviderProps) {
 
   const playWithConfig = useCallback(async (text: string, config: TTSConfig, messageId: string | null = null): Promise<boolean> => {
     if (!config.enabled) {
-      failPlayback('TTS is not enabled')
+      failPlayback(msg('TTS is not enabled'))
       return false
     }
 
@@ -464,26 +465,26 @@ export function TTSProvider({ children }: TTSProviderProps) {
 
     if (configIsBuiltin) {
       if (!isWebSpeechSupported()) {
-        failPlayback('Web Speech API not supported in this browser')
+        failPlayback(t('Web Speech API not supported in this browser'))
         return false
       }
       return speakBuiltinWithConfig(text, config, messageId)
     }
 
     if (!config.apiKey) {
-      failPlayback('API key not configured')
+      failPlayback(msg('API key not configured'))
       return false
     }
 
     if (!config.voice || !config.model) {
-      failPlayback('Voice or model not configured')
+      failPlayback(t('Voice or model not configured'))
       return false
     }
 
     const sanitizedText = sanitizeForTTS(text)
     
     if (!sanitizedText?.trim()) {
-      failPlayback('No readable content after sanitization')
+      failPlayback(t('No readable content after sanitization'))
       return false
     }
 
@@ -508,7 +509,7 @@ export function TTSProvider({ children }: TTSProviderProps) {
     const config = buildStoredConfig()
 
     if (!config) {
-      failPlayback('TTS is not configured')
+      failPlayback(msg('TTS is not configured'))
       return false
     }
 
@@ -542,7 +543,7 @@ export function TTSProvider({ children }: TTSProviderProps) {
     const config = buildStoredConfig()
 
     if (!config) {
-      failPlayback('TTS is not configured')
+      failPlayback(msg('TTS is not configured'))
       return false
     }
 
@@ -580,7 +581,7 @@ export function TTSProvider({ children }: TTSProviderProps) {
     if (!audio) return
 
     void audio.play().catch((err: unknown) => {
-      failPlayback(playbackErrorMessage(err, 'TTS failed'))
+      failPlayback(playbackErrorMessage(err, msg('TTS failed')))
     })
   }, [getSynthesizer, failPlayback])
 

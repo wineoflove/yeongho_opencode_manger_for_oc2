@@ -1,3 +1,4 @@
+import { t } from '@/i18n/translate'
 export type AudioRecorderState = 'idle' | 'recording' | 'stopped' | 'error'
 
 const DEFAULT_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
@@ -110,8 +111,8 @@ export class AudioRecorder {
   async start(): Promise<void> {
     if (!AudioRecorder.isSupported()) {
       this.setState('error')
-      this.onError?.('Audio recording is not supported in this browser')
-      throw new Error('Audio recording is not supported in this browser')
+      this.onError?.(t('Audio recording is not supported in this browser'))
+      throw new Error(t('Audio recording is not supported in this browser'))
     }
 
     try {
@@ -149,7 +150,7 @@ export class AudioRecorder {
 
       this.mediaRecorder.onerror = () => {
         this.reset('error')
-        this.onError?.('MediaRecorder error')
+        this.onError?.(t('MediaRecorder error'))
       }
 
       this.mediaRecorder.start()
@@ -159,14 +160,14 @@ export class AudioRecorder {
 
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError') {
-          this.onError?.('Microphone permission denied')
+          this.onError?.(t('Microphone permission denied'))
         } else if (error.name === 'NotFoundError') {
-          this.onError?.('No microphone found')
+          this.onError?.(t('No microphone found'))
         } else {
-          this.onError?.(`Microphone error: ${error.message}`)
+          this.onError?.(t('Microphone error: {error}', { error: error.message }))
         }
       } else {
-        this.onError?.('Failed to start recording')
+        this.onError?.(t('Failed to start recording'))
       }
 
       throw error

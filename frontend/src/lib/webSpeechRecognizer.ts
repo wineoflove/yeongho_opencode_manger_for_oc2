@@ -1,3 +1,4 @@
+import { msg, t } from '@/i18n/translate'
 export interface SpeechRecognitionResult {
   transcript: string;
   isFinal: boolean;
@@ -93,7 +94,7 @@ declare global {
 const WEB_SPEECH_INACTIVITY_TIMEOUT_MS = 2000;
 const MAX_TRANSPARENT_RESTARTS = 5;
 const MIN_RESTART_SESSION_MS = 250;
-const RESTART_FAILED_MESSAGE = 'Speech recognition stopped unexpectedly. Please try again.';
+const RESTART_FAILED_MESSAGE = msg('Speech recognition stopped unexpectedly. Please try again.');
 
 export function appendTranscriptSegment(current: string, segment: string): string {
   const trimmedCurrent = current.trim();
@@ -207,7 +208,7 @@ export class WebSpeechRecognizer {
       this.endpointing = null;
       this.endOfSpeechHandler = null;
       this.endOfSpeechEmitted = true;
-      this.onErrorCallbacks.forEach((cb) => cb(RESTART_FAILED_MESSAGE));
+      this.onErrorCallbacks.forEach((cb) => cb(t(RESTART_FAILED_MESSAGE)));
       return 'failed';
     }
   }
@@ -311,23 +312,23 @@ export class WebSpeechRecognizer {
         this.pendingEndOfSpeechReason = null;
         this.fatalErrorRaised = true;
 
-        let errorMsg = event.error || 'Unknown error';
+        let errorMsg = event.error || t('Unknown error');
 
         switch (event.error) {
           case 'no-speech':
-            errorMsg = 'No speech detected. Please try again.';
+            errorMsg = t('No speech detected. Please try again.');
             break;
           case 'audio-capture':
-            errorMsg = 'No microphone found. Please check your audio input.';
+            errorMsg = t('No microphone found. Please check your audio input.');
             break;
           case 'not-allowed':
-            errorMsg = 'Microphone access denied. Please allow microphone permissions.';
+            errorMsg = t('Microphone access denied. Please allow microphone permissions.');
             break;
           case 'network':
-            errorMsg = 'Network error occurred.';
+            errorMsg = t('Network error occurred.');
             break;
           case 'aborted':
-            errorMsg = 'Recording was aborted.';
+            errorMsg = t('Recording was aborted.');
             break;
         }
 
@@ -377,17 +378,17 @@ export class WebSpeechRecognizer {
   start(options: SpeechRecognitionOptions = {}): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.isSupported()) {
-        reject(new Error('Web Speech API is not supported in this browser'));
+        reject(new Error(t('Web Speech API is not supported in this browser')));
         return;
       }
 
       if (this.isListening) {
-        reject(new Error('Already listening'));
+        reject(new Error(t('Already listening')));
         return;
       }
 
       if (!this.recognition) {
-        reject(new Error('Recognition not initialized'));
+        reject(new Error(t('Recognition not initialized')));
         return;
       }
 
@@ -454,7 +455,7 @@ export class WebSpeechRecognizer {
         this.state = 'error';
         this.onStartCallbacks = this.onStartCallbacks.filter(cb => cb !== onStartOnce);
         this.onErrorCallbacks = this.onErrorCallbacks.filter(cb => cb !== onErrorOnce);
-        reject(error || new Error('Failed to start recognition'));
+        reject(error || new Error(t('Failed to start recognition')));
       }
     });
   }

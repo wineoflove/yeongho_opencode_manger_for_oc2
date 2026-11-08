@@ -4,6 +4,7 @@ import { useTTS } from '@/hooks/useTTS'
 import { useSettings } from '@/hooks/useSettings'
 import { showToast } from '@/lib/toast'
 import { DEFAULT_TTS_CONFIG } from '@opencode-manager/shared'
+import { t } from '@/i18n/translate'
 
 interface FloatingTTSButtonProps {
   messageId: string
@@ -41,8 +42,13 @@ export function FloatingTTSButton({ messageId, content, isScrolledUp, onSpeakVis
 
       didLongPressFireRef.current = true
       setIsLongPressVisual(true)
-      updateSettings({ tts: { ...(preferences?.tts ?? DEFAULT_TTS_CONFIG), autoPlay: nextAutoPlay } })
-      showToast.info(nextAutoPlay ? 'Auto-play enabled' : 'Auto-play disabled', {
+      updateSettings({
+        tts: {
+          ...(preferences?.tts ?? DEFAULT_TTS_CONFIG),
+          autoPlay: nextAutoPlay,
+        },
+      })
+      showToast.info(nextAutoPlay ? t('Auto-play enabled') : t('Auto-play disabled'), {
         id: 'tts-autoplay-toggle',
         duration: 1800,
       })
@@ -73,7 +79,17 @@ export function FloatingTTSButton({ messageId, content, isScrolledUp, onSpeakVis
     if (hasContent) {
       speakMessage(messageId, content)
     }
-  }, [clearLongPressTimer, isAnyPlaybackActive, stop, isScrolledUp, onSpeakVisible, speakMessage, messageId, content, hasContent])
+  }, [
+    clearLongPressTimer,
+    isAnyPlaybackActive,
+    stop,
+    isScrolledUp,
+    onSpeakVisible,
+    speakMessage,
+    messageId,
+    content,
+    hasContent,
+  ])
 
   const handlePointerLeave = useCallback(() => {
     clearLongPressTimer()
@@ -83,13 +99,16 @@ export function FloatingTTSButton({ messageId, content, isScrolledUp, onSpeakVis
 
   const showStop = isAnyPlaybackActive
   const pillTitle = showStop
-    ? 'Stop playback'
+    ? t('Stop playback')
     : isScrolledUp
-      ? 'Read visible replies'
+      ? t('Read visible replies')
       : hasContent
-        ? 'Play latest reply'
-        : 'TTS controls'
-  const pillAriaLabel = `${pillTitle}. ${autoPlay ? 'Auto-play enabled.' : 'Auto-play disabled.'} hold to toggle auto-play`
+        ? t('Play latest reply')
+        : t('TTS controls')
+  const pillAriaLabel = t('{title}. {status} hold to toggle auto-play', {
+    title: pillTitle,
+    status: autoPlay ? t('Auto-play enabled.') : t('Auto-play disabled.'),
+  })
   const buttonToneClasses = showStop
     ? 'justify-center px-3 py-1.5 rounded-lg bg-destructive border border-destructive/60 shadow-destructive/30 ring-destructive/20 hover:ring-destructive/40 text-destructive-foreground'
     : autoPlay
@@ -97,20 +116,16 @@ export function FloatingTTSButton({ messageId, content, isScrolledUp, onSpeakVis
       : 'justify-center px-3 py-1.5 rounded-lg bg-gradient-to-br from-warning to-highlight border border-warning/60 shadow-warning/30 ring-warning/20 hover:ring-warning/40 text-warning-foreground'
 
   return (
-      <button
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerLeave}
-        className={`flex items-center transition-all duration-200 shadow-md backdrop-blur-md ring-1 ${buttonToneClasses} ${isLongPressVisual ? 'scale-95 opacity-80' : 'active:scale-95 hover:scale-105'} ${!hasContent && !autoPlay ? 'opacity-50 cursor-not-allowed' : ''}`}
-        title={pillTitle}
-        aria-label={pillAriaLabel}
-        disabled={!hasContent && !autoPlay}
-      >
-        {showStop ? (
-          <VolumeX className="w-5 h-5" />
-        ) : hasContent || autoPlay ? (
-          <Volume2 className="w-5 h-5" />
-        ) : null}
-      </button>
+    <button
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
+      className={`flex items-center transition-all duration-200 shadow-md backdrop-blur-md ring-1 ${buttonToneClasses} ${isLongPressVisual ? 'scale-95 opacity-80' : 'active:scale-95 hover:scale-105'} ${!hasContent && !autoPlay ? 'opacity-50 cursor-not-allowed' : ''}`}
+      title={pillTitle}
+      aria-label={pillAriaLabel}
+      disabled={!hasContent && !autoPlay}
+    >
+      {showStop ? <VolumeX className="w-5 h-5" /> : hasContent || autoPlay ? <Volume2 className="w-5 h-5" /> : null}
+    </button>
   )
 }

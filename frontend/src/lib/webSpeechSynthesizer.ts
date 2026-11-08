@@ -1,3 +1,4 @@
+import { t } from '@/i18n/translate'
 /**
  * Web Speech API synthesizer - Browser-native TTS without external dependencies
  */
@@ -153,11 +154,11 @@ export class WebSpeechSynthesizer {
    */
   speak(text: string, options: WebSpeechSynthesisOptions = {}): Promise<void> {
     if (!this.synthesis) {
-      return Promise.reject(new Error('Web Speech API is not supported'));
+      return Promise.reject(new Error(t('Web Speech API is not supported')));
     }
 
     if (!text || !text.trim()) {
-      return Promise.reject(new Error('No text provided'));
+      return Promise.reject(new Error(t('No text provided')));
     }
 
     return new Promise((resolve, reject) => {
@@ -222,7 +223,7 @@ export class WebSpeechSynthesizer {
 
       utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
         this.currentUtterance = null;
-        const errorMessage = event.error || 'Speech synthesis error';
+        const errorMessage = event.error || t('Speech synthesis error');
         if (this.pendingReject) {
           this.pendingReject(new Error(errorMessage));
           this.pendingResolve = null;

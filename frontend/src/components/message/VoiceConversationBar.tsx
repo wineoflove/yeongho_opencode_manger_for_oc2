@@ -6,6 +6,7 @@ import { getIconToggleButtonClassName } from '@/components/ui/icon-toggle-button
 import { SquareFill } from '@/components/ui/square-fill'
 import type { VoiceConversationController } from '@/hooks/useVoiceConversation'
 import { cn } from '@/lib/utils'
+import { t } from '@/i18n/translate'
 
 const BAR_ICON_BUTTON_CLASS = cn(
   getIconToggleButtonClassName(false),
@@ -95,16 +96,16 @@ export function VoiceConversationBar({
       <div className="grid grid-cols-3 items-center">
         <div className="flex items-center gap-1">
           {canEditInTextBox ? (
-            <BarIconButton label="Edit in text box" onClick={controller.editInTextBox}>
+            <BarIconButton label={t('Edit in text box')} onClick={controller.editInTextBox}>
               <Pencil className="size-5" />
             </BarIconButton>
           ) : (
-            <BarIconButton label="Exit voice conversation" onClick={controller.exit}>
+            <BarIconButton label={t('Exit voice conversation')} onClick={controller.exit}>
               <X className="size-5" />
             </BarIconButton>
           )}
           {canStopAgent ? (
-            <BarIconButton label="Stop the agent" onClick={controller.stopAgent}>
+            <BarIconButton label={t('Stop the agent')} onClick={controller.stopAgent}>
               <SquareFill className="size-4" />
             </BarIconButton>
           ) : null}
@@ -116,21 +117,21 @@ export function VoiceConversationBar({
           {hasPendingApproval ? (
             <Button
               type="button"
-              aria-label="View pending permission"
+              aria-label={t('View pending permission')}
               onClick={onViewApproval}
               className="h-11 px-4 text-xs font-semibold shadow-md"
             >
-              View
+              {t('View')}
             </Button>
           ) : phase === 'paused' ? (
             <BarIconButton
-              label={hasHeldReading ? 'Continue reading' : 'Resume'}
+              label={hasHeldReading ? t('Continue reading') : t('Resume')}
               onClick={controller.resume}
             >
               <Play className="size-5" />
             </BarIconButton>
           ) : (
-            <BarIconButton label="Pause voice conversation" onClick={controller.pause}>
+            <BarIconButton label={t('Pause voice conversation')} onClick={controller.pause}>
               <Pause className="size-5" />
             </BarIconButton>
           )}
