@@ -1,6 +1,7 @@
 
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { createBrowserRouter, RouterProvider, Outlet, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'
+import { FileNavigationGuard } from '@/components/file-browser/FileNavigationGuard'
 import { useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { DEVICE_PAIRING_PATH, LOCAL_OPENCODE_SERVER_ID } from '@opencode-manager/shared/schemas'
 import { Toaster } from 'sonner'
@@ -49,6 +50,9 @@ import { useSidebarServerRouteSync } from '@/hooks/useSidebarServerSelection'
 import { usePushSubscriptionSessionSync } from '@/hooks/usePushSubscriptionSessionSync'
 import { sessionQueryOptions } from '@/hooks/useOpenCode'
 import { RestartServerDialog } from '@/components/settings/RestartServerDialog'
+import { useLocale } from '@/i18n/locale'
+import { t } from '@/i18n/translate'
+import { useLocaleSync } from '@/hooks/useLocaleSync'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +87,7 @@ function ThemedToaster() {
       richColors
       closeButton
       duration={2500}
+      containerAriaLabel={t('Notifications')}
     />
   )
 }
@@ -166,6 +171,22 @@ function PushSubscriptionSessionSync() {
   return null
 }
 
+function LocaleSync() {
+  useLocaleSync()
+  return null
+}
+
+function NotFoundRoute() {
+  return (
+    <NotFoundState
+      title={t('Page Not Found')}
+      message={t('The page you are looking for does not exist.')}
+      backTo="/"
+      backLabel={t('Go home')}
+    />
+  )
+}
+
 function ServerScope({ children }: { children: ReactNode }) {
   const { serverId } = useParams<{ serverId: string }>()
 
@@ -184,6 +205,7 @@ function RootLayout() {
           <TTSProvider>
             <ThemedToaster />
             <Outlet />
+            <FileNavigationGuard />
           </TTSProvider>
         </ThemeProvider>
       </QueryCachePersistenceProvider>
@@ -266,6 +288,7 @@ export function AppShell() {
           <GlobalShortcuts />
           <SidebarServerRouteSync />
           <PushSubscriptionSessionSync />
+          <LocaleSync />
           <div className="flex h-dvh w-full min-w-0 flex-col">
             <PwaUpdatePrompt />
             <div ref={rootRef} className="flex flex-1 min-h-0 w-full min-w-0">
@@ -352,6 +375,16 @@ const router = createBrowserRouter([
             loader: protectedLoader,
           },
           {
+            path: '/stats',
+            lazy: async () => ({ Component: (await import('./pages/Stats')).Stats }),
+            loader: protectedLoader,
+          },
+          {
+            path: '/system',
+            lazy: async () => ({ Component: (await import('./pages/SystemStatus')).SystemStatus }),
+            loader: protectedLoader,
+          },
+          {
             path: '/servers/:serverId',
             element: <LinkedServerRedirect />,
             loader: protectedLoader,
@@ -377,12 +410,7 @@ const router = createBrowserRouter([
           {
             path: '*',
             element: (
-              <NotFoundState
-                title="Page Not Found"
-                message="The page you are looking for does not exist."
-                backTo="/"
-                backLabel="Go home"
-              />
+              <NotFoundRoute />
             ),
             loader: protectedLoader,
           },
@@ -393,10 +421,12 @@ const router = createBrowserRouter([
 ])
 
 function App() {
+  const locale = useLocale()
+
   return (
     <QueryClientProvider client={queryClient}>
       <SwipeNavigationProvider>
-        <RouterProvider router={router} />
+        <RouterProvider key={locale} router={router} />
       </SwipeNavigationProvider>
     </QueryClientProvider>
   )
