@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { ContextUsageMeter } from '@/components/session/ContextUsageMeter'
 import { buildModelSections, filterModelSections, type ModelOption } from '@/lib/modelSections'
 import { isTextEntryElement } from '@/lib/domTargets'
+import { describeModel, modelStatusLabel } from '@/lib/modelDescription'
 import {
   CONTEXT_USAGE_TEXT_CLASS,
   contextUsageAccessibleLabel,
@@ -24,6 +25,7 @@ import {
   formatCompactTokens,
   type ContextUsage,
 } from '@/lib/contextUsage'
+import { t, tn } from '@/i18n/translate'
 
 interface ModelQuickSelectProps {
   directory?: string
@@ -78,7 +80,7 @@ const ICON_BUTTON_CLASS =
   'flex h-9 w-9 items-center justify-center rounded-full border border-border bg-muted text-foreground/80 hover:bg-accent'
 
 function formatModelCount(count: number) {
-  return `${count} ${count === 1 ? 'model' : 'models'}`
+  return tn('{count} model', '{count} models', count)
 }
 
 interface ContextUsageStripProps {
@@ -91,7 +93,7 @@ function ContextUsageStrip({ usage, onCompact, compactDisabled }: ContextUsageSt
   const percentage = usage.usagePercentage
   const toneClass = CONTEXT_USAGE_TEXT_CLASS[contextUsageTone(percentage)]
   const summary = usage.contextLimit === null || percentage === null
-    ? `${formatCompactTokens(usage.totalTokens)} tokens`
+    ? t('{tokens} tokens', { tokens: formatCompactTokens(usage.totalTokens) })
     : `${formatCompactTokens(usage.totalTokens)} / ${formatCompactTokens(usage.contextLimit)} · ${percentage}%`
 
   return (
@@ -110,10 +112,10 @@ function ContextUsageStrip({ usage, onCompact, compactDisabled }: ContextUsageSt
             type="button"
             onClick={onCompact}
             disabled={compactDisabled}
-            aria-label="Compact session"
+            aria-label={t('Compact session')}
             className="ml-auto shrink-0 rounded text-xs font-medium text-info hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
           >
-            Compact
+            {t('Compact')}
           </button>
         )}
       </div>
@@ -307,7 +309,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
     if (result.length === 0) {
       const models = catalogOptions.slice(0, 3).map(toModelListItem)
       if (models.length > 0) {
-        result.push({ title: 'Models', icon: ChevronRight, models })
+        result.push({ title: t('Models'), icon: ChevronRight, models })
       }
     }
 
@@ -469,14 +471,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
     handleOpenChange(false)
   }
 
-  const getDescription = (item: ModelListItem) => {
-    const context = item.model?.limit?.context
-    if (context) {
-      return `${item.providerName} · ${formatCompactTokens(context)} context`
-    }
-
-    return item.providerName
-  }
+  const getDescription = (item: ModelListItem) => describeModel(item.providerName, item.model)
 
   const getPrimaryLabel = (item: ModelListItem) => item.displayName || item.modelID
 
@@ -499,10 +494,15 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
           onClick={() => handleModelSelect(item.providerID, item.modelID)}
           className="min-w-0 flex-1 px-2 text-left"
         >
-          <span className="block truncate text-sm font-medium text-foreground">
-            {getPrimaryLabel(item)}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-medium text-foreground">{getPrimaryLabel(item)}</span>
+            {modelStatusLabel(item.model) && (
+              <span className="shrink-0 rounded border border-border px-1 text-[10px] leading-4 text-muted-foreground">
+                {modelStatusLabel(item.model)}
+              </span>
+            )}
           </span>
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground" title={getDescription(item)}>
             {getDescription(item)}
           </span>
         </button>
@@ -514,7 +514,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
               removeRecentModel({ providerID: item.providerID, modelID: item.modelID })
             }}
             className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="Remove from recent"
+            aria-label={t('Remove from recent')}
           >
             <Trash2 className="h-3.5 w-3.5 text-destructive" />
           </button>
@@ -526,7 +526,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
             toggleFavorite({ providerID: item.providerID, modelID: item.modelID })
           }}
           className="rounded-full p-1.5 text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground"
-          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={isFavorite ? t('Remove from favorites') : t('Add to favorites')}
         >
           <Star className={`h-4 w-4 ${isFavorite ? 'fill-warning text-warning' : ''}`} />
         </button>
@@ -590,9 +590,9 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
 
     return (
       <>
-        <DropdownMenuLabel>Variant</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('Variant')}</DropdownMenuLabel>
         <DropdownMenuItem onClick={() => clearVariant()} className={!currentVariant ? 'text-highlight' : ''}>
-          Default
+          {t('Default')}
           {!currentVariant && <Check className="ml-auto h-4 w-4" />}
         </DropdownMenuItem>
         {availableVariants.map(variant => (
@@ -605,7 +605,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
     )
   }
 
-  const selectedVariantLabel = currentVariant ? currentVariant : 'Default'
+  const selectedVariantLabel = currentVariant ? currentVariant : t('Default')
 
   const handleMoreModelsBack = () => {
     if (selectedProviderId) {
@@ -617,8 +617,8 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
     setShowAllModels(false)
   }
 
-  const selectedModelLabel = selectedModelItem ? getPrimaryLabel(selectedModelItem) : 'Select model'
-  const selectedModelDescription = selectedModelItem ? getDescription(selectedModelItem) : 'Choose a model'
+  const selectedModelLabel = selectedModelItem ? getPrimaryLabel(selectedModelItem) : t('Select model')
+  const selectedModelDescription = selectedModelItem ? getDescription(selectedModelItem) : t('Choose a model')
 
   return (
     <>
@@ -632,7 +632,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
         onClose={() => handleOpenChange(false)}
         heightClass="h-[70dvh] max-h-[720px]"
         className="z-[300] border-border bg-popover text-foreground shadow-2xl md:mx-auto md:max-w-lg"
-        ariaLabel="Select model"
+        ariaLabel={t('Select model')}
       >
         {contextUsage && (
           <ContextUsageStrip
@@ -648,7 +648,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                 type="button"
                 onClick={handleMoreModelsBack}
                 className={`${ICON_BUTTON_CLASS} shrink-0`}
-                aria-label="Back to quick models"
+                aria-label={t('Back to quick models')}
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -657,7 +657,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                 <Input
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search models..."
+                  placeholder={t('Search models...')}
                   className="h-9 border-border bg-muted pl-9 text-sm text-foreground placeholder:text-placeholder"
                   autoComplete="off"
                   name="model-search"
@@ -670,7 +670,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                 type="button"
                 onClick={() => handleOpenChange(false)}
                 className={ICON_BUTTON_CLASS}
-                aria-label="Close model selector"
+                aria-label={t('Close model selector')}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -690,7 +690,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                       type="button"
                       disabled={!model && !hasVariants}
                       className="flex h-9 w-24 items-center justify-center gap-1 rounded-md border border-border bg-muted px-1.5 text-sm font-medium capitalize text-muted-foreground hover:bg-accent disabled:opacity-30"
-                      aria-label={`Current variant: ${selectedVariantLabel}`}
+                      aria-label={t('Current variant: {variant}', { variant: selectedVariantLabel })}
                     >
                       <span className="truncate">{selectedVariantLabel}</span>
                       <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -713,7 +713,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                 itemHeight={MODEL_OPTION_ROW_HEIGHT}
                 renderItem={(item, index) => renderModelOption(item, index)}
                 getKey={(item) => item.key}
-                emptyLabel="No models found"
+                emptyLabel={t('No models found')}
                 className="px-4 pb-4 pt-2"
                 resetKey={`${selectedProviderId ?? 'all'}:${deferredSearchQuery}`}
                 activeIndex={activeIndex}
@@ -737,7 +737,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                     itemHeight={MODEL_OPTION_ROW_HEIGHT}
                     renderItem={(item, index) => renderModelOption(item, index)}
                     getKey={(item) => item.key}
-                    emptyLabel="No models found"
+                    emptyLabel={t('No models found')}
                     className="px-4 pb-4 pt-2"
                     resetKey={selectedProviderId ?? 'all'}
                     activeIndex={activeIndex}
@@ -752,7 +752,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                       itemHeight={MODEL_OPTION_ROW_HEIGHT}
                       renderItem={(item, index) => renderModelOption(item, index)}
                       getKey={(item) => item.key}
-                      emptyLabel="No models found"
+                      emptyLabel={t('No models found')}
                       className="px-4 pb-4"
                       resetKey={selectedProviderId}
                       activeIndex={activeIndex}
@@ -763,7 +763,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                         {providerItems.map(renderProviderOption)}
                       </div>
                       {providerItems.length === 0 && (
-                        <div className="py-10 text-center text-sm text-muted-foreground">No providers found</div>
+                        <div className="py-10 text-center text-sm text-muted-foreground">{t('No providers found')}</div>
                       )}
                     </div>
                   )}
@@ -792,7 +792,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
                 onClick={() => setShowAllModels(true)}
                 className="flex w-full items-center justify-between bg-card px-6 py-4 text-left text-sm font-semibold text-foreground transition-colors hover:bg-accent active:bg-card"
               >
-                <span>More models</span>
+                <span>{t('More models')}</span>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>

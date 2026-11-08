@@ -5,6 +5,7 @@ import { ModelQuickSelect } from './ModelQuickSelect'
 import { buildModelSections } from '@/lib/modelSections'
 import type { ModelInfo } from '@opencode-manager/shared/opencode'
 import type { Provider } from '@/api/providers'
+import { setLocale } from '@/i18n/locale'
 
 const mocks = vi.hoisted(() => ({
   useModelSelection: vi.fn(),
@@ -366,6 +367,22 @@ describe('ModelQuickSelect more models', () => {
     expect(screen.getAllByText('GPT-5').length).toBeGreaterThan(0)
   })
 
+  it('counts provider models in Korean', async () => {
+    setLocale('ko')
+    try {
+      const user = userEvent.setup()
+      setModelSelection({ favorite: [selection('openai', 'gpt-5')] })
+      render(<ModelQuickSelect open />)
+
+      await user.click(screen.getByRole('button', { name: /모델 더 보기/ }))
+
+      expect(screen.getAllByRole('button', { name: /OpenAI 모델 1개/ })[0]).toBeInTheDocument()
+      expect(screen.queryByText(/\d+ models?\b/)).not.toBeInTheDocument()
+    } finally {
+      setLocale('en')
+    }
+  })
+
   it('searches into one flat list with favorites first', async () => {
     const user = userEvent.setup()
     setModelSelection({ favorite: [selection('openai', 'gpt-5')] })
@@ -625,6 +642,23 @@ describe('ModelQuickSelect context strip', () => {
 
     expect(screen.getByTestId('context-usage-summary')).toHaveTextContent('12k tokens')
     expect(screen.getByTestId('context-usage-meter-fill')).toHaveStyle({ width: '0%' })
+  })
+
+  it('localizes the unknown-limit token fallback in Korean', () => {
+    setLocale('ko')
+    try {
+      render(
+        <ModelQuickSelect
+          open
+          session={session}
+          contextUsage={{ totalTokens: 12000, usagePercentage: null, contextLimit: null }}
+        />,
+      )
+
+      expect(screen.getByTestId('context-usage-summary')).toHaveTextContent('12k 토큰')
+    } finally {
+      setLocale('en')
+    }
   })
 
   it('omits the strip without context usage', () => {
