@@ -36,12 +36,15 @@ import migration202610161200 from './202610161200-change-walkthrough-execution'
 import migration202610181200 from './202610181200-opencode-servers'
 import migration202610181300 from './202610181300-session-server-scope'
 import migration202610181310 from './202610181310-multi-run-targets'
+import migration202610181319 from './202610181319-preserve-fork-schedule-outcomes'
 import migration202610181320 from './202610181320-remote-schedule-targets'
 import migration202610181400 from './202610181400-secrets'
 import { secretsGlobalScopeIndexMigration } from './202610181410-secrets-global-scope-index'
 import migration202610221800 from './202610221800-session-device-name'
 import migration202610231200 from './202610231200-push-subscription-session-id'
 import migration202610251900 from './202610251900-schedule-sandbox-config'
+import migration202611041200 from './202611041200-schedule-run-outcome'
+import { scheduleRunSubmissionsMigration } from './202611061545-schedule-run-submissions'
 
 export const allMigrations: Migration[] = [
   migration001,
@@ -81,10 +84,13 @@ export const allMigrations: Migration[] = [
   migration202610181200,
   migration202610181300,
   migration202610181310,
+  migration202610181319,
   migration202610181320,
   migration202610181400,
   secretsGlobalScopeIndexMigration,
   migration202610221800,
   migration202610231200,
   migration202610251900,
+  migration202611041200,
+  scheduleRunSubmissionsMigration,
 ]

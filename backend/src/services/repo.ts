@@ -714,7 +714,7 @@ export async function cloneRepo(
       }
       
       try {
-        await executeCommand(['git', 'clone', '-b', branch, normalizedRepoUrl, worktreeDirName], { cwd: getReposPath(), env, timeout: GIT_CLONE_TIMEOUT })
+        await executeCommand(['git', 'clone', '-b', branch, '--', normalizedRepoUrl, worktreeDirName], { cwd: getReposPath(), env, timeout: GIT_CLONE_TIMEOUT })
       } catch (error: unknown) {
         if (getErrorMessage(error).includes('destination path') && getErrorMessage(error).includes('already exists')) {
           logger.error(`Clone failed: directory still exists after cleanup attempt`)
@@ -724,7 +724,7 @@ export async function cloneRepo(
         if (branch && (getErrorMessage(error).includes('Remote branch') || getErrorMessage(error).includes('not found'))) {
           logger.info(`Branch '${branch}' not found, cloning default branch and creating branch locally`)
           try {
-            await executeCommand(['git', 'clone', normalizedRepoUrl, worktreeDirName], { cwd: getReposPath(), env, timeout: GIT_CLONE_TIMEOUT })
+            await executeCommand(['git', 'clone', '--', normalizedRepoUrl, worktreeDirName], { cwd: getReposPath(), env, timeout: GIT_CLONE_TIMEOUT })
           } catch (cloneError: unknown) {
             throw enhanceCloneError(normalizedRepoUrl, getErrorMessage(cloneError))
           }
@@ -825,8 +825,8 @@ export async function cloneRepo(
     
       try {
         const cloneCmd = branch
-          ? ['git', 'clone', '-b', branch, normalizedRepoUrl, worktreeDirName]
-          : ['git', 'clone', normalizedRepoUrl, worktreeDirName]
+          ? ['git', 'clone', '-b', branch, '--', normalizedRepoUrl, worktreeDirName]
+          : ['git', 'clone', '--', normalizedRepoUrl, worktreeDirName]
         
         await executeCommand(cloneCmd, { cwd: getReposPath(), env, timeout: GIT_CLONE_TIMEOUT })
       } catch (error: unknown) {
@@ -838,7 +838,7 @@ export async function cloneRepo(
         if (branch && (getErrorMessage(error).includes('Remote branch') || getErrorMessage(error).includes('not found'))) {
           logger.info(`Branch '${branch}' not found, cloning default branch and creating branch locally`)
           try {
-            await executeCommand(['git', 'clone', normalizedRepoUrl, worktreeDirName], { cwd: getReposPath(), env, timeout: GIT_CLONE_TIMEOUT })
+            await executeCommand(['git', 'clone', '--', normalizedRepoUrl, worktreeDirName], { cwd: getReposPath(), env, timeout: GIT_CLONE_TIMEOUT })
           } catch (cloneError: unknown) {
             throw enhanceCloneError(normalizedRepoUrl, getErrorMessage(cloneError))
           }
@@ -1145,9 +1145,9 @@ export async function createWorktreeSafely(baseRepoPath: string, worktreePath: s
   }
 
   if (branchExists) {
-    await executeCommand(['git', '-C', baseRepoPath, 'worktree', 'add', worktreePath, branch], { env })
+    await executeCommand(['git', '-C', baseRepoPath, 'worktree', 'add', '--end-of-options', worktreePath, branch], { env })
   } else {
-    const addArgs = ['git', '-C', baseRepoPath, 'worktree', 'add', '-b', branch, worktreePath]
+    const addArgs = ['git', '-C', baseRepoPath, 'worktree', 'add', '-b', branch, '--end-of-options', worktreePath]
     if (baseBranch) {
       addArgs.push(baseBranch)
     }

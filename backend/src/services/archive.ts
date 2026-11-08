@@ -15,6 +15,7 @@ async function resolvePath(userPath: string): Promise<string> {
 export interface ArchiveOptions {
   includeGit?: boolean
   includePaths?: string[]
+  canReadPath?: (target: string) => Promise<boolean>
 }
 
 async function findGitRoot(startPath: string): Promise<string | null> {
@@ -134,6 +135,7 @@ async function collectFiles(
     const entryRelPath = relativePath ? path.join(relativePath, entry.name) : entry.name
     
     if (entry.name === '.git' && !options?.includeGit) continue
+    if (options?.canReadPath && !(await options.canReadPath(path.join(repoPath, entryRelPath)))) continue
     
     if (entry.isDirectory()) {
       files.push(entryRelPath + '/')
@@ -301,7 +303,7 @@ export async function getArchiveSize(filePath: string): Promise<number> {
   return stats.size
 }
 
-export async function getIgnoredPathsList(directoryPath: string): Promise<string[]> {
+export async function getIgnoredPathsList(directoryPath: string, options?: ArchiveOptions): Promise<string[]> {
   directoryPath = await resolvePath(directoryPath)
   logger.debug('[getIgnoredPathsList] Starting for:', directoryPath)
   const gitRoot = await findGitRoot(directoryPath)
@@ -309,7 +311,7 @@ export async function getIgnoredPathsList(directoryPath: string): Promise<string
   
   if (!gitRoot) {
     logger.debug('[getIgnoredPathsList] No git root found')
-    const hasGitDir = await collectFiles(directoryPath).then(
+    const hasGitDir = await collectFiles(directoryPath, '', options).then(
       paths => paths.some(p => p.startsWith('.git/') || p === '.git')
     ).catch(() => false)
     
@@ -321,7 +323,7 @@ export async function getIgnoredPathsList(directoryPath: string): Promise<string
     return []
   }
   
-  const allPaths = await collectFiles(directoryPath)
+  const allPaths = await collectFiles(directoryPath, '', options)
   logger.debug('[getIgnoredPathsList] Collected', allPaths.length, 'paths')
   const ignoredSet = new Set<string>()
   const batchSize = 1000

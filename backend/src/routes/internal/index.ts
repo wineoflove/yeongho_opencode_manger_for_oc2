@@ -6,6 +6,9 @@ import type { SettingsService } from '../../services/settings'
 import type { OpenCodeClient } from '../../services/opencode/client'
 import { createScheduleRoutes } from '../schedules'
 import { createInternalTokenMiddleware } from '../../auth/internal-token-middleware'
+import { createMaintenanceRoutes } from './maintenance'
+import { createSystemRoutes } from '../system'
+import type { SystemStatusService } from '../../services/system-status'
 import { createInternalNotificationRoutes } from './notifications'
 import { createInternalSettingsRoutes } from './settings'
 import { createOpenCodeConfigRoutes } from '../opencode-config'
@@ -20,9 +23,13 @@ import { createInternalGitCredentialsRoutes } from './git-credentials'
 import { createInternalSandboxRoutes } from './sandbox'
 import { createInternalSessionArtifactRoutes } from './session-artifacts'
 import { createSessionGoalRoutes } from '../session-goals'
+import { createInternalAgentGoalRoutes } from './agent-goals'
 import { createMultiRunRoutes } from '../multi-runs'
 import { createChangeWalkthroughRoutes } from '../change-walkthroughs'
 import { createInternalWalkthroughSessionRoutes } from './walkthrough-sessions'
+import { createInternalLearningRoutes } from './learnings'
+import { createInternalScheduleRunRoutes } from './schedule-runs'
+import { createInternalProviderRateLimitRoutes } from './provider-rate-limits'
 import type { SessionPermissionModeService } from '../../services/session-permission-modes'
 import type { SessionSandboxService } from '../../services/session-sandbox'
 import type { RepoWorkspaceService } from '../../services/repo-workspace'
@@ -46,15 +53,25 @@ export function createInternalRoutes(
   changeWalkthroughService: ChangeWalkthroughService,
   sessionSandbox: SessionSandboxService,
   repoEnvService: RepoEnvService,
+  systemStatusService: SystemStatusService,
 ) {
   const app = new Hono()
   app.use('/*', createInternalTokenMiddleware(db))
+  app.route('/maintenance', createMaintenanceRoutes(db, openCodeClient))
+  app.route('/system', createSystemRoutes(systemStatusService))
+  app.route('/provider-rate-limits', createInternalProviderRateLimitRoutes())
   app.route('/schedules', createScheduleRoutes(scheduleService))
+  app.route('/agent-goals', createInternalAgentGoalRoutes(sessionGoals, openCodeClient))
   app.route('/session-goals', createSessionGoalRoutes(sessionGoals, { serverScoped: false }))
   app.route('/multi-runs', createMultiRunRoutes(multiRuns))
   app.route('/notifications', createInternalNotificationRoutes(notificationService))
   app.route('/settings', createInternalSettingsRoutes(settingsService))
-  app.route('/opencode-config', createOpenCodeConfigRoutes(settingsService, openCodeClient, { redactSecrets: true }))
+  app.route(
+    '/opencode-config',
+    createOpenCodeConfigRoutes(settingsService, openCodeClient, {
+      redactSecrets: true,
+    }),
+  )
   const repos = new Hono()
   repos.route('/', createInternalRepoRoutes(db, settingsService, gitAuthService))
   repos.route('/:id/schedules', createScheduleRoutes(scheduleService))
@@ -70,5 +87,7 @@ export function createInternalRoutes(
   app.route('/shell-env', createInternalShellEnvRoutes(db, repoEnvService))
   app.route('/git-credentials', createInternalGitCredentialsRoutes(db))
   app.route('/sandbox', createInternalSandboxRoutes(db, sessionSandbox, repoEnvService))
+  app.route('/learnings', createInternalLearningRoutes(db, openCodeClient))
+  app.route('/schedule-runs', createInternalScheduleRunRoutes(scheduleService))
   return app
 }
