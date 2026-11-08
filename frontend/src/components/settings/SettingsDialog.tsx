@@ -15,11 +15,12 @@ import { ProviderSettings } from '@/components/settings/ProviderSettings'
 import { AccountSettings } from '@/components/settings/AccountSettings'
 import { VoiceSettings } from '@/components/settings/VoiceSettings'
 import { NotificationSettings } from '@/components/settings/NotificationSettings'
+import { UploadedFilesSettings } from '@/components/settings/UploadedFilesSettings'
 import { VersionSelectDialog } from '@/components/settings/VersionSelectDialog'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { RowActionsMenuContext } from '@/components/ui/settings-list'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Settings2, Keyboard, Code, ChevronLeft, Key, GitBranch, Server, User, Volume2, Bell, X, ScrollText, type LucideIcon } from 'lucide-react'
+import { Settings2, Keyboard, Code, ChevronLeft, Key, GitBranch, Server, User, Volume2, Bell, X, ScrollText, Paperclip, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSettingsDialog, isSettingsContentTab, type SettingsContentTab } from '@/hooks/useSettingsDialog'
 import { DESKTOP_MEDIA_QUERY, useMediaQuery } from '@/hooks/useMediaQuery'
@@ -140,6 +141,7 @@ export function SettingsDialog() {
     { id: 'opencode', icon: Code, label: t('OpenCode Config'), description: t('Manage OpenCode configurations, commands, and agents') },
     { id: 'logs', icon: ScrollText, label: t('Logs'), description: t('Live manager and OpenCode server logs') },
     { id: 'providers', icon: Key, label: t('Providers'), description: t('Manage AI provider API keys') },
+    { id: 'uploads', icon: Paperclip, label: t('Uploaded files'), description: t('Files attached to sessions and stored on this server') },
   ]
 
   const handleOpenMobileView = useCallback((view: SettingsContentTab) => {
@@ -215,6 +217,7 @@ export function SettingsDialog() {
               </TabsContent>
               <TabsContent key="logs" value="logs" className="mt-0 h-full min-h-0 px-0"><LogsViewer /></TabsContent>
               <TabsContent key="providers" value="providers" className="mt-0 px-0 max-w-7xl"><ProviderSettings /></TabsContent>
+              <TabsContent key="uploads" value="uploads" className="mt-0 px-0 max-w-7xl"><UploadedFilesSettings /></TabsContent>
             </div>
           </Tabs>
         </div>
@@ -284,6 +287,7 @@ export function SettingsDialog() {
                    <OpenCodeSettings key="opencode" onOpenVersionDialog={() => setIsVersionDialogOpen(true)} />
                 )}
               {mobileView === 'providers' && <div key="providers"><ProviderSettings /></div>}
+              {mobileView === 'uploads' && <div key="uploads"><UploadedFilesSettings /></div>}
               {mobileView === 'logs' && <div key="logs" className="h-full min-h-0"><LogsViewer /></div>}
            </div>
         </div>

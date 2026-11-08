@@ -4,6 +4,7 @@ export const settingsEnforced: readonly string[] = [
   'src/components/settings/ConnectDeviceSettings.tsx',
   'src/components/settings/ConnectDeviceDialog.tsx',
   'src/components/settings/PairedDevicesSettings.tsx',
+  'src/components/settings/UploadedFilesSettings.tsx',
   'src/components/settings/RemoteAccessHeadersSettings.tsx',
   'src/components/agent/**',
   'src/components/sandbox/**',

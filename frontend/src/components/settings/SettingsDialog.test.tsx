@@ -33,6 +33,10 @@ vi.mock('@/components/settings/ProviderSettings', () => ({
   ProviderSettings: () => <div data-testid="providers-settings">Provider Settings Content</div>,
 }))
 
+vi.mock('@/components/settings/UploadedFilesSettings', () => ({
+  UploadedFilesSettings: () => <div data-testid="uploaded-files-settings">Uploaded Files Content</div>,
+}))
+
 vi.mock('@/components/settings/AccountSettings', () => ({
   AccountSettings: () => <div data-testid="account-settings">Account Settings Content</div>,
 }))
@@ -402,13 +406,15 @@ describe('SettingsDialog', () => {
     expect(tablist).toHaveAttribute('aria-orientation', 'vertical')
 
     const triggers = screen.getAllByRole('tab')
-    expect(triggers).toHaveLength(10)
-    const expected = ['Account', 'General Settings', 'Notifications', 'Voice', 'Git', 'Keyboard Shortcuts', 'Servers', 'OpenCode Config', 'Logs', 'Providers']
+    expect(triggers).toHaveLength(11)
+    const expected = ['Account', 'General Settings', 'Notifications', 'Voice', 'Git', 'Keyboard Shortcuts', 'Servers', 'OpenCode Config', 'Logs', 'Providers', 'Uploaded files']
     expect(triggers.map((trigger) => trigger.textContent)).toEqual(expected)
 
     const logsTrigger = screen.getByRole('tab', { name: 'Logs' })
     fireEvent.mouseDown(logsTrigger)
     expect(screen.getByTestId('location-search')).toHaveTextContent('settingsTab=logs')
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Uploaded files' }))
+    expect(screen.getByTestId('location-search')).toHaveTextContent('settingsTab=uploads')
 
     const gitTrigger = screen.getByRole('tab', { name: 'Git' })
     act(() => {
