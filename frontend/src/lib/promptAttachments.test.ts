@@ -29,7 +29,7 @@ const decodeBase64Utf8 = (base64: string): string => {
 describe('classifyAttachment', () => {
   it('classifies images by mime', () => {
     expect(classifyAttachment({ name: 'photo.png', type: 'image/png' })).toBe('image')
-    expect(classifyAttachment({ name: 'photo.HEIC', type: 'image/heic' })).toBe('file')
+    expect(classifyAttachment({ name: 'photo.HEIC', type: 'image/heic' })).toBe('image')
   })
 
   it('classifies pdf by mime', () => {

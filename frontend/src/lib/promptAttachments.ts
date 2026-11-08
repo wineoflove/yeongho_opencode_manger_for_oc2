@@ -3,6 +3,7 @@ import { randomId } from '@/lib/utils'
 import { uploadPromptFile } from '@/api/promptAttachments'
 import { MAX_PROMPT_ATTACHMENT_BYTES } from '@opencode-manager/shared/schemas'
 import { msg, t } from '@/i18n/translate'
+import { convertHeifAttachment, isHeifAttachment } from './heifAttachment'
 
 export type PromptAttachmentKind = 'image' | 'pdf' | 'text' | 'file'
 
@@ -140,7 +141,7 @@ const getExtension = (filename: string): string => {
 export function classifyAttachment(file: Pick<File, 'name' | 'type'>): PromptAttachmentKind {
   const mime = file.type.toLowerCase()
   if (getExtension(file.name) === 'zip') return 'file'
-  if (IMAGE_MIME_TYPES.has(mime)) return 'image'
+  if (IMAGE_MIME_TYPES.has(mime) || isHeifAttachment(file)) return 'image'
   if (mime === 'application/pdf') return 'pdf'
   if (TEXT_EXTENSION_SET.has(getExtension(file.name)) || TEXT_FILENAMES.has(getBasename(file.name).toLowerCase()))
     return 'text'
@@ -194,6 +195,18 @@ export async function readPromptAttachment(file: File, directory?: string): Prom
   }
 
   try {
+    if (isHeifAttachment(file)) {
+      if (file.size > 20 * 1024 * 1024)
+        return {
+          ok: false,
+          reason: t('HEIF images must be 20MB or smaller. Convert this file to JPEG before attaching.'),
+        }
+      const converted = await convertHeifAttachment(file)
+      const dataUrl = await readAsDataUrl(converted)
+      if (!dataUrl.startsWith('data:image/jpeg;base64,/9j/'))
+        return { ok: false, reason: t('HEIF conversion failed. Please attach a JPEG or PNG image.') }
+      return { ok: true, attachment: { id: randomId(), filename: converted.name, mime: converted.type, dataUrl } }
+    }
     const inlineLimit = kind === 'text' ? MAX_INLINE_TEXT_BYTES : MAX_INLINE_BINARY_BYTES
     if (kind === 'file' || file.size > inlineLimit) {
       if (!directory)
@@ -223,6 +236,8 @@ export async function readPromptAttachment(file: File, directory?: string): Prom
       },
     }
   } catch (error) {
+    if (isHeifAttachment(file))
+      return { ok: false, reason: t('HEIF conversion failed. Please attach a JPEG or PNG image.') }
     const message = t(error instanceof Error ? error.message : msg('Failed to read file'))
     return { ok: false, reason: `${message} (${file.name})` }
   }

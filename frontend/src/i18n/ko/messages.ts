@@ -216,6 +216,10 @@ export const messages: Record<string, string> = {
   'Validation failed: {issues}': '유효성 검사에 실패했습니다: {issues}',
   'Empty file data': '파일 데이터가 비어 있습니다',
   'Failed to read file': '파일을 읽지 못했습니다',
+  'HEIF images must be 20MB or smaller. Convert this file to JPEG before attaching.':
+    'HEIF 이미지는 20MB 이하여야 합니다. JPEG로 변환한 뒤 첨부해 주세요.',
+  'HEIF conversion failed. Please attach a JPEG or PNG image.':
+    'HEIF 이미지를 변환하지 못했습니다. JPEG 또는 PNG 이미지로 첨부해 주세요.',
   '{filename} is too large (max {limit} for text files).': '{filename} 파일이 너무 큽니다(텍스트 파일은 최대 {limit}).',
   '{filename} is too large (max {limit} for binary files).':
     '{filename} 파일이 너무 큽니다(바이너리 파일은 최대 {limit}).',
