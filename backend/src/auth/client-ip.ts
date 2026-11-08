@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
-import { getConnInfo } from '@hono/node-server/conninfo'
+import { getConnInfo as nodeGetConnInfo } from '@hono/node-server/conninfo'
+const getConnInfo = typeof Bun !== 'undefined' ? (await import('hono/bun')).getConnInfo : nodeGetConnInfo
 
 export const AUTH_SOCKET_IP_HEADER = 'x-ocm-auth-socket-ip'
 

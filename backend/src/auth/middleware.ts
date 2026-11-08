@@ -5,6 +5,8 @@ import { logger } from '../utils/logger'
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 const UNTRUSTED_FETCH_SITES = new Set(['same-site', 'cross-site'])
+/** GET routes that make the server contact a caller-supplied URL, so they get the same cross-site guard as writes. */
+const OUTBOUND_READ_PATHS = new Set(['/api/settings/opencode-discover-models'])
 
 export function createAuthMiddleware(
   auth: AuthInstance,
@@ -20,7 +22,7 @@ export function createAuthMiddleware(
 
     const fetchSite = c.req.header('sec-fetch-site')
     if (
-      UNSAFE_METHODS.has(c.req.method) &&
+      (UNSAFE_METHODS.has(c.req.method) || OUTBOUND_READ_PATHS.has(c.req.path)) &&
       fetchSite !== undefined &&
       UNTRUSTED_FETCH_SITES.has(fetchSite) &&
       (!origin || !resolveTrustedOrigins().includes(origin))

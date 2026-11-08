@@ -123,6 +123,24 @@ describe('createAuthMiddleware same-site guard', () => {
     expect(getSession).toHaveBeenCalledTimes(1)
   })
 
+  it.each([
+    ['cross-site', UNTRUSTED_ORIGIN, 403],
+    ['cross-site', undefined, 403],
+    ['same-site', UNTRUSTED_ORIGIN, 403],
+    ['same-site', TRUSTED_ORIGIN, 200],
+    ['same-origin', undefined, 200],
+  ] as const)('guards the outbound model discovery GET for a %s request from %s', async (fetchSite, origin, status) => {
+    const app = new Hono<{ Variables: { session: Session['session']; user: Session['user'] } }>()
+    app.use('/*', createAuthMiddleware({ api: { getSession } } as unknown as AuthInstance, () => [TRUSTED_ORIGIN]))
+    app.get('/api/settings/opencode-discover-models', (c) => c.json({ ok: true }))
+
+    const res = await app.request('/api/settings/opencode-discover-models?baseUrl=http://127.0.0.1:9', {
+      headers: { 'sec-fetch-site': fetchSite, ...(origin ? { origin } : {}), cookie: 'opencode.session=valid' },
+    })
+
+    expect(res.status).toBe(status)
+  })
+
   it('rejects a cross-site unsafe request with no origin', async () => {
     const app = createApp(getSession)
 
