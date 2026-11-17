@@ -616,7 +616,6 @@ export const settings: Record<string, string> = {
   'Workspace detections can include changes from shell commands, subagents or other sessions.': '작업 공간 감지 항목에는 셸 명령, 하위 에이전트 또는 다른 세션의 변경이 포함될 수 있습니다.',
   'Line counts accumulate completed edits and can differ from the final diff.': '줄 수는 완료된 편집의 누적 통계이며 최종 차이와 다를 수 있습니다.',
   'Session artifacts': '세션 산출물',
-  'Usage comes from every assistant response stored by OpenCode 2. OpenCode 2 does not record which account served each request, so usage is not split by account.': '사용량은 OpenCode 2에 저장된 모든 어시스턴트 응답에서 가져옵니다. OpenCode 2는 요청마다 어떤 계정이 처리했는지 기록하지 않으므로 계정별로 나누지 않습니다.',
   'Uploaded {count} {kind} file|Uploaded {count} {kind} files': '{kind} 파일 {count}개를 업로드했습니다',
   'Open {path}': '{path} 열기',
   'Show diff for {name}': '{name} diff 보기',

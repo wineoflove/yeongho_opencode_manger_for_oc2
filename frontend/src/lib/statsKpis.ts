@@ -111,5 +111,16 @@ export function buildKpiCards(data: TokenStatsResponse, delta?: KpiDelta): KpiCa
       detail: t('{count} tokens per session', { count: formatTokens(ratio(totals.total, totals.sessions)) }),
       points: buckets.map((bucket) => bucket.sessions),
     },
+    {
+      key: 'coverage',
+      label: t('Account coverage'),
+      value: totals.total > 0 ? formatShare(ratio(data.attribution.accountTokens, totals.total)) : '—',
+      detail: `${formatTokens(data.attribution.accountTokens)} / ${formatTokens(totals.total)}`,
+      points: shares(
+        buckets,
+        (bucket) => bucket.accountTokens,
+        (bucket) => bucket.total,
+      ),
+    },
   ]
 }

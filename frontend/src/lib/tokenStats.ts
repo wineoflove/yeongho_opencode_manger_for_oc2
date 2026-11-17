@@ -42,16 +42,18 @@ export const DIMENSION_LABELS: Record<TokenGroupDimension, string> = {
 
 export const BREAKDOWN_DIMENSIONS: readonly TokenGroupDimension[] = [
   'model',
+  'account',
   'project',
   'agent',
   'category',
   'session',
   'day',
 ]
-export const SPLIT_OPTIONS: readonly TokenSplit[] = ['tokenType', 'model', 'project', 'agent', 'category']
+export const SPLIT_OPTIONS: readonly TokenSplit[] = ['tokenType', 'model', 'account', 'project', 'agent', 'category']
 export const FILTER_MENU_DIMENSIONS: readonly TokenFilterDimension[] = [
   'model',
   'provider',
+  'account',
   'project',
   'agent',
   'category',
@@ -70,6 +72,7 @@ export const STATS_TABS = [
   'overview',
   'model',
   'provider',
+  'account',
   'project',
   'agent',
   'category',

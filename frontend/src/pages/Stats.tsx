@@ -36,7 +36,9 @@ import {
   formatDelta,
   formatInteger,
   formatRangeSubtitle,
+  formatShare,
   formatTokens,
+  ratio,
   readStatsViewState,
   seriesColor,
   isStatsTab,
@@ -160,9 +162,17 @@ function Legend({ data, splitBy }: { data: TokenStatsResponse; splitBy: TokenSpl
 }
 
 function Coverage({ data }: { data: TokenStatsResponse }) {
+  const attributed = data.totals.total > 0 ? data.attribution.accountTokens / data.totals.total : 0
   const date = (value: number) =>
     new Date(value).toLocaleString(intlLocale(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   const rows: [string, string][] = [
+    [t('Account attribution'), data.totals.total > 0 ? formatShare(attributed) : '—'],
+    [
+      t('Account tracking'),
+      data.attribution.trackedSince
+        ? t('since {date}', { date: date(data.attribution.trackedSince) })
+        : t('after the first CLIProxy request'),
+    ],
     [t('Responses indexed'), formatInteger(data.index.messages)],
     [t('History from'), data.index.firstMessageAt ? date(data.index.firstMessageAt) : '—'],
     [t('Updated'), date(data.generatedAt)],
@@ -179,7 +189,7 @@ function Coverage({ data }: { data: TokenStatsResponse }) {
       </dl>
       <p className="mt-3 text-xs text-muted-foreground">
         {t(
-          'Usage comes from every assistant response stored by OpenCode 2. OpenCode 2 does not record which account served each request, so usage is not split by account.',
+          'Usage comes from every assistant response stored by OpenCode 2. Responses before account tracking started are listed as before tracking, and responses that cannot be matched to exactly one CLIProxy account are listed as unattributed.',
         )}
       </p>
       {data.totals.unpricedMessages > 0 && (
@@ -415,8 +425,12 @@ export function Stats() {
       ? (formatDelta(data.totals.total, data.previous.total) ?? undefined)
       : undefined
   const cards = useMemo(() => (data ? buildKpiCards(data, delta) : []), [data, delta])
+  const coverage =
+    data && data.totals.total > 0 ? formatShare(ratio(data.attribution.accountTokens, data.totals.total)) : undefined
   const age = dataUpdatedAt > 0 ? Math.max(0, now - dataUpdatedAt) : undefined
-  const badges: Partial<Record<StatsTab, string>> = data ? { overview: formatTokens(data.totals.total) } : {}
+  const badges: Partial<Record<StatsTab, string>> = data
+    ? { overview: formatTokens(data.totals.total), ...(coverage ? { account: coverage } : {}) }
+    : {}
   const tokensView = state.view === 'tokens'
 
   return (
@@ -436,6 +450,12 @@ export function Stats() {
                   />
                   {t('Synced')}
                   <span className={age < FRESH_DATA_MS ? 'text-success' : 'text-warning'}>{formatAge(age)}</span>
+                </StatusChip>
+              )}
+              {coverage && (
+                <StatusChip label={t('Account coverage {share}', { share: coverage })}>
+                  {t('Coverage')}
+                  <span className="text-foreground">{coverage}</span>
                 </StatusChip>
               )}
             </div>
