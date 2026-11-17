@@ -4,6 +4,7 @@ import os from 'os'
 import path from 'path'
 import { getConfigPath } from '@opencode-manager/shared/config/env'
 import {
+  getOpenCodeDatabasePath,
   getOpenCodeServiceRegistrationPath,
   getOpenCodeServiceSettingsPath,
   prepareOpenCodeServiceLaunch,
@@ -63,6 +64,16 @@ describe('opencode service mode paths', () => {
     } finally {
       await fs.rm(directory, { recursive: true })
     }
+  })
+
+  it.each([
+    [{}, '/data/opencode.db'],
+    [{ OPENCODE_SERVICE_CHANNEL: 'prod' }, '/data/opencode.db'],
+    [{ OPENCODE_SERVICE_CHANNEL: 'ocm-pool' }, '/data/opencode-ocm-pool.db'],
+    [{ OPENCODE_SERVICE_CHANNEL: 'ocm-pool', OPENCODE_DISABLE_CHANNEL_DB: 'true' }, '/data/opencode.db'],
+    [{ OPENCODE_SERVICE_CHANNEL: 'ocm-pool', OPENCODE_DB: 'custom.db' }, '/data/custom.db'],
+  ])('locates the database OpenCode writes for %j', (env, expected) => {
+    expect(getOpenCodeDatabasePath(env, '/data')).toBe(expected)
   })
 
   it('ignores OPENCODE_CONFIG_DIR and writes into the derived path', async () => {

@@ -1,6 +1,6 @@
 import path from 'path'
 import { promises as fs } from 'fs'
-import { getConfigPath } from '@opencode-manager/shared/config/env'
+import { getConfigPath, getOpenCodeDataPath } from '@opencode-manager/shared/config/env'
 import { writeFileAtomic } from '../utils/fs-safe'
 
 const OPENCODE_APP_DIRECTORY = 'opencode'
@@ -8,6 +8,20 @@ function serviceFilename(): string {
   const channel = process.env.OPENCODE_SERVICE_CHANNEL ?? 'latest'
   if (!/^[A-Za-z0-9._-]+$/.test(channel)) throw new Error('Invalid OpenCode service channel')
   return ['latest', 'dev', 'beta', 'next'].includes(channel) ? 'service.json' : `service-${channel}.json`
+}
+
+const SHARED_DATABASE_CHANNELS = ['latest', 'dev', 'beta', 'next', 'prod']
+
+/** Mirrors OpenCode's database file selection so Manager reads the database its service channel writes. */
+export function getOpenCodeDatabasePath(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  dataPath: string = getOpenCodeDataPath(),
+): string {
+  const channel = env.OPENCODE_SERVICE_CHANNEL ?? 'latest'
+  const shared =
+    SHARED_DATABASE_CHANNELS.includes(channel) || ['1', 'true'].includes(env.OPENCODE_DISABLE_CHANNEL_DB ?? '')
+  const filename = env.OPENCODE_DB ?? (shared ? 'opencode.db' : `opencode-${channel.replace(/[^a-zA-Z0-9._-]/g, '-')}.db`)
+  return path.resolve(dataPath, filename)
 }
 
 export const OPENCODE_SERVICE_SERVE_ARGS = ['serve', '--service'] as const

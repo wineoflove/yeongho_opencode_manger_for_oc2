@@ -34,6 +34,7 @@ async function getAppVersion(): Promise<string> {
 import { createProvidersRoutes } from "./routes/providers";
 import { loadClaudeProxyClient } from "./services/claude-proxy-config";
 import { CliproxyUsageCollector } from "./services/cliproxy-usage-collector";
+import { getOpenCodeDatabasePath } from "./services/opencode-service-mode";
 import { loadClaudeInference } from "./services/claude-inference-config";
 import { createClaudeInferenceRoutes } from "./routes/claude-inference";
 import { protectRawClaudeMutations } from "./routes/claude-raw-ownership";
@@ -664,7 +665,7 @@ const modelPriceCache = new ModelPriceCache(async () =>
   })),
 );
 const workflowSource = new WorkflowStatsSource({
-  openCodeDbPath: `${getOpenCodeDataPath()}/opencode.db`,
+  openCodeDbPath: getOpenCodeDatabasePath(),
   searchLessons: async (queries) => {
     const result = await runLearningScript({
       script: "search.mjs",
@@ -700,7 +701,7 @@ protectedApi.route(
   "/stats",
   createStatsRoutes(
     new TokenUsageIndex({
-      openCodeDbPath: `${getOpenCodeDataPath()}/opencode.db`,
+      openCodeDbPath: getOpenCodeDatabasePath(),
       listRepos: () => listRepos(db),
     }),
     modelPriceCache,
