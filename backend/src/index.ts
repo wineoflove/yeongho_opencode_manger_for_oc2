@@ -161,7 +161,6 @@ import {
   getAgentsMdPath,
   getDatabasePath,
   getLearningsEntriesPath,
-  getOpenCodeDataPath,
   getTrustedOrigins,
   ENV,
 } from "@opencode-manager/shared/config/env";
@@ -657,7 +656,7 @@ const protectedApi = new Hono();
 protectedApi.use("/*", requireAuth);
 protectedApi.route("/system", createSystemRoutes(systemStatusService));
 const messageSearch = new MessageSearchService({
-  sourcePath: `${getOpenCodeDataPath()}/opencode.db`,
+  sourcePath: getOpenCodeDatabasePath(),
   indexPath: `${getWorkspacePath()}/.opencode/message-search-v2.db`,
   projection: MESSAGE_SEARCH_PROJECTION,
 });
