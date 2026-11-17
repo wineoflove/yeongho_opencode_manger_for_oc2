@@ -4,7 +4,7 @@ import { buildMoreItems, buildNavModel, buildToolItems } from './moreDrawerItems
 describe('buildMoreItems', () => {
   it('returns Home + All Schedules + Statistics + Files + Settings + Logout for root path', () => {
     const items = buildMoreItems('/')
-    expect(items.map((item) => item.key)).toEqual(['home', 'all-schedules', 'stats', 'system', 'files', 'settings', 'logout'])
+    expect(items.map((item) => item.key)).toEqual(['home', 'all-schedules', 'stats', 'usage', 'system', 'files', 'settings', 'logout'])
     expect(items[2].to).toBe('/stats')
   })
 
@@ -210,7 +210,7 @@ describe('buildToolItems', () => {
   })
 
   it('returns the home route tools', () => {
-    expect(buildToolItems('/').map((item) => item.key)).toEqual(['sessions', 'all-schedules', 'stats', 'system', 'files'])
+    expect(buildToolItems('/').map((item) => item.key)).toEqual(['sessions', 'all-schedules', 'stats', 'usage', 'system', 'files'])
   })
 
   it.each(['/repos/42', '/assistant'])('opens schedules in the panel on %s', (path) => {

@@ -380,6 +380,11 @@ const router = createBrowserRouter([
             loader: protectedLoader,
           },
           {
+            path: '/usage',
+            lazy: async () => ({ Component: (await import('./pages/Usage')).Usage }),
+            loader: protectedLoader,
+          },
+          {
             path: '/system',
             lazy: async () => ({ Component: (await import('./pages/SystemStatus')).SystemStatus }),
             loader: protectedLoader,

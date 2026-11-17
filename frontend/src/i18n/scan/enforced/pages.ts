@@ -5,6 +5,7 @@ export const pagesEnforced: readonly string[] = [
   'src/pages/Repos.tsx',
   'src/pages/Schedules.tsx',
   'src/pages/Setup.tsx',
+  'src/pages/Usage.tsx',
   'src/pages/Workspace.tsx',
   'src/pages/sessionContentVersion.ts',
 ]

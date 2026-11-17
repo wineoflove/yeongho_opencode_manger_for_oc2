@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { BookOpen, ChartColumn, Cpu, Plug, Sparkles, ShieldOff, CalendarClock, GitCommitHorizontal, SquareTerminal, Settings, LogOut, Bot, Folder, Home, List, Play, Globe, KeyRound } from 'lucide-react'
+import { BookOpen, ChartColumn, Cpu, Gauge, Plug, Sparkles, ShieldOff, CalendarClock, GitCommitHorizontal, SquareTerminal, Settings, LogOut, Bot, Folder, Home, List, Play, Globe, KeyRound } from 'lucide-react'
 import { ASSISTANT_REPO_ID } from '@opencode-manager/shared/utils'
 import { getAssistantPath, isAssistantPath } from '@/lib/navigation'
 import { t } from '@/i18n/translate'
@@ -174,6 +174,7 @@ function buildRouteNavModel(pathname: string): NavModel {
       items: [
         { key: 'all-schedules', label: t('All Schedules'), icon: CalendarClock, to: '/schedules' },
         { key: 'stats', label: t('Statistics'), icon: ChartColumn, to: '/stats' },
+        { key: 'usage', label: t('Usage'), icon: Gauge, to: '/usage' },
         { key: 'system', label: t('System status'), icon: Cpu, to: '/system' },
         { key: 'files', label: t('Files'), icon: Folder, dialog: 'files' },
         ...baseItems,

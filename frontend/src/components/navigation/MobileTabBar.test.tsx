@@ -354,7 +354,7 @@ describe('MobileTabBar', () => {
     expect(screen.getByText('Schedules')).toBeInTheDocument()
   })
 
-  it.each(['/stats', '/system'])('renders the global tab bar on %s', (path) => {
+  it.each(['/stats', '/usage', '/system'])('renders the global tab bar on %s', (path) => {
     vi.mocked(useMobile).mockReturnValue(true)
     render(
       <QueryClientProvider client={new QueryClient()}>

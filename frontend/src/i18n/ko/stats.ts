@@ -84,6 +84,11 @@ export const stats: Record<string, string> = {
     '저장소가 암호화되어 있습니다. Manager에 CODEX_SOFT_STORE_PASSPHRASE를 설정하세요',
   'No usage source found': '사용량 출처를 찾을 수 없습니다',
   'Usage source failed': '사용량 출처 오류',
+  'Paused until {date}': '{date}까지 일시 중지',
+  'Usage comes from the rate limit headers of the last response each account served through CLIProxy. Accounts update after their next request.':
+    'CLIProxy를 거친 각 계정의 마지막 응답에 담긴 한도 정보입니다. 계정 값은 다음 요청 후 갱신됩니다.',
+  'CLIProxy is not configured on this server, so there is no account usage to show.':
+    '이 서버에는 CLIProxy가 설정되어 있지 않아 표시할 계정 사용량이 없습니다.',
   'Saved usage checked {time}': '저장된 사용량 확인: {time}',
   'Usage figures are read from saved observations every 30 seconds, not from a new usage probe.':
     '사용량은 새로 조회하지 않고 30초마다 저장된 기록에서 읽습니다.',

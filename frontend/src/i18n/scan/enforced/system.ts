@@ -5,4 +5,6 @@ export const systemEnforced: readonly string[] = [
   'src/components/servers/LinkedServerStateCard.tsx',
   'src/components/servers/RemoteProjectRowActions.tsx',
   'src/components/terminal/TerminalKeyBar.tsx',
+  'src/components/usage/AccountUsageCard.tsx',
+  'src/components/usage/UsageWindowRow.tsx',
 ]
