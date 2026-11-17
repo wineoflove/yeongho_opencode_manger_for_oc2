@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { z } from 'zod'
 import { getAssistantModePath, getReposPath, getWorkspacePath } from '@opencode-manager/shared/config/env'
 import type { OpenCodeClient } from './opencode/client'
+import { maintenanceAdmission } from './maintenance-admission'
 
 const reposSchema = z.array(
   z.object({
@@ -36,6 +37,7 @@ export interface MaintenanceCounts {
 
 /** Readiness of the Manager and its OpenCode 2 server for a restart or deployment; unknown evidence fails closed. */
 export interface MaintenanceStatus {
+  admission: { readonly configured: boolean; readonly closed: boolean }
   schemaVersion: 1
   ready: boolean
   counts: MaintenanceCounts
@@ -100,6 +102,7 @@ export async function getMaintenanceStatus(
   if (counts.terminalSessions > 0) blockers.add('terminal_sessions')
   return {
     schemaVersion: 1,
+    admission: maintenanceAdmission.status(),
     ready: blockers.size === 0,
     counts,
     blockers: [...blockers],
