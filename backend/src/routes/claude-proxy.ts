@@ -11,6 +11,7 @@ import {
   proxyEnabledSchema,
   proxyLoginSchema,
 } from "../services/claude-proxy-contract";
+import { toAccountUsageResponse } from "../services/cliproxy-account-usage";
 
 export function createClaudeProxyRoutes(
   client?: ClaudeProxyClient,
@@ -34,6 +35,15 @@ export function createClaudeProxyRoutes(
         503,
       );
     return c.json({ configured: true, ...(await client.listAccounts()) });
+  });
+  app.get("/claude-proxy/usage", async (c) => {
+    if (!client) return c.json({ code: "CLAUDE_PROXY_UNCONFIGURED" }, 404);
+    return c.json(
+      toAccountUsageResponse(
+        await client.listAccountUsageSources(),
+        Date.now(),
+      ),
+    );
   });
   app.post("/claude-proxy/logins", async (c) => {
     if (!client) return c.json({ code: "CLAUDE_PROXY_NOT_CONFIGURED" }, 503);
