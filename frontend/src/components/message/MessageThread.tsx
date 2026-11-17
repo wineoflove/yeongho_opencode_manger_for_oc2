@@ -1,6 +1,9 @@
-import { memo, useCallback, useMemo, useState } from 'react'
-import { Pencil, Loader2 } from 'lucide-react'
-import { assistantText, formatOpenCodeModelRef } from '@opencode-manager/shared/opencode'
+import { memo, useCallback, useMemo, useState } from "react";
+import { Pencil, Loader2 } from "lucide-react";
+import {
+  assistantText,
+  formatOpenCodeModelRef,
+} from "@opencode-manager/shared/opencode";
 import type {
   PromptAgentAttachment,
   PromptFileAttachment,
@@ -12,109 +15,137 @@ import type {
   SessionMessageCompaction,
   SessionMessageInfo,
   SessionMessageShell,
-} from '@opencode-manager/shared/opencode'
-import { MessagePart } from './MessagePart'
-import { MessageError } from './MessageError'
-import { RetryPart } from './RetryPart'
-import { StepFileChanges } from './StepFileChanges'
-import { UserMessageActionButtons } from './UserMessageActionButtons'
-import { EditableUserMessage, ClickableUserMessage } from './EditableUserMessage'
-import { useSettings } from '@/hooks/useSettings'
-import { CopyButton } from '@/components/ui/copy-button'
-import { InlineImage } from '@/components/ui/inline-image'
-import { TTSButton } from '@/components/ui/tts-button'
-import { backgroundShellID, collectBackgroundParts, type ShellNoticeOutcome } from '@/lib/backgroundWork'
-import { readShowArtifactCall } from '@/lib/artifactTool'
-import { groupExplorationParts, type AssistantContentItem } from '@/lib/explorationGroups'
-import type { WalkthroughSource } from '@opencode-manager/shared/schemas'
-import { ExplorationGroup } from './ExplorationGroup'
-import { ShellPreview, ToolDetails, useToolDetailsState } from './ToolDetails'
-import { cn, formatDuration } from '@/lib/utils'
-import { getAgentStyleVars } from '@/lib/agent-colors'
-import { t, msg } from '@/i18n/translate'
-import { intlLocale } from '@/i18n/format'
+} from "@opencode-manager/shared/opencode";
+import { MessagePart } from "./MessagePart";
+import { TextPart } from "./TextPart";
+import { MessageError } from "./MessageError";
+import { RetryPart } from "./RetryPart";
+import { StepFileChanges } from "./StepFileChanges";
+import { UserMessageActionButtons } from "./UserMessageActionButtons";
+import {
+  EditableUserMessage,
+  ClickableUserMessage,
+} from "./EditableUserMessage";
+import { useSettings } from "@/hooks/useSettings";
+import { CopyButton } from "@/components/ui/copy-button";
+import { InlineImage } from "@/components/ui/inline-image";
+import { TTSButton } from "@/components/ui/tts-button";
+import {
+  backgroundShellID,
+  collectBackgroundParts,
+  type ShellNoticeOutcome,
+} from "@/lib/backgroundWork";
+import { readShowArtifactCall } from "@/lib/artifactTool";
+import {
+  groupExplorationParts,
+  type AssistantContentItem,
+} from "@/lib/explorationGroups";
+import type { WalkthroughSource } from "@opencode-manager/shared/schemas";
+import { ExplorationGroup } from "./ExplorationGroup";
+import { ShellPreview, ToolDetails, useToolDetailsState } from "./ToolDetails";
+import { cn, formatDuration } from "@/lib/utils";
+import { getAgentStyleVars } from "@/lib/agent-colors";
+import { t, msg } from "@/i18n/translate";
+import { intlLocale } from "@/i18n/format";
 
 function getMessageText(message: SessionMessageInfo): string {
   switch (message.type) {
-    case 'user':
-      return message.text
-    case 'assistant':
-      return assistantText(message.content).trim()
-    case 'synthetic':
-    case 'system':
-    case 'skill':
-      return message.text
-    case 'shell':
-      return message.command
+    case "user":
+      return message.text;
+    case "assistant":
+      return assistantText(message.content).trim();
+    case "synthetic":
+    case "system":
+    case "skill":
+      return message.text;
+    case "shell":
+      return message.command;
     default:
-      return ''
+      return "";
   }
 }
 
-function isSubagentTool(part: SessionMessageAssistant['content'][number]): part is SessionMessageAssistantTool {
-  return part.type === 'tool' && part.name === 'subagent'
+function isSubagentTool(
+  part: SessionMessageAssistant["content"][number],
+): part is SessionMessageAssistantTool {
+  return part.type === "tool" && part.name === "subagent";
 }
 
-function isArtifactTool(part: SessionMessageAssistant['content'][number]): part is SessionMessageAssistantTool {
-  return part.type === 'tool' && readShowArtifactCall(part) !== undefined
+function isArtifactTool(
+  part: SessionMessageAssistant["content"][number],
+): part is SessionMessageAssistantTool {
+  return part.type === "tool" && readShowArtifactCall(part) !== undefined;
 }
 
-function hasRenderableContent(message: SessionMessageInfo, simpleChatMode: boolean, showReasoning: boolean): boolean {
+function hasRenderableContent(
+  message: SessionMessageInfo,
+  simpleChatMode: boolean,
+  showReasoning: boolean,
+): boolean {
   switch (message.type) {
-    case 'user':
-      return message.text.trim().length > 0 || (message.files?.length ?? 0) > 0
-    case 'assistant':
-      if (!simpleChatMode && (message.snapshot?.files?.length ?? 0) > 0) return true
+    case "user":
+      return message.text.trim().length > 0 || (message.files?.length ?? 0) > 0;
+    case "assistant":
+      if (!simpleChatMode && (message.snapshot?.files?.length ?? 0) > 0)
+        return true;
       return message.content.some((part) => {
-        if (part.type === 'text') return part.text.trim().length > 0
-        if (part.type === 'reasoning') return !simpleChatMode && showReasoning && part.text.trim().length > 0
-        if (part.type === 'tool') return !simpleChatMode || isSubagentTool(part) || isArtifactTool(part)
-        return false
-      })
-    case 'synthetic':
-    case 'system': {
-      const notice = sessionNoticeContent(message)
-      return notice.completion !== undefined || notice.text.trim().length > 0
+        if (part.type === "text") return part.text.trim().length > 0;
+        if (part.type === "reasoning")
+          return (
+            !simpleChatMode && showReasoning && part.text.trim().length > 0
+          );
+        if (part.type === "tool")
+          return (
+            !simpleChatMode || isSubagentTool(part) || isArtifactTool(part)
+          );
+        return false;
+      });
+    case "synthetic":
+    case "system": {
+      const notice = sessionNoticeContent(message);
+      return notice.completion !== undefined || notice.text.trim().length > 0;
     }
-    case 'shell':
-    case 'skill':
-    case 'compaction':
-    case 'agent-switched':
-    case 'model-switched':
-    case 'location-switched':
-      return true
+    case "shell":
+    case "skill":
+    case "compaction":
+    case "agent-switched":
+    case "model-switched":
+    case "location-switched":
+      return true;
     default:
-      return false
+      return false;
   }
 }
 
 function isStandaloneSubAgentMessage(message: SessionMessageInfo): boolean {
-  if (message.type !== 'assistant') return false
-  if (message.error !== undefined || message.retry !== undefined) return false
-  return message.content.length > 0 && message.content.every(isSubagentTool)
+  if (message.type !== "assistant") return false;
+  if (message.error !== undefined || message.retry !== undefined) return false;
+  return message.content.length > 0 && message.content.every(isSubagentTool);
 }
 
-function findLastUserMessageId(messages: SessionMessageInfo[]): string | undefined {
+function findLastUserMessageId(
+  messages: SessionMessageInfo[],
+): string | undefined {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index]
-    if (message?.type === 'user') return message.id
+    const message = messages[index];
+    if (message?.type === "user") return message.id;
   }
-  return undefined
+  return undefined;
 }
 
 function attachmentLabel(attachment: PromptFileAttachment): string {
-  if (attachment.name) return attachment.name
-  if (attachment.source.type === 'uri') {
-    const segments = attachment.source.uri.split('/')
-    return segments[segments.length - 1] || attachment.source.uri
+  if (attachment.name) return attachment.name;
+  if (attachment.source.type === "uri") {
+    const segments = attachment.source.uri.split("/");
+    return segments[segments.length - 1] || attachment.source.uri;
   }
-  return t('File')
+  return t("File");
 }
 
 interface UserAttachmentsProps {
-  files?: PromptFileAttachment[]
-  agents?: PromptAgentAttachment[]
-  skills?: PromptSkillAttachment[]
+  files?: PromptFileAttachment[];
+  agents?: PromptAgentAttachment[];
+  skills?: PromptSkillAttachment[];
 }
 
 function UserAttachments({
@@ -122,16 +153,17 @@ function UserAttachments({
   agents: attachedAgents,
   skills: attachedSkills,
 }: UserAttachmentsProps) {
-  const files = attachedFiles ?? []
-  const agents = attachedAgents ?? []
-  const skills = attachedSkills ?? []
+  const files = attachedFiles ?? [];
+  const agents = attachedAgents ?? [];
+  const skills = attachedSkills ?? [];
 
-  if (files.length === 0 && agents.length === 0 && skills.length === 0) return null
+  if (files.length === 0 && agents.length === 0 && skills.length === 0)
+    return null;
 
   return (
     <div className="flex flex-wrap items-center gap-1 mt-1">
       {files.map((file, index) =>
-        file.mime.startsWith('image/') ? (
+        file.mime.startsWith("image/") ? (
           <InlineImage
             key={`file-${index}`}
             src={`data:${file.mime};base64,${file.data}`}
@@ -153,7 +185,7 @@ function UserAttachments({
           key={`agent-${index}`}
           className="inline-flex items-center px-2 py-1 rounded bg-primary/10 border border-primary/30 text-xs text-primary"
         >
-          {t('agent: {name}', { name: agent.name })}
+          {t("agent: {name}", { name: agent.name })}
         </span>
       ))}
       {skills.map((skill, index) => (
@@ -161,11 +193,11 @@ function UserAttachments({
           key={`skill-${index}`}
           className="inline-flex items-center px-2 py-1 rounded bg-info/10 border border-info/30 text-xs text-info"
         >
-          {t('skill: {name}', { name: skill.name })}
+          {t("skill: {name}", { name: skill.name })}
         </span>
       ))}
     </div>
-  )
+  );
 }
 
 function MessageDivider({ label }: { label: string }) {
@@ -175,83 +207,112 @@ function MessageDivider({ label }: { label: string }) {
       <span className="shrink-0">{label}</span>
       <span className="h-px flex-1 bg-border" />
     </div>
-  )
+  );
 }
 
-type SessionNoticeMessage = Extract<SessionMessageInfo, { type: 'synthetic' | 'system' }>
+type SessionNoticeMessage = Extract<
+  SessionMessageInfo,
+  { type: "synthetic" | "system" }
+>;
 
 interface SessionNoticeContent {
-  text: string
+  text: string;
   completion?: {
-    heading: string
-    state?: string
-    childID?: string
-  }
+    heading: string;
+    state?: string;
+    childID?: string;
+  };
 }
 
-function noticeMetadataString(message: SessionNoticeMessage, key: string): string | undefined {
-  const value = message.metadata?.[key]
-  return typeof value === 'string' ? value : undefined
+function noticeMetadataString(
+  message: SessionNoticeMessage,
+  key: string,
+): string | undefined {
+  const value = message.metadata?.[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 /** OpenCode's instruction-update notice, localized and naming the instruction sources it recorded. */
 function instructionsNotice(message: SessionNoticeMessage): string {
-  const recorded = message.metadata?.instructionSources
-  const sources = Array.isArray(recorded) ? recorded.filter((value): value is string => typeof value === 'string') : []
-  return sources.length > 0 ? t('Instructions updated: {sources}', { sources: sources.join(', ') }) : t('Instructions updated')
+  const recorded = message.metadata?.instructionSources;
+  const sources = Array.isArray(recorded)
+    ? recorded.filter((value): value is string => typeof value === "string")
+    : [];
+  return sources.length > 0
+    ? t("Instructions updated: {sources}", { sources: sources.join(", ") })
+    : t("Instructions updated");
 }
 
-function sessionNoticeContent(message: SessionNoticeMessage): SessionNoticeContent {
-  const source = noticeMetadataString(message, 'source')
+function sessionNoticeContent(
+  message: SessionNoticeMessage,
+): SessionNoticeContent {
+  const source = noticeMetadataString(message, "source");
   const text =
-    message.type === 'system'
+    message.type === "system"
       ? instructionsNotice(message)
-      : (message.description ?? (source === 'shell' || source === 'subagent' ? '' : message.text))
-  if (source !== 'shell' && source !== 'subagent') return { text }
+      : (message.description ??
+        (source === "shell" || source === "subagent" ? "" : message.text));
+  if (source !== "shell" && source !== "subagent") return { text };
 
-  const state = noticeMetadataString(message, 'state')
-  const agent = noticeMetadataString(message, 'agent')
-  const actor = source === 'shell' ? t('Shell') : agent ? agent.charAt(0).toUpperCase() + agent.slice(1) : t('Subagent')
+  const state = noticeMetadataString(message, "state");
+  const agent = noticeMetadataString(message, "agent");
+  const actor =
+    source === "shell"
+      ? t("Shell")
+      : agent
+        ? agent.charAt(0).toUpperCase() + agent.slice(1)
+        : t("Subagent");
   const outcome =
-    state === 'error'
-      ? t('{actor} failed', { actor })
-      : state === 'completed' || state === undefined
-        ? t('{actor} finished', { actor })
-        : state === 'cancelled'
-          ? t('{actor} cancelled', { actor })
-          : `${actor} ${state}`
+    state === "error"
+      ? t("{actor} failed", { actor })
+      : state === "completed" || state === undefined
+        ? t("{actor} finished", { actor })
+        : state === "cancelled"
+          ? t("{actor} cancelled", { actor })
+          : `${actor} ${state}`;
   return {
-    text: source === 'shell' ? text.replace(/\s+/g, ' ').trim() : text,
+    text: source === "shell" ? text.replace(/\s+/g, " ").trim() : text,
     completion: {
-      heading: `${state === 'completed' ? '↳' : '!'} ${outcome}`,
+      heading: `${state === "completed" ? "↳" : "!"} ${outcome}`,
       state,
-      childID: source === 'subagent' ? noticeMetadataString(message, 'childID') : undefined,
+      childID:
+        source === "subagent"
+          ? noticeMetadataString(message, "childID")
+          : undefined,
     },
-  }
+  };
 }
 
 function SessionNotice({
   message,
   onChildSessionClick,
 }: {
-  message: SessionNoticeMessage
-  onChildSessionClick?: (sessionId: string) => void
+  message: SessionNoticeMessage;
+  onChildSessionClick?: (sessionId: string) => void;
 }) {
-  const { text, completion } = sessionNoticeContent(message)
+  const { text, completion } = sessionNoticeContent(message);
 
   if (!completion) {
-    return <div className="my-2 px-3 py-1 text-xs text-muted-foreground truncate">◈ {text}</div>
+    return (
+      <div className="my-2 px-3 py-1 text-xs text-muted-foreground truncate">
+        ◈ {text}
+      </div>
+    );
   }
 
   const tone =
-    completion.state === 'error' ? 'text-destructive' : completion.state === 'cancelled' ? 'text-warning' : 'text-info'
+    completion.state === "error"
+      ? "text-destructive"
+      : completion.state === "cancelled"
+        ? "text-warning"
+        : "text-info";
   const content = (
     <>
       <span className={tone}>{completion.heading}</span>
       {text && <span className="text-muted-foreground"> · {text}</span>}
     </>
-  )
-  const childID = completion.childID
+  );
+  const childID = completion.childID;
 
   if (childID && onChildSessionClick) {
     return (
@@ -263,30 +324,33 @@ function SessionNotice({
       >
         {content}
       </button>
-    )
+    );
   }
 
   return (
     <div aria-live="polite" className="my-2 px-3 py-1 text-xs truncate">
       {content}
     </div>
-  )
+  );
 }
 
-const SHELL_STATUS_LABELS: Record<SessionMessageShell['status'], string> = {
-  running: msg('running'),
-  exited: msg('exited'),
-  timeout: msg('timed out'),
-  killed: msg('killed'),
-}
+const SHELL_STATUS_LABELS: Record<SessionMessageShell["status"], string> = {
+  running: msg("running"),
+  exited: msg("exited"),
+  timeout: msg("timed out"),
+  killed: msg("killed"),
+};
 
 function ShellMessage({ message }: { message: SessionMessageShell }) {
-  const [detailsOpen, setDetailsOpen] = useToolDetailsState(false)
-  const output = message.output?.output ?? ''
+  const [detailsOpen, setDetailsOpen] = useToolDetailsState(false);
+  const output = message.output?.output ?? "";
   const statusLabel =
-    message.status === 'running' || message.exit === undefined
+    message.status === "running" || message.exit === undefined
       ? t(SHELL_STATUS_LABELS[message.status])
-      : t('{status} (exit {code})', { status: t(SHELL_STATUS_LABELS[message.status]), code: String(message.exit) })
+      : t("{status} (exit {code})", {
+          status: t(SHELL_STATUS_LABELS[message.status]),
+          code: String(message.exit),
+        });
 
   return (
     <>
@@ -294,86 +358,116 @@ function ShellMessage({ message }: { message: SessionMessageShell }) {
         command={message.command}
         output={output}
         onClick={() => setDetailsOpen(!detailsOpen)}
-        status={<span className="ml-auto shrink-0 text-xs text-muted-foreground">{statusLabel}</span>}
+        status={
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+            {statusLabel}
+          </span>
+        }
       />
       {output && (
-        <ToolDetails open={detailsOpen} onOpenChange={setDetailsOpen} title={`$ ${message.command}`}>
+        <ToolDetails
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          title={`$ ${message.command}`}
+        >
           <div className="relative">
-            <pre className="bg-accent p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap">{output}</pre>
-            <CopyButton content={output} title={t('Copy output')} className="absolute top-1 right-1" iconSize="sm" />
+            <pre className="bg-accent p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap">
+              {output}
+            </pre>
+            <CopyButton
+              content={output}
+              title={t("Copy output")}
+              className="absolute top-1 right-1"
+              iconSize="sm"
+            />
           </div>
         </ToolDetails>
       )}
     </>
-  )
+  );
 }
 
 function CompactionBanner({ message }: { message: SessionMessageCompaction }) {
-  if (message.status === 'running') {
+  if (message.status === "running") {
     return (
       <div className="flex items-center gap-2 my-2 text-xs text-muted-foreground">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        <span>{t('Compacting session...')}</span>
+        <span>{t("Compacting session...")}</span>
       </div>
-    )
+    );
   }
 
-  if (message.status === 'failed') {
+  if (message.status === "failed") {
     return (
       <div className="my-2 border-l-2 border-destructive pl-2 text-xs text-destructive">
-        {t('✗ Compaction failed: {error}', { error: message.error.message })}
+        {t("✗ Compaction failed: {error}", { error: message.error.message })}
       </div>
-    )
+    );
   }
 
   return (
     <>
-      <MessageDivider label={t('Session compacted')} />
+      <MessageDivider label={t("Session compacted")} />
       {message.summary && (
-        <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-wrap text-center">{message.summary}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground whitespace-pre-wrap text-center">
+          {message.summary}
+        </p>
       )}
     </>
-  )
+  );
 }
 
 function QueuedPromptRow({ item }: { item: SessionInboxUser }) {
   return (
     <div className="py-2">
       <div className="border-l-[3px] border-dashed border-muted-foreground bg-muted/60 px-4 py-3 text-muted-foreground">
-        <ClickableUserMessage content={item.payload.text} onClick={() => {}} isEditable={false} />
-        <UserAttachments files={item.payload.files} agents={item.payload.agents} skills={item.payload.skills} />
+        <ClickableUserMessage
+          content={item.payload.text}
+          onClick={() => {}}
+          isEditable={false}
+        />
+        <UserAttachments
+          files={item.payload.files}
+          agents={item.payload.agents}
+          skills={item.payload.skills}
+        />
         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{new Date(item.time.created).toLocaleTimeString(intlLocale())}</span>
+          <span>
+            {new Date(item.time.created).toLocaleTimeString(intlLocale())}
+          </span>
           <span className="font-mono text-[11px] font-semibold tracking-wider text-warning">
-            {item.delivery === 'queue' ? t('QUEUED') : t('STEERING')}
+            {item.delivery === "queue" ? t("QUEUED") : t("STEERING")}
           </span>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 interface MessageRowProps {
-  message: SessionMessageInfo
-  nextAssistantMessageId: string | undefined
-  isLastUserMessage: boolean
-  isSessionBusy: boolean
-  onUndoMessage?: (restoredPrompt: string) => void
-  editingUserMessageId: string | null
-  handleStartEditUserMessage: (userMessageId: string, assistantMessageId: string) => void
-  handleCancelEdit: () => void
-  sessionID: string
-  directory?: string
-  repoFullPath?: string
-  repoLocalPath?: string
-  onFileClick?: (filePath: string, lineNumber?: number) => void
-  onChildSessionClick?: (sessionId: string) => void
-  onOpenWalkthrough?: (source?: WalkthroughSource) => void
-  model?: string
-  simpleChatMode: boolean
-  showReasoning: boolean
-  groupToolCalls: boolean
-  shellOutcomes: ReadonlyMap<string, ShellNoticeOutcome>
+  message: SessionMessageInfo;
+  nextAssistantMessageId: string | undefined;
+  isLastUserMessage: boolean;
+  isSessionBusy: boolean;
+  onUndoMessage?: (restoredPrompt: string) => void;
+  editingUserMessageId: string | null;
+  handleStartEditUserMessage: (
+    userMessageId: string,
+    assistantMessageId: string,
+  ) => void;
+  handleCancelEdit: () => void;
+  sessionID: string;
+  directory?: string;
+  repoFullPath?: string;
+  repoLocalPath?: string;
+  onFileClick?: (filePath: string, lineNumber?: number) => void;
+  onChildSessionClick?: (sessionId: string) => void;
+  onOpenWalkthrough?: (source?: WalkthroughSource) => void;
+  model?: string;
+  simpleChatMode: boolean;
+  showReasoning: boolean;
+  groupToolCalls: boolean;
+  shellOutcomes: ReadonlyMap<string, ShellNoticeOutcome>;
 }
 
 const MessageRow = memo(function MessageRow({
@@ -398,21 +492,29 @@ const MessageRow = memo(function MessageRow({
   groupToolCalls,
   shellOutcomes,
 }: MessageRowProps) {
-  const messageTextContent = getMessageText(message)
-  const shellOutcomeFor = (part: SessionMessageAssistant['content'][number]) =>
-    part.type === 'tool' ? shellOutcomes.get(backgroundShellID(part) ?? '') : undefined
-  const streaming = message.type === 'assistant' && message.time.completed === undefined
-  const isEditingThisMessage = editingUserMessageId === message.id
-  const canEditUserMessage = isLastUserMessage && !isSessionBusy
-  const canUndoUserMessage = isLastUserMessage && !isSessionBusy && onUndoMessage
+  const messageTextContent = getMessageText(message);
+  const shellOutcomeFor = (part: SessionMessageAssistant["content"][number]) =>
+    part.type === "tool"
+      ? shellOutcomes.get(backgroundShellID(part) ?? "")
+      : undefined;
+  const streaming =
+    message.type === "assistant" && message.time.completed === undefined;
+  const isEditingThisMessage = editingUserMessageId === message.id;
+  const canEditUserMessage = isLastUserMessage && !isSessionBusy;
+  const canUndoUserMessage =
+    isLastUserMessage && !isSessionBusy && onUndoMessage;
 
-  if (message.type === 'user') {
-    if (!hasRenderableContent(message, simpleChatMode, showReasoning)) return null
+  if (message.type === "user") {
+    if (!hasRenderableContent(message, simpleChatMode, showReasoning))
+      return null;
 
     return (
       <div className="group py-2" data-message-id={message.id}>
         <div
-          className={cn('border-l-[3px] bg-muted px-4 py-3', isEditingThisMessage ? 'border-info' : 'border-primary')}
+          className={cn(
+            "border-l-[3px] bg-muted px-4 py-3",
+            isEditingThisMessage ? "border-info" : "border-primary",
+          )}
         >
           <div className="text-foreground">
             {isEditingThisMessage && nextAssistantMessageId ? (
@@ -425,27 +527,48 @@ const MessageRow = memo(function MessageRow({
                 model={model}
               />
             ) : simpleChatMode ? (
-              <ClickableUserMessage content={messageTextContent} onClick={() => {}} isEditable={false} />
+              <ClickableUserMessage
+                content={messageTextContent}
+                onClick={() => {}}
+                isEditable={false}
+              />
             ) : (
               <ClickableUserMessage
                 content={messageTextContent}
-                onClick={() => handleStartEditUserMessage(message.id, nextAssistantMessageId ?? '')}
+                onClick={() =>
+                  handleStartEditUserMessage(
+                    message.id,
+                    nextAssistantMessageId ?? "",
+                  )
+                }
                 isEditable={false}
               />
             )}
           </div>
 
-          <UserAttachments files={message.files} agents={message.agents} skills={message.skills} />
+          <UserAttachments
+            files={message.files}
+            agents={message.agents}
+            skills={message.skills}
+          />
 
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{new Date(message.time.created).toLocaleTimeString(intlLocale())}</span>
-            {(canEditUserMessage && nextAssistantMessageId) || canUndoUserMessage ? (
+            <span>
+              {new Date(message.time.created).toLocaleTimeString(intlLocale())}
+            </span>
+            {(canEditUserMessage && nextAssistantMessageId) ||
+            canUndoUserMessage ? (
               <span className="flex items-center gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
                 {canEditUserMessage && nextAssistantMessageId && (
                   <button
-                    onClick={() => handleStartEditUserMessage(message.id, nextAssistantMessageId)}
+                    onClick={() =>
+                      handleStartEditUserMessage(
+                        message.id,
+                        nextAssistantMessageId,
+                      )
+                    }
                     className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                    title={t('Edit message')}
+                    title={t("Edit message")}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -465,16 +588,20 @@ const MessageRow = memo(function MessageRow({
           </div>
         </div>
       </div>
-    )
+    );
   }
 
-  if (message.type === 'assistant') {
-    const hasError = message.error !== undefined
-    if (!hasRenderableContent(message, simpleChatMode, showReasoning) && !hasError && !message.retry) {
-      return null
+  if (message.type === "assistant") {
+    const hasError = message.error !== undefined;
+    if (
+      !hasRenderableContent(message, simpleChatMode, showReasoning) &&
+      !hasError &&
+      !message.retry
+    ) {
+      return null;
     }
 
-    const standaloneSubAgentMessage = isStandaloneSubAgentMessage(message)
+    const standaloneSubAgentMessage = isStandaloneSubAgentMessage(message);
 
     if (standaloneSubAgentMessage) {
       return (
@@ -497,26 +624,29 @@ const MessageRow = memo(function MessageRow({
             ))}
           </div>
         </div>
-      )
+      );
     }
 
     const contentItems: AssistantContentItem[] =
       groupToolCalls && !simpleChatMode
         ? groupExplorationParts(message.content, showReasoning)
-        : message.content.map((part) => ({ type: 'part', part }))
-    const isFree = (message.cost ?? 0) === 0
+        : message.content.map((part) => ({ type: "part", part }));
+    const isFree = (message.cost ?? 0) === 0;
     const totalTokens = message.tokens
-      ? message.tokens.input + message.tokens.output + message.tokens.reasoning + message.tokens.cache.read
-      : 0
+      ? message.tokens.input +
+        message.tokens.output +
+        message.tokens.reasoning +
+        message.tokens.cache.read
+      : 0;
 
     return (
       <div className="group py-2" data-message-id={message.id}>
         <div className="space-y-2">
           {contentItems.map((item, itemIndex) => (
             <div
-              key={`${message.id}-${item.type === 'exploration' ? `exploration-${item.parts[0].id}` : `${item.part.type}-${itemIndex}`}`}
+              key={`${message.id}-${item.type === "exploration" ? `exploration-${item.parts[0].id}` : `${item.part.type}-${itemIndex}`}`}
             >
-              {item.type === 'exploration' ? (
+              {item.type === "exploration" ? (
                 <ExplorationGroup
                   parts={item.parts}
                   shellOutcomeFor={shellOutcomeFor}
@@ -544,7 +674,11 @@ const MessageRow = memo(function MessageRow({
             </div>
           ))}
           {!simpleChatMode && message.snapshot?.files && (
-            <StepFileChanges files={message.snapshot.files} snapshot={message.snapshot.end} onFileClick={onFileClick} />
+            <StepFileChanges
+              files={message.snapshot.files}
+              snapshot={message.snapshot.end}
+              onFileClick={onFileClick}
+            />
           )}
           {message.retry && <RetryPart retry={message.retry} />}
           {message.error && <MessageError error={message.error} />}
@@ -553,7 +687,10 @@ const MessageRow = memo(function MessageRow({
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           {!simpleChatMode && (
             <>
-              <span style={getAgentStyleVars(message.agent)} className="font-medium text-[var(--agent-color)]">
+              <span
+                style={getAgentStyleVars(message.agent)}
+                className="font-medium text-[var(--agent-color)]"
+              >
                 {message.agent.charAt(0).toUpperCase() + message.agent.slice(1)}
               </span>
               <span aria-hidden="true">·</span>
@@ -563,91 +700,120 @@ const MessageRow = memo(function MessageRow({
           {message.time.completed !== undefined ? (
             <>
               <span aria-hidden="true">·</span>
-              <span>{formatDuration(message.time.completed - message.time.created)}</span>
+              <span>
+                {formatDuration(message.time.completed - message.time.created)}
+              </span>
             </>
           ) : streaming ? (
             <>
               <span aria-hidden="true">·</span>
-              <span className="animate-pulse-subtle text-info">{t('streaming')}</span>
+              <span className="animate-pulse-subtle text-info">
+                {t("streaming")}
+              </span>
             </>
           ) : null}
           {!isFree && (
             <>
               <span aria-hidden="true">·</span>
               <span>
-                ${(message.cost ?? 0).toFixed(4)} • {t('{tokens} tokens', { tokens: totalTokens })}
+                ${(message.cost ?? 0).toFixed(4)} •{" "}
+                {t("{tokens} tokens", { tokens: totalTokens })}
               </span>
             </>
           )}
           <span className="flex items-center gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
-            <CopyButton content={messageTextContent} title={t('Copy message')} />
-            {messageTextContent && <TTSButton messageId={message.id} content={messageTextContent} />}
+            <CopyButton
+              content={messageTextContent}
+              title={t("Copy message")}
+            />
+            {messageTextContent && (
+              <TTSButton messageId={message.id} content={messageTextContent} />
+            )}
           </span>
         </div>
       </div>
-    )
+    );
   }
 
-  if (message.type === 'shell') {
-    return <ShellMessage message={message} />
+  if (message.type === "shell") {
+    return <ShellMessage message={message} />;
   }
 
-  if (message.type === 'compaction') {
-    return <CompactionBanner message={message} />
+  if (message.type === "compaction") {
+    return <CompactionBanner message={message} />;
   }
 
-  if (message.type === 'agent-switched') {
-    return <MessageDivider label={t('Agent: {agent}', { agent: message.agent })} />
+  if (message.type === "agent-switched") {
+    return (
+      <MessageDivider label={t("Agent: {agent}", { agent: message.agent })} />
+    );
   }
 
-  if (message.type === 'model-switched') {
+  if (message.type === "model-switched") {
     return (
       <MessageDivider
-        label={t('Model: {model}', {
+        label={t("Model: {model}", {
           model: formatOpenCodeModelRef(message.model),
         })}
       />
-    )
+    );
   }
 
-  if (message.type === 'location-switched') {
+  if (message.type === "location-switched") {
     return (
       <MessageDivider
-        label={t('Location: {directory}', {
+        label={t("Location: {directory}", {
           directory: message.location.directory,
         })}
       />
-    )
+    );
   }
 
-  if (message.type === 'skill') {
+  if (message.type === "skill") {
     return (
       <div className="my-2 text-xs text-muted-foreground">
-        {t('◈ Skill loaded:')} <span className="font-medium text-foreground">{message.name}</span>
+        {t("◈ Skill loaded:")}{" "}
+        <span className="font-medium text-foreground">{message.name}</span>
       </div>
+    );
+  }
+
+  if (message.type === "synthetic" || message.type === "system") {
+    if (
+      message.type === "synthetic" &&
+      message.metadata?.source === "manager-report"
     )
+      return (
+        <TextPart
+          text={message.text}
+          directory={directory}
+          onFileClick={onFileClick}
+        />
+      );
+    return (
+      <SessionNotice
+        message={message}
+        onChildSessionClick={onChildSessionClick}
+      />
+    );
   }
 
-  if (message.type === 'synthetic' || message.type === 'system') {
-    return <SessionNotice message={message} onChildSessionClick={onChildSessionClick} />
-  }
-
-  return null
-})
+  return null;
+});
 
 interface MessageThreadProps {
-  sessionID: string
-  directory?: string
-  repoFullPath?: string
-  repoLocalPath?: string
-  messages: SessionMessageInfo[]
-  pending: SessionInboxInfo[]
-  onFileClick?: (filePath: string, lineNumber?: number) => void
-  onChildSessionClick?: (sessionId: string) => void
-  onOpenWalkthrough?: (source?: WalkthroughSource) => void
-  onUndoMessage?: (restoredPrompt: string) => void
-  model?: string
-  isSessionBusy?: boolean
+  sessionID: string;
+  directory?: string;
+  repoFullPath?: string;
+  repoLocalPath?: string;
+  messages: SessionMessageInfo[];
+  pending: SessionInboxInfo[];
+  onFileClick?: (filePath: string, lineNumber?: number) => void;
+  onChildSessionClick?: (sessionId: string) => void;
+  onOpenWalkthrough?: (source?: WalkthroughSource) => void;
+  onUndoMessage?: (restoredPrompt: string) => void;
+  model?: string;
+  isSessionBusy?: boolean;
 }
 
 export const MessageThread = memo(function MessageThread({
@@ -664,55 +830,65 @@ export const MessageThread = memo(function MessageThread({
   model,
   isSessionBusy = false,
 }: MessageThreadProps) {
-  const [editingUserMessageId, setEditingUserMessageId] = useState<string | null>(null)
-  const { preferences } = useSettings()
-  const simpleChatMode = preferences?.simpleChatMode ?? false
-  const showReasoning = preferences?.showReasoning ?? false
-  const groupToolCalls = preferences?.groupToolCalls ?? true
+  const [editingUserMessageId, setEditingUserMessageId] = useState<
+    string | null
+  >(null);
+  const { preferences } = useSettings();
+  const simpleChatMode = preferences?.simpleChatMode ?? false;
+  const showReasoning = preferences?.showReasoning ?? false;
+  const groupToolCalls = preferences?.groupToolCalls ?? true;
 
-  const lastUserMessageId = useMemo(() => findLastUserMessageId(messages), [messages])
+  const lastUserMessageId = useMemo(
+    () => findLastUserMessageId(messages),
+    [messages],
+  );
 
   const shellOutcomesKey = useMemo(
-    () => [...collectBackgroundParts(messages).shellNotices].map(([id, outcome]) => `${id}=${outcome}`).join(','),
+    () =>
+      [...collectBackgroundParts(messages).shellNotices]
+        .map(([id, outcome]) => `${id}=${outcome}`)
+        .join(","),
     [messages],
-  )
+  );
   const shellOutcomes = useMemo(
     () =>
       new Map(
         shellOutcomesKey
-          ? shellOutcomesKey.split(',').map((entry) => entry.split('=') as [string, ShellNoticeOutcome])
+          ? shellOutcomesKey
+              .split(",")
+              .map((entry) => entry.split("=") as [string, ShellNoticeOutcome])
           : [],
       ),
     [shellOutcomesKey],
-  )
+  );
 
   const nextAssistantIdByMessageId = useMemo(() => {
-    const map = new Map<string, string | undefined>()
-    let nextAssistantId: string | undefined
+    const map = new Map<string, string | undefined>();
+    let nextAssistantId: string | undefined;
     for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index]
-      map.set(message.id, nextAssistantId)
-      if (message.type === 'assistant') {
-        nextAssistantId = message.id
+      const message = messages[index];
+      map.set(message.id, nextAssistantId);
+      if (message.type === "assistant") {
+        nextAssistantId = message.id;
       }
     }
-    return map
-  }, [messages])
+    return map;
+  }, [messages]);
 
   const handleStartEditUserMessage = useCallback((userMessageId: string) => {
-    setEditingUserMessageId(userMessageId)
-  }, [])
+    setEditingUserMessageId(userMessageId);
+  }, []);
 
   const handleCancelEdit = useCallback(() => {
-    setEditingUserMessageId(null)
-  }, [])
+    setEditingUserMessageId(null);
+  }, []);
 
   if (messages.length === 0 && pending.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        {t('No messages yet. Start a conversation below.')}
+        {t("No messages yet. Start a conversation below.")}
       </div>
-    )
+    );
   }
 
   return (
@@ -742,7 +918,11 @@ export const MessageThread = memo(function MessageThread({
           shellOutcomes={shellOutcomes}
         />
       ))}
-      {pending.map((item) => (item.type === 'user' ? <QueuedPromptRow key={item.id} item={item} /> : null))}
+      {pending.map((item) =>
+        item.type === "user" ? (
+          <QueuedPromptRow key={item.id} item={item} />
+        ) : null,
+      )}
     </div>
-  )
-})
+  );
+});
