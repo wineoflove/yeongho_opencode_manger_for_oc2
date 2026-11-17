@@ -68,7 +68,7 @@ function toTokens(
       total: breakdown.total,
     };
   }
-  const cacheRead = tokens.cacheRead > 0 ? tokens.cacheRead : tokens.cached;
+  const cacheRead = tokens.cacheRead;
   const cacheWrite = tokens.cacheCreation;
   const input =
     provider === "claude"

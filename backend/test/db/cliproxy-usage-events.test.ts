@@ -75,7 +75,9 @@ describe("CLIProxy usage events storage", () => {
     cliproxyUsageEventsMigration.down(db);
     expect(
       db
-        .prepare("SELECT name FROM sqlite_master WHERE name = 'cliproxy_usage_events'")
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE name = 'cliproxy_usage_events'",
+        )
         .get() ?? null,
     ).toBeNull();
   });
@@ -166,6 +168,42 @@ describe("CLIProxy usage events storage", () => {
       expect(row).toEqual(expected);
     },
   );
+
+  it("does not count Claude cache creation as a cache read without a breakdown", () => {
+    insertUsageEvents(
+      db,
+      [
+        record({
+          breakdown: null,
+          tokens: {
+            input: 2,
+            output: 63,
+            reasoning: 59,
+            cached: 3785,
+            cacheRead: 0,
+            cacheCreation: 3785,
+            total: 3850,
+          },
+        }),
+      ],
+      new Map(),
+      100,
+    );
+    expect(
+      db
+        .prepare(
+          "SELECT input_tokens AS input, uncached_input_tokens AS uncached, cache_read_tokens AS cacheRead, cache_write_tokens AS cacheWrite, output_tokens AS output, reasoning_tokens AS reasoning FROM cliproxy_usage_events",
+        )
+        .get(),
+    ).toEqual({
+      input: 3787,
+      uncached: 2,
+      cacheRead: 0,
+      cacheWrite: 3785,
+      output: 63,
+      reasoning: 59,
+    });
+  });
 
   it("ignores providers outside Claude and Codex", () => {
     expect(
