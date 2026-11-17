@@ -9,6 +9,7 @@ import { mkdirSyncSafe } from '../utils/fs-safe'
 export function initializeDatabase(dbPath: string = './data/opencode.db'): Database {
   mkdirSyncSafe(dirname(dbPath))
   const db = new Database(dbPath)
+  db.run('PRAGMA busy_timeout = 5000')
 
   migrate(db, allMigrations)
 

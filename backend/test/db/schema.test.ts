@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { mkdtemp, rm, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -34,5 +36,31 @@ describe('initializeDatabase', () => {
 
     const fileContents = await readFile(dbPath, 'utf-8')
     expect(fileContents.length).toBeGreaterThan(0)
+  })
+
+  it('waits for another process to release its lock instead of failing a write', async () => {
+    const db = initializeDatabase(dbPath)
+    const holder = spawn(
+      process.execPath,
+      [
+        '-e',
+        `const { DatabaseSync } = require('node:sqlite')
+const db = new DatabaseSync(${JSON.stringify(dbPath)})
+db.exec('BEGIN EXCLUSIVE')
+process.stdout.write('locked\\n')
+setTimeout(() => { db.exec('COMMIT'); db.close() }, 400)`,
+      ],
+      { stdio: ['ignore', 'pipe', 'inherit'] },
+    )
+    try {
+      const [chunk] = (await once(holder.stdout, 'data')) as [Buffer]
+      expect(chunk.toString()).toContain('locked')
+      expect(
+        db.prepare('UPDATE user_preferences SET updated_at = ? WHERE user_id = ?').run(1, 'default').changes,
+      ).toBe(1)
+    } finally {
+      await once(holder, 'exit')
+      db.close()
+    }
   })
 })
