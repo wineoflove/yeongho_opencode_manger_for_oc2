@@ -33,6 +33,7 @@ async function getAppVersion(): Promise<string> {
 }
 import { createProvidersRoutes } from "./routes/providers";
 import { loadClaudeProxyClient } from "./services/claude-proxy-config";
+import { CliproxyUsageCollector } from "./services/cliproxy-usage-collector";
 import { loadClaudeInference } from "./services/claude-inference-config";
 import { createClaudeInferenceRoutes } from "./routes/claude-inference";
 import { protectRawClaudeMutations } from "./routes/claude-raw-ownership";
@@ -437,6 +438,16 @@ const repoWorkspaces = new RepoWorkspaceService(
   scheduleService,
 );
 const scheduleRunnerInstance = new ScheduleRunner(scheduleService);
+const cliproxyUsageCollector = claudeProxyClient
+  ? new CliproxyUsageCollector({
+      client: claudeProxyClient,
+      db,
+      pageSize: 200,
+      maxPagesPerTick: 10,
+      intervalMs: 30_000,
+    })
+  : null;
+cliproxyUsageCollector?.start();
 
 const telegramSettings = new TelegramSettingsService(db);
 const notificationService = new NotificationService(
@@ -939,6 +950,11 @@ const shutdown = async (signal: string) => {
     logger.info("Sandbox microVMs stopped");
   } catch (error) {
     logger.error("Error stopping sandbox microVMs:", error);
+  }
+  try {
+    await cliproxyUsageCollector?.stop();
+  } catch (error) {
+    logger.error("Error stopping CLIProxy usage collector:", error);
   }
   try {
     await messageSearch.stop();

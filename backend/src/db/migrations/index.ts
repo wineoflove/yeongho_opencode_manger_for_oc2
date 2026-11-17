@@ -45,6 +45,7 @@ import migration202610231200 from './202610231200-push-subscription-session-id'
 import migration202610251900 from './202610251900-schedule-sandbox-config'
 import migration202611041200 from './202611041200-schedule-run-outcome'
 import { scheduleRunSubmissionsMigration } from './202611061545-schedule-run-submissions'
+import { cliproxyUsageEventsMigration } from './202611171200-cliproxy-usage-events'
 
 export const allMigrations: Migration[] = [
   migration001,
@@ -93,4 +94,5 @@ export const allMigrations: Migration[] = [
   migration202610251900,
   migration202611041200,
   scheduleRunSubmissionsMigration,
+  cliproxyUsageEventsMigration,
 ]
