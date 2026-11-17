@@ -140,6 +140,13 @@ export async function analyze(
 }
 
 /** Delivers a report through the configured channel; see `publishExactReport`. */
-export async function publish(config, messageID, text, api = config.delivery === 'prompt' ? openCodeApi() : undefined) {
+export async function publish(
+  config,
+  messageID,
+  text,
+  api = ["prompt", "noReply"].includes(config.delivery)
+    ? openCodeApi()
+    : undefined,
+) {
   return publishExactReport(config, messageID, text, api);
 }

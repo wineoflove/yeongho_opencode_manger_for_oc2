@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { realpath } from 'node:fs/promises'
-import { basename } from 'node:path'
+import { resolveVerificationCommand } from './verification-command.mjs'
 import { z } from '../../shared/src/zod.ts'
 import {
   absolutePath,
@@ -50,7 +50,10 @@ export async function verifyReadback(config, path, scope) {
     finishedAt: new Date().toISOString(),
     targets: [{ path: target.path, sha256: sha256(text) }],
   }
-  return { ...receipt, evidence: await saveArtifact(config, 'checks', VerificationReceipt.parse(receipt)) }
+  return {
+    ...receipt,
+    evidence: await saveArtifact(config, 'checks', VerificationReceipt.parse(receipt)),
+  }
 }
 
 export async function verifyCommand(config, value) {
@@ -73,24 +76,7 @@ export async function verifyCommand(config, value) {
   }
   const roots = await Promise.all(config.codeRoots.map((root) => realpath(root)))
   if (!roots.some((root) => inside(root, cwd))) throw new Error('CHECK_CWD_NOT_ALLOWED')
-  const executable = basename(input.argv[0])
-  const blocked =
-    /^(?:install|add|remove|update|upgrade|deploy|restart|start|dev|publish|execpath|pip|sync|lock|-e|--eval|-p|--print|--fix|--write|--unsafe-fixes)$/
-  if (
-    !['bun', 'node', 'pnpm', 'tsc', 'vitest', 'eslint', 'prettier', 'python3', 'ruff'].includes(executable) ||
-    input.argv.some((arg) => blocked.test(arg) || /[\n\r]/.test(arg)) ||
-    (executable === 'python3' && input.argv.includes('-c')) ||
-    (executable === 'ruff' && !input.argv.includes('check') && !input.argv.includes('--check'))
-  )
-    throw new Error('CHECK_COMMAND_NOT_ALLOWED')
-  const markers = {
-    test: /^(?:test(?::[\w-]+)?|--test|vitest|unittest|pytest)$/,
-    typecheck: /^(?:typecheck(?::[\w-]+)?|tsc)$/,
-    lint: /^(?:lint(?::[\w-]+)?|eslint|prettier|ruff)$/,
-    build: /^(?:build(?::[\w-]+)?)$/,
-    runtime: /^--check$/,
-  }
-  if (!input.argv.some((arg) => markers[input.kind].test(basename(arg)))) throw new Error('CHECK_KIND_MISMATCH')
+  const executable = await resolveVerificationCommand(config, input, cwd)
   const targets = await Promise.all(
     input.targets.map(async (path) => {
       await targetPath(config, path)
@@ -99,7 +85,15 @@ export async function verifyCommand(config, value) {
   )
   const startedAt = new Date().toISOString()
   const result = await new Promise((resolve, reject) => {
-    const child = spawn(input.argv[0], input.argv.slice(1), { cwd, shell: false, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(executable, input.argv.slice(1), {
+      cwd,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        PATH: '/Users/yeonghokim/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+      },
+    })
     let output = ''
     let outputTruncated = false
     let timedOut = false
@@ -146,5 +140,8 @@ export async function verifyCommand(config, value) {
     ...result,
     output: sanitize(result.output),
   })
-  return { ...receipt, evidence: await saveArtifact(config, 'checks', receipt) }
+  return {
+    ...receipt,
+    evidence: await saveArtifact(config, 'checks', receipt),
+  }
 }

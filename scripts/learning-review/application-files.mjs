@@ -24,7 +24,7 @@ export const Config = z
           .strict(),
       )
       .min(1),
-    aliases: z.record(z.string()).default({}),
+    aliases: z.record(z.string(), z.string()).default({}),
     runtime: z.object({ directory: absolutePath, sessionDb: absolutePath }).strict().optional(),
   })
   .strict()
@@ -119,7 +119,12 @@ export async function saveArtifact(config, folder, value) {
 export async function snapshotTarget(config, path) {
   const target = await targetPath(config, path)
   const text = await readBounded(target.path)
-  const snapshot = { version: 1, path: target.path, sha256: sha256(text), text }
+  const snapshot = {
+    version: 1,
+    path: target.path,
+    sha256: sha256(text),
+    text,
+  }
   const artifact = await saveArtifact(config, 'snapshots', snapshot)
   return { path: target.path, sha256: snapshot.sha256, snapshot: artifact }
 }
