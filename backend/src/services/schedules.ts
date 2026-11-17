@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { maintenanceAdmission } from './maintenance-admission'
 import { randomUUID } from 'node:crypto'
 import {
   beginScheduleSubmission,
@@ -714,6 +715,7 @@ export class ScheduleService {
   }
 
   async recoverRunningRuns(): Promise<void> {
+    if (maintenanceAdmission.isClosed()) return
     const runningRuns = listRunningScheduleRuns(this.db)
 
     for (const run of runningRuns) {
@@ -1102,6 +1104,7 @@ export class ScheduleService {
     triggerSource: ScheduleRunTriggerSource,
   ): Promise<ScheduleRun> {
     const job = this.loadJobForTarget(target, jobId)
+    if (maintenanceAdmission.isClosed()) throw new ScheduleServiceError('Maintenance in progress', 503)
     const repoId = target.kind === 'repo' ? target.repoId : null
     const serverId = target.kind === 'repo' ? LOCAL_OPENCODE_SERVER_ID : target.serverId
 
@@ -1583,6 +1586,7 @@ export class ScheduleService {
 
       if (Date.now() >= input.deadlineAt) throw new RunDeadlineAbortError(input.deadlineAt)
       const notes = input.job.skillMetadata?.notes?.trim()
+      if (maintenanceAdmission.isClosed()) throw new ScheduleServiceError('Maintenance in progress', 503)
       messageId = `msg_${randomUUID().replaceAll('-', '').slice(0, 26)}`
       beginScheduleSubmission(this.db, {
         runId: input.runId,
@@ -2012,7 +2016,9 @@ export class ScheduleService {
           latest = getScheduleRunById(this.db, run.repoId, job.id, run.id)
           break
         } catch {
-          logger.warn('Could not read a retained schedule run; retrying', { runId: run.id })
+          logger.warn('Could not read a retained schedule run; retrying', {
+            runId: run.id,
+          })
         }
       }
     } finally {
@@ -2830,6 +2836,7 @@ export class ScheduleRunner {
   }
 
   private async executeJob(job: ScheduleJob): Promise<void> {
+    if (maintenanceAdmission.isClosed()) return
     try {
       await this.scheduleService.runJobForJob(job, 'schedule')
     } catch (error) {

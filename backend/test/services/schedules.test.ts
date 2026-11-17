@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { maintenanceAdmission } from '../../src/services/maintenance-admission'
+import { beginScheduleSubmission } from '../../src/db/schedule-submissions'
 vi.mock('../../src/db/schedule-submissions', () => ({
   beginScheduleSubmission: vi.fn(),
   acknowledgeScheduleSubmission: vi.fn(),
@@ -123,7 +125,13 @@ const mockCronInstances: Array<{
 
 vi.mock('croner', () => ({
   Cron: vi.fn().mockImplementation((pattern: string, options: Record<string, unknown>, callback: () => void) => {
-    const instance = { pattern, options, callback, stop: mockCronStop }
+    const instance = {
+      pattern,
+      options,
+      callback,
+      stop: mockCronStop,
+      nextRun: () => new Date('2030-01-01T00:00:00Z'),
+    }
     mockCronInstances.push(instance)
     return instance
   }),
@@ -257,6 +265,20 @@ const baseRun: ScheduleRun = {
 }
 
 describe('ScheduleService', () => {
+  it('does not create a run or change schedule configuration while admission is closed', async () => {
+    const spy = vi.spyOn(maintenanceAdmission, 'isClosed').mockReturnValue(true)
+    try {
+      const stub = createStubScheduleApi({
+        sessionID: 'ses-admission-check',
+        messages: [],
+      })
+      await expect(makeService(stub.api).runJob(42, 7, 'manual')).rejects.toMatchObject({ status: 503 })
+      expect(mocks.createScheduleRun).not.toHaveBeenCalled()
+      expect(mocks.updateScheduleJob).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     Reflect.get(ScheduleService, 'activeRuns').clear()
@@ -693,7 +715,9 @@ describe('ScheduleService', () => {
   it('marks the run failed when OpenCode definitively rejects the prompt after session creation', async () => {
     const stub = createStubScheduleApi({
       sessionID: 'ses-run-6',
-      promptError: Object.assign(new Error('Provider unavailable'), { _tag: 'InvalidRequestError' }),
+      promptError: Object.assign(new Error('Provider unavailable'), {
+        _tag: 'InvalidRequestError',
+      }),
     })
     const service = makeService(stub.api)
     const runWithSession: ScheduleRun = {
@@ -2219,6 +2243,51 @@ describe('ScheduleService startup cancellation', () => {
     )
   })
 
+  it('does not submit after maintenance starts during skill preparation', async () => {
+    const spy = vi.spyOn(maintenanceAdmission, 'isClosed').mockReturnValue(false)
+    try {
+      const stub = createStubScheduleApi({
+        sessionID: 'ses-maintenance-race',
+        skills: [skill('git-release')],
+        messages: [],
+      })
+      const service = makeService(stub.api)
+      mocks.getScheduleJobById.mockReturnValue({
+        ...job,
+        skillMetadata: { skillSlugs: ['git-release'] },
+      })
+      const waiting = Promise.withResolvers<Awaited<ReturnType<typeof stub.api.skill.list>>>()
+      vi.mocked(stub.api.skill.list).mockReturnValueOnce(waiting.promise)
+      const running = {
+        ...baseRun,
+        sessionId: 'ses-maintenance-race',
+        sessionTitle: 'maintenance race',
+      }
+      mocks.getScheduleRunById.mockReturnValue(running)
+      mocks.updateScheduleRunMetadata.mockReturnValue(running)
+      await service.runJob(42, 7, 'manual')
+      await vi.waitFor(() => expect(stub.api.skill.list).toHaveBeenCalled())
+      spy.mockReturnValue(true)
+      waiting.resolve({
+        location: { directory: '' },
+        data: [skill('git-release')],
+      })
+      await vi.waitFor(() =>
+        expect(mocks.updateScheduleRun).toHaveBeenCalledWith(
+          expect.anything(),
+          42,
+          7,
+          5,
+          expect.objectContaining({ status: 'failed' }),
+        ),
+      )
+      expect(stub.api.session.prompt).not.toHaveBeenCalled()
+      expect(beginScheduleSubmission).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('does not mark a cancelled run failed when the prompt rejects after cancellation', async () => {
     const stub = createStubScheduleApi({
       sessionID: 'ses-prompt-abort',
@@ -3043,6 +3112,34 @@ describe('ScheduleService worktree isolation', () => {
 })
 
 describe('ScheduleRunner', () => {
+  it('keeps scheduled execution available after maintenance ends without changing the job', async () => {
+    const closed = vi.spyOn(maintenanceAdmission, 'isClosed').mockReturnValue(true)
+    const service = makeService(createStubScheduleApi().api)
+    const submit = vi.spyOn(service, 'runJobForJob').mockResolvedValue(baseRun)
+    const runner = new ScheduleRunner(service)
+    const scheduled = {
+      ...job,
+      enabled: true,
+      scheduleMode: 'cron' as const,
+      cronExpression: '0 9 * * *',
+    }
+    try {
+      runner.registerJob(scheduled)
+      const timer = mockCronInstances[0]
+      expect(timer).toBeDefined()
+      if (!timer) throw new Error('schedule_timer_missing')
+      timer.callback()
+      expect(submit).not.toHaveBeenCalled()
+      closed.mockReturnValue(false)
+      timer.callback()
+      expect(submit).toHaveBeenCalledExactlyOnceWith(scheduled, 'schedule')
+    } finally {
+      runner.stop()
+      submit.mockRestore()
+      closed.mockRestore()
+    }
+  })
+
   beforeEach(() => {
     mockCronInstances.length = 0
     mockCronStop.mockClear()
