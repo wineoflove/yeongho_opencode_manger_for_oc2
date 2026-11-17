@@ -8,6 +8,9 @@ import {
   proxyProviderSettings,
   type ProxyProvider,
 } from "./claude-proxy-contract";
+import { proxyRequest, type ProxyRequestOptions } from "./claude-proxy-request";
+import { toUsagePage } from "./claude-proxy-usage-contract";
+import { toUsageSources } from "./claude-proxy-usage-sources";
 
 export { ClaudeProxyError } from "./claude-proxy-contract";
 
@@ -54,54 +57,18 @@ export class ClaudeProxyClient {
     this.endpoint = endpoint;
   }
 
-  private async request<T>(
+  private request<T>(
     path: string,
     schema: z.ZodType<T>,
-    options: {
-      readonly method?: string;
-      readonly body?: string;
-      readonly timeoutMs?: number;
-    } = {},
+    options: ProxyRequestOptions = {},
   ): Promise<T> {
-    let response: Response;
-    try {
-      response = await fetch(new URL(path, this.endpoint), {
-        method: options.method ?? "GET",
-        ...(options.body === undefined ? {} : { body: options.body }),
-        headers: {
-          authorization: `Bearer ${this.settings.managementKey}`,
-          "content-type": "application/json",
-        },
-        redirect: "error",
-        signal: AbortSignal.timeout(options.timeoutMs ?? 5000),
-      });
-    } catch (error) {
-      if (error instanceof Error) throw new ClaudeProxyError("UNAVAILABLE");
-      throw error;
-    }
-    if (!response.ok) {
-      await response.body?.cancel();
-      if (response.status === 401 || response.status === 403)
-        throw new ClaudeProxyError("ACCESS_DENIED");
-      if (
-        path === "/v0/management/oauth-callback" &&
-        [404, 409].includes(response.status)
-      )
-        throw new ClaudeProxyError("LOGIN_EXPIRED");
-      throw new ClaudeProxyError("UNAVAILABLE");
-    }
-    let payload: unknown;
-    try {
-      payload = await response.json();
-    } catch (error) {
-      if (error instanceof SyntaxError)
-        throw new ClaudeProxyError("INVALID_RESPONSE");
-      if (error instanceof Error) throw new ClaudeProxyError("UNAVAILABLE");
-      throw error;
-    }
-    const parsed = schema.safeParse(payload);
-    if (!parsed.success) throw new ClaudeProxyError("INVALID_RESPONSE");
-    return parsed.data;
+    return proxyRequest(
+      this.endpoint,
+      this.settings.managementKey,
+      path,
+      schema,
+      options,
+    );
   }
 
   private async credentials() {
@@ -137,6 +104,20 @@ export class ClaudeProxyClient {
         (left.label ?? "").localeCompare(right.label ?? ""),
     );
     return { observedAt: data.observedAt, accounts };
+  }
+
+  async listAccountUsageSources() {
+    return toUsageSources(await this.credentials());
+  }
+
+  /** Pops up to `count` usage events; the queue has no acknowledgement, so callers must persist them at once. */
+  async popUsageQueue(count: number) {
+    return toUsagePage(
+      await this.request(
+        `/v8/management/observability/usage/queue?count=${count}`,
+        z.array(z.unknown()),
+      ),
+    );
   }
 
   async startLogin(provider: ProxyProvider) {

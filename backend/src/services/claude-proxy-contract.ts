@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { usageCredentialFieldsSchema } from "./claude-proxy-usage-contract";
 
 export const proxyProviderSchema = z.enum(["claude", "openai"]);
 export type ProxyProvider = z.infer<typeof proxyProviderSchema>;
@@ -34,7 +35,7 @@ export const credentialListSchema = z.object({
       failed: z.number().int().nonnegative(),
       last_refresh: z.string().datetime({ offset: true }).optional(),
       next_retry_after: z.string().datetime({ offset: true }).optional(),
-    }),
+    }).merge(usageCredentialFieldsSchema),
   ),
 });
 
