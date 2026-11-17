@@ -4,9 +4,8 @@ import { migrate } from "../../src/db/migration-runner";
 import { allMigrations } from "../../src/db/migrations";
 import { cliproxyUsageEventsMigration } from "../../src/db/migrations/202611171200-cliproxy-usage-events";
 import {
-  firstUsageEventAt,
   insertUsageEvents,
-  listUsageEventsSince,
+  listUsageEventsAfter,
 } from "../../src/db/cliproxy-usage-events";
 import type { ProxyUsageRecord } from "../../src/services/claude-proxy-usage-contract";
 
@@ -214,7 +213,7 @@ describe("CLIProxy usage events storage", () => {
     });
   });
 
-  it("lists events in time order for attribution", () => {
+  it("pages events after a row cursor in insertion order with every model name", () => {
     insertUsageEvents(
       db,
       [
@@ -222,6 +221,7 @@ describe("CLIProxy usage events storage", () => {
           executionId: "b",
           occurredAt: "2026-11-17T01:00:02.000Z",
           sessionId: "session-b",
+          responseModel: "claude-opus-5-5-20261101",
         }),
         record({
           executionId: "a",
@@ -233,33 +233,31 @@ describe("CLIProxy usage events storage", () => {
       new Map([["aa47ac1b75dc0765", "user@example.test"]]),
       100,
     );
-    expect(firstUsageEventAt(db)).toBe(Date.parse("2026-11-17T01:00:01.000Z"));
-    expect(listUsageEventsSince(db, 0)).toEqual([
-      expect.objectContaining({
-        id: "a",
-        failed: true,
-        occurredAt: Date.parse("2026-11-17T01:00:01.000Z"),
-      }),
-      expect.objectContaining({
-        id: "b",
-        provider: "claude",
-        authIndex: "aa47ac1b75dc0765",
-        label: "user@example.test",
-        sessionId: "session-b",
-        model: "claude-opus-5-5",
-        tokens: {
-          input: 18,
-          uncached: 10,
-          cacheRead: 6,
-          cacheWrite: 2,
-          output: 4,
-          reasoning: 1,
-          total: 22,
-        },
-      }),
-    ]);
-    expect(
-      listUsageEventsSince(db, Date.parse("2026-11-17T01:00:02.000Z")),
-    ).toHaveLength(1);
+    const [first, second] = listUsageEventsAfter(db, 0, 10);
+    expect(first).toEqual({
+      rowId: 1,
+      id: "b",
+      provider: "claude",
+      authIndex: "aa47ac1b75dc0765",
+      label: "user@example.test",
+      sessionId: "session-b",
+      models: ["claude-opus-5-5", "claude-opus-5-5-20261101"],
+      failed: false,
+      failureStatus: null,
+      occurredAt: Date.parse("2026-11-17T01:00:02.000Z"),
+      tokens: {
+        input: 18,
+        uncached: 10,
+        cacheRead: 6,
+        cacheWrite: 2,
+        output: 4,
+        reasoning: 1,
+        total: 22,
+      },
+    });
+    expect(second).toMatchObject({ rowId: 2, id: "a", failed: true, failureStatus: 429 });
+    expect(listUsageEventsAfter(db, 0, 1).map((event) => event.id)).toEqual(["b"]);
+    expect(listUsageEventsAfter(db, 1, 10).map((event) => event.id)).toEqual(["a"]);
+    expect(listUsageEventsAfter(db, 2, 10)).toEqual([]);
   });
 });

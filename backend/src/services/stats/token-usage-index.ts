@@ -3,6 +3,9 @@ import { existsSync } from "node:fs";
 import { basename, isAbsolute, relative, resolve } from "node:path";
 import type { TokenFilterDimension } from "@opencode-manager/shared/schemas";
 import { getRepoDisplayName } from "@opencode-manager/shared/utils";
+import type { StoredUsageEvent } from "../../db/cliproxy-usage-events";
+import { logger } from "../../utils/logger";
+import { ATTRIBUTION_LEAD_MS, attributeUsage } from "./account-attribution";
 import {
   recordTotal,
   type DimensionLabel,
@@ -13,6 +16,7 @@ import {
 export const MAIN_CATEGORY = "main";
 export const UNKNOWN = "unknown";
 export const UNATTRIBUTED = "unattributed";
+export const UNTRACKED = "untracked";
 
 export interface StatsRepo {
   readonly fullPath: string;
@@ -22,9 +26,18 @@ export interface StatsRepo {
   readonly sourcePath?: string;
 }
 
+/** Reads stored CLIProxy usage events after a row cursor so token usage can be split by account. */
+export interface UsageAttributionSource {
+  readonly loadEvents: (
+    afterRowId: number,
+    limit: number,
+  ) => readonly StoredUsageEvent[];
+}
+
 export interface TokenUsageIndexOptions {
   readonly openCodeDbPath: string;
   readonly listRepos: () => readonly StatsRepo[];
+  readonly attribution?: UsageAttributionSource;
   readonly refreshIntervalMs?: number;
   readonly now?: () => number;
 }
@@ -33,6 +46,7 @@ interface UsageMessage {
   readonly id: string;
   readonly sessionId: string;
   readonly createdAt: number;
+  readonly completedAt: number | null;
   readonly provider: string;
   readonly model: string;
   readonly agent: string;
@@ -72,6 +86,7 @@ interface SessionRow {
 }
 
 const PAGE_SIZE = 2000;
+const EVENT_PAGE_SIZE = 5000;
 const DEFAULT_REFRESH_MS = 15_000;
 const UPDATE_OVERLAP_MS = 2_000;
 const PROVIDER_LABELS: Record<string, string> = {
@@ -116,6 +131,7 @@ export function parseAssistantMessage(
     id: row.id,
     sessionId: row.session_id,
     createdAt: num(object(data.time).created) || row.time_created,
+    completedAt: num(object(data.time).completed) || null,
     provider: str(model.providerID, UNKNOWN),
     model: str(model.id, UNKNOWN),
     agent: str(data.agent, UNKNOWN),
@@ -141,6 +157,50 @@ export function categoryFromTitle(title: string): string | undefined {
   return agent ? `@${agent}` : undefined;
 }
 
+function providerLabel(provider: string): string {
+  return PROVIDER_LABELS[provider] ?? provider;
+}
+
+interface AccountAttribution {
+  readonly accounts: ReadonlyMap<string, string>;
+  readonly labels: ReadonlyMap<string, string>;
+  readonly trackedSince: number | null;
+}
+
+function accountDimension(
+  message: UsageMessage,
+  attribution: AccountAttribution | null,
+): { readonly key: string; readonly label: DimensionLabel } {
+  const name = providerLabel(message.provider);
+  const authIndex = attribution?.accounts.get(message.id);
+  if (authIndex)
+    return {
+      key: `${message.provider}:${authIndex}`,
+      label: {
+        label: attribution?.labels.get(authIndex) ?? authIndex.slice(0, 8),
+        detail: name,
+      },
+    };
+  if (
+    attribution &&
+    (attribution.trackedSince === null ||
+      message.createdAt < attribution.trackedSince)
+  )
+    return {
+      key: `${message.provider}:${UNTRACKED}`,
+      label: { label: `${name} · before tracking`, detail: "Before account tracking" },
+    };
+  return {
+    key: `${message.provider}:${UNATTRIBUTED}`,
+    label: {
+      label: `${name} · unattributed`,
+      detail: attribution
+        ? "Not matched to an account"
+        : "Per-request account attribution is not recorded",
+    },
+  };
+}
+
 function isInside(parent: string, child: string): boolean {
   const path = relative(resolve(parent), resolve(child));
   return path === "" || (!!path && !path.startsWith("..") && !isAbsolute(path));
@@ -152,6 +212,8 @@ export class TokenUsageIndex {
   private lastRowId = 0;
   private watermark = 0;
   private sessions = new Map<string, UsageSession>();
+  private readonly events: StoredUsageEvent[] = [];
+  private eventCursor = 0;
   private snapshot: UsageIndexSnapshot | null = null;
   private refreshedAt = -Infinity;
   private inflight: Promise<UsageIndexSnapshot> | null = null;
@@ -193,6 +255,7 @@ export class TokenUsageIndex {
       this.loadSessions(db);
       await this.loadMessages(db);
     }
+    this.loadEvents();
     this.snapshot = this.buildSnapshot();
     this.refreshedAt = this.now();
     return this.snapshot;
@@ -256,6 +319,50 @@ export class TokenUsageIndex {
     }
   }
 
+  private loadEvents(): void {
+    const source = this.options.attribution;
+    if (!source) return;
+    try {
+      for (;;) {
+        const page = source.loadEvents(this.eventCursor, EVENT_PAGE_SIZE);
+        for (const event of page) {
+          this.events.push(event);
+          this.eventCursor = Math.max(this.eventCursor, event.rowId);
+        }
+        if (page.length < EVENT_PAGE_SIZE) break;
+      }
+    } catch (error) {
+      logger.warn("Token stats could not read CLIProxy usage events", error);
+    }
+  }
+
+  private attribution(): AccountAttribution | null {
+    if (!this.options.attribution) return null;
+    let trackedSince: number | null = null;
+    const labels = new Map<string, string>();
+    for (const event of this.events) {
+      trackedSince =
+        trackedSince === null
+          ? event.occurredAt
+          : Math.min(trackedSince, event.occurredAt);
+      if (event.label) labels.set(event.authIndex, event.label);
+    }
+    if (trackedSince === null)
+      return { accounts: new Map(), labels, trackedSince };
+    const since = trackedSince - ATTRIBUTION_LEAD_MS;
+    const messages = [...this.messages.values()]
+      .filter((message) => message.createdAt >= since)
+      .map((message) => ({
+        ...message,
+        rootSessionId: this.rootOf(message.sessionId)?.id ?? message.sessionId,
+      }));
+    return {
+      accounts: attributeUsage(messages, this.events),
+      labels,
+      trackedSince,
+    };
+  }
+
   private rootOf(sessionId: string): UsageSession | undefined {
     let session = this.sessions.get(sessionId);
     const seen = new Set<string>();
@@ -288,8 +395,7 @@ export class TokenUsageIndex {
       if (!map.has(key)) map.set(key, label);
       labels.set(dimension, map);
     };
-    const providerLabel = (provider: string) =>
-      PROVIDER_LABELS[provider] ?? provider;
+    const attribution = this.attribution();
     const projectCache = new Map<
       string,
       { key: string; label: DimensionLabel }
@@ -328,11 +434,11 @@ export class TokenUsageIndex {
       const root = this.rootOf(message.sessionId) ?? session;
       const project = projectOf(root);
       const category = this.categoryOf(session);
-      const account = `${message.provider}:${UNATTRIBUTED}`;
+      const account = accountDimension(message, attribution);
       const keys = {
         model: `${message.provider}/${message.model}`,
         provider: message.provider,
-        account,
+        account: account.key,
         project: project.key,
         agent: message.agent,
         category,
@@ -360,10 +466,7 @@ export class TokenUsageIndex {
             ? { label: category, detail: "Direct agent" }
             : { label: "Unknown", detail: "Category" },
       );
-      setLabel("account", account, {
-        label: `${providerLabel(message.provider)} · unattributed`,
-        detail: "Per-request account attribution is not recorded",
-      });
+      setLabel("account", account.key, account.label);
       const record: UsageRecord = {
         messageId: message.id,
         rootSessionId: keys.session,
@@ -388,8 +491,11 @@ export class TokenUsageIndex {
       records,
       label: (dimension, key) =>
         labels.get(dimension)?.get(key) ?? { label: key },
-      isAttributedAccount: () => false,
-      trackedSince: null,
+      isAttributedAccount: (key) =>
+        attribution !== null &&
+        !key.endsWith(`:${UNATTRIBUTED}`) &&
+        !key.endsWith(`:${UNTRACKED}`),
+      trackedSince: attribution?.trackedSince ?? null,
       firstMessageAt,
     };
   }

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { Hono } from "hono";
 import { TokenStatsResponseSchema } from "@opencode-manager/shared/schemas";
 import { TokenUsageIndex } from "../../src/services/stats/token-usage-index";
+import type { StoredUsageEvent } from "../../src/db/cliproxy-usage-events";
 import {
   ModelPriceCache,
   buildPriceTable,
@@ -154,6 +155,7 @@ test("indexes OpenCode 2 assistant usage with project, delegation category and i
     });
     expect(first.label("provider", "openai").label).toBe("OpenAI");
     expect(first.isAttributedAccount("openai:unattributed")).toBe(false);
+    expect(first.trackedSince).toBeNull();
     expect(first.firstMessageAt).toBe(T0 + 1000);
 
     clock += 10_000;
@@ -191,6 +193,127 @@ test("indexes OpenCode 2 assistant usage with project, delegation category and i
     expect(
       second.records.find((record) => record.messageId === "msg_1")?.input,
     ).toBe(1);
+  } finally {
+    index.close();
+    db.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+function usageEvent(
+  rowId: number,
+  fields: Partial<StoredUsageEvent> = {},
+): StoredUsageEvent {
+  return {
+    rowId,
+    id: `exec-${rowId}`,
+    provider: "claude",
+    authIndex: "0123456789abcdef",
+    label: null,
+    sessionId: "3f1c2d4e-0000-4000-8000-000000000000",
+    models: ["claude-opus-5-5"],
+    failed: false,
+    failureStatus: null,
+    occurredAt: T0 + 60_014,
+    tokens: {
+      input: 3787,
+      uncached: 2,
+      cacheRead: 0,
+      cacheWrite: 3785,
+      output: 63,
+      reasoning: 59,
+      total: 3850,
+    },
+    ...fields,
+  };
+}
+
+test("splits usage by CLIProxy account once events are stored and keeps earlier usage before tracking", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ocm-token-stats-accounts-"));
+  const dbPath = join(root, "opencode.db");
+  const db = seed(dbPath);
+  const stored: StoredUsageEvent[] = [
+    usageEvent(1, { label: "a@example.test" }),
+    usageEvent(2, {
+      authIndex: "fedcba9876543210",
+      occurredAt: T0 + 70_000,
+      failed: true,
+      failureStatus: 429,
+    }),
+  ];
+  const reads: number[] = [];
+  let failNext = false;
+  const index = new TokenUsageIndex({
+    openCodeDbPath: dbPath,
+    listRepos: () => [],
+    refreshIntervalMs: 0,
+    attribution: {
+      loadEvents: (afterRowId, limit) => {
+        reads.push(afterRowId);
+        if (failNext) {
+          failNext = false;
+          throw new Error("database is locked");
+        }
+        return stored.filter((event) => event.rowId > afterRowId).slice(0, limit);
+      },
+    },
+  });
+  const claude = (created: number, tokens: Record<string, unknown>) =>
+    assistant(tokens, {
+      model: { id: "claude-opus-5-5", providerID: "anthropic", variant: "default" },
+      time: { created, completed: created + 2674 },
+    });
+  const fixtureTokens = { input: 2, output: 4, reasoning: 59, cache: { read: 0, write: 3785 } };
+  try {
+    const add = db.query("INSERT INTO session_message VALUES (?,?,?,?,?,?,?)");
+    add.run("msg_before", "ses_root", "assistant", 1, T0, T0, claude(T0, fixtureTokens));
+    add.run("msg_matched", "ses_child", "assistant", 2, T0 + 60_000, T0 + 60_000, claude(T0 + 60_000, fixtureTokens));
+    add.run(
+      "msg_unmatched",
+      "ses_root",
+      "assistant",
+      3,
+      T0 + 80_000,
+      T0 + 80_000,
+      claude(T0 + 80_000, { input: 9, output: 9, reasoning: 0, cache: { read: 0, write: 0 } }),
+    );
+
+    const first = await index.getSnapshot();
+    const accountOf = (snapshot: typeof first, id: string) =>
+      snapshot.records.find((record) => record.messageId === id)?.keys.account;
+    expect(accountOf(first, "msg_matched")).toBe("anthropic:0123456789abcdef");
+    expect(accountOf(first, "msg_before")).toBe("anthropic:untracked");
+    expect(accountOf(first, "msg_unmatched")).toBe("anthropic:unattributed");
+    expect(first.label("account", "anthropic:0123456789abcdef")).toEqual({
+      label: "a@example.test",
+      detail: "Anthropic",
+    });
+    expect(first.label("account", "anthropic:untracked")).toEqual({
+      label: "Anthropic · before tracking",
+      detail: "Before account tracking",
+    });
+    expect(first.label("account", "anthropic:unattributed").detail).toBe("Not matched to an account");
+    expect(first.isAttributedAccount("anthropic:0123456789abcdef")).toBe(true);
+    expect(first.isAttributedAccount("anthropic:untracked")).toBe(false);
+    expect(first.isAttributedAccount("anthropic:unattributed")).toBe(false);
+    expect(first.trackedSince).toBe(T0 + 60_014);
+
+    stored.push(
+      usageEvent(3, {
+        authIndex: "fedcba9876543210",
+        occurredAt: T0 + 80_010,
+        tokens: { input: 9, uncached: 9, cacheRead: 0, cacheWrite: 0, output: 9, reasoning: 0, total: 18 },
+      }),
+    );
+    failNext = true;
+    const unchanged = await index.getSnapshot();
+    expect(accountOf(unchanged, "msg_unmatched")).toBe("anthropic:unattributed");
+    expect(accountOf(unchanged, "msg_matched")).toBe("anthropic:0123456789abcdef");
+
+    const second = await index.getSnapshot();
+    expect(accountOf(second, "msg_unmatched")).toBe("anthropic:fedcba9876543210");
+    expect(second.label("account", "anthropic:fedcba9876543210").label).toBe("fedcba98");
+    expect(reads).toEqual([0, 2, 2]);
   } finally {
     index.close();
     db.close();

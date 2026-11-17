@@ -34,6 +34,7 @@ async function getAppVersion(): Promise<string> {
 import { createProvidersRoutes } from "./routes/providers";
 import { loadClaudeProxyClient } from "./services/claude-proxy-config";
 import { CliproxyUsageCollector } from "./services/cliproxy-usage-collector";
+import { listUsageEventsAfter } from "./db/cliproxy-usage-events";
 import { getOpenCodeDatabasePath } from "./services/opencode-service-mode";
 import { loadClaudeInference } from "./services/claude-inference-config";
 import { createClaudeInferenceRoutes } from "./routes/claude-inference";
@@ -703,6 +704,14 @@ protectedApi.route(
     new TokenUsageIndex({
       openCodeDbPath: getOpenCodeDatabasePath(),
       listRepos: () => listRepos(db),
+      ...(claudeProxyClient
+        ? {
+            attribution: {
+              loadEvents: (afterRowId: number, limit: number) =>
+                listUsageEventsAfter(db, afterRowId, limit),
+            },
+          }
+        : {}),
     }),
     modelPriceCache,
   ),

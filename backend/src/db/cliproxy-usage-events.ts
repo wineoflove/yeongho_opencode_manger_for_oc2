@@ -17,12 +17,13 @@ export type UsageEventTokens = {
 
 /** A stored CLIProxyAPI usage event used for account attribution. */
 export type StoredUsageEvent = {
+  readonly rowId: number;
   readonly id: string;
   readonly provider: UsageEventProvider;
   readonly authIndex: string;
   readonly label: string | null;
   readonly sessionId: string | null;
-  readonly model: string | null;
+  readonly models: readonly string[];
   readonly failed: boolean;
   readonly failureStatus: number | null;
   readonly occurredAt: number;
@@ -30,12 +31,15 @@ export type StoredUsageEvent = {
 };
 
 type UsageEventRow = {
+  id: number;
   execution_id: string;
   provider: UsageEventProvider;
   auth_index: string;
   account_label: string | null;
   session_id: string | null;
   model: string | null;
+  alias: string | null;
+  response_model: string | null;
   failed: number;
   failure_status: number | null;
   occurred_at: number;
@@ -153,36 +157,28 @@ export function insertUsageEvents(
   return { inserted, skipped };
 }
 
-/** Earliest stored event time, used as the start of account tracking. */
-export function firstUsageEventAt(db: Database): number | null {
-  const row = db
-    .prepare("SELECT MIN(occurred_at) AS first FROM cliproxy_usage_events")
-    .get() as {
-    first: number | null;
-  } | null;
-  return row?.first ?? null;
-}
-
-/** Events at or after `since`, oldest first. */
-export function listUsageEventsSince(
+/** Events stored after the `afterRowId` cursor in insertion order, at most `limit` rows. */
+export function listUsageEventsAfter(
   db: Database,
-  since: number,
+  afterRowId: number,
+  limit: number,
 ): StoredUsageEvent[] {
   const rows = db
     .prepare(
-      `SELECT execution_id, provider, auth_index, account_label, session_id, model, failed, failure_status, occurred_at,
-        input_tokens, uncached_input_tokens, cache_read_tokens, cache_write_tokens, output_tokens, reasoning_tokens,
-        total_tokens
-      FROM cliproxy_usage_events WHERE occurred_at >= ? ORDER BY occurred_at, id`,
+      `SELECT id, execution_id, provider, auth_index, account_label, session_id, model, alias, response_model, failed,
+        failure_status, occurred_at, input_tokens, uncached_input_tokens, cache_read_tokens, cache_write_tokens,
+        output_tokens, reasoning_tokens, total_tokens
+      FROM cliproxy_usage_events WHERE id > ? ORDER BY id LIMIT ?`,
     )
-    .all(since) as UsageEventRow[];
+    .all(afterRowId, limit) as UsageEventRow[];
   return rows.map((row) => ({
+    rowId: row.id,
     id: row.execution_id,
     provider: row.provider,
     authIndex: row.auth_index,
     label: row.account_label,
     sessionId: row.session_id,
-    model: row.model,
+    models: [...new Set([row.model, row.alias, row.response_model].filter((name): name is string => !!name))],
     failed: row.failed === 1,
     failureStatus: row.failure_status,
     occurredAt: row.occurred_at,
