@@ -45,6 +45,9 @@ describe("Claude account ownership routing", () => {
     ["POST", "/oauth/openai/oauth/authorize"],
     ["POST", "/oauth/openai/oauth/callback"],
     ["DELETE", "/oauth/openai/oauth/attempt-a"],
+    ["POST", "/providers/claude-agent/external-login"],
+    ["DELETE", "/providers/claude-agent/credentials"],
+    ["POST", "/oauth/claude-agent/oauth/authorize"],
   ])(
     "rejects native writes when the proxy owns inference: %s %s",
     async (method, path) => {
@@ -58,7 +61,8 @@ describe("Claude account ownership routing", () => {
       expect(response.status).toBe(409);
       expect(await response.json()).toEqual({
         code: "CLAUDE_PROXY_MANAGED",
-        error: "Claude and OpenAI accounts are managed by CLIProxyAPI.",
+        error:
+          "Claude, OpenAI and Claude Agent accounts are managed by CLIProxyAPI.",
       });
       expect(client.api.integration.oauth.connect).not.toHaveBeenCalled();
       expect(client.api.credential.list).not.toHaveBeenCalled();

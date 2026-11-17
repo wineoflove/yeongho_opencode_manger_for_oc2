@@ -6,13 +6,16 @@ export function protectNativeClaudeMutations(
   return async (c, next) => {
     if (
       proxyOwnsInference &&
-      ["anthropic", "openai"].includes(c.req.param("id") ?? "") &&
+      ["anthropic", "openai", "claude-agent"].includes(
+        c.req.param("id") ?? "",
+      ) &&
       !["GET", "HEAD", "OPTIONS"].includes(c.req.method)
     )
       return c.json(
         {
           code: "CLAUDE_PROXY_MANAGED",
-          error: "Claude and OpenAI accounts are managed by CLIProxyAPI.",
+          error:
+            "Claude, OpenAI and Claude Agent accounts are managed by CLIProxyAPI.",
         },
         409,
       );
