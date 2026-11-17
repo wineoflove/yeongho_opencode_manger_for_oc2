@@ -149,6 +149,72 @@ describe("CLIProxy quota to account usage", () => {
     ]);
   });
 
+  it("omits a Codex slot whose window length is zero, as observed on a weekly-only plan", () => {
+    const [account] =
+      usage([
+        source({
+          provider: "openai",
+          quota: {
+            observedAt,
+            signals: {
+              "X-Codex-Active-Limit": "premium",
+              "X-Codex-Credits-Balance": "0",
+              "X-Codex-Plan-Type": "pro",
+              "X-Codex-Primary-Reset-After-Seconds": "331715",
+              "X-Codex-Primary-Reset-At": "1795225140",
+              "X-Codex-Primary-Used-Percent": "78",
+              "X-Codex-Primary-Window-Minutes": "10080",
+              "X-Codex-Secondary-Reset-After-Seconds": "0",
+              "X-Codex-Secondary-Used-Percent": "0",
+              "X-Codex-Secondary-Window-Minutes": "0",
+            },
+          },
+        }),
+      ]).sources.find((entry) => entry.provider === "openai")?.accounts ?? [];
+    expect(account?.windows).toEqual([
+      {
+        key: "weekly",
+        label: "Weekly",
+        usedPercent: 78,
+        resetAt: 1795225140000,
+        updatedAt: observedMs,
+      },
+    ]);
+  });
+
+  it("maps a Claude snapshot that only carries the seven-day window", () => {
+    const [account] =
+      usage([
+        source({
+          quota: {
+            observedAt,
+            signals: {
+              "Anthropic-Ratelimit-Unified-7d-Reset": "1794967200",
+              "Anthropic-Ratelimit-Unified-7d-Status": "allowed",
+              "Anthropic-Ratelimit-Unified-7d-Utilization": "0.12",
+              "Anthropic-Ratelimit-Unified-Fallback-Percentage": "0.5",
+              "Anthropic-Ratelimit-Unified-Overage-Disabled-Reason":
+                "org_level_disabled",
+              "Anthropic-Ratelimit-Unified-Overage-Status": "rejected",
+              "Anthropic-Ratelimit-Unified-Representative-Claim": "seven_day",
+              "Anthropic-Ratelimit-Unified-Reset": "1794967200",
+              "Anthropic-Ratelimit-Unified-Status": "allowed",
+            },
+          },
+        }),
+      ]).sources[0]?.accounts ?? [];
+    expect(account?.state).toBe("ok");
+    expect(account?.windows).toEqual([
+      {
+        key: "seven_day",
+        label: "7 days",
+        usedPercent: 12,
+        resetAt: 1794967200000,
+        updatedAt: observedMs,
+      },
+    ]);
+  });
+
   it.each<[string, Partial<ClaudeProxyUsageSource>, string, string]>([
     [
       "disabled wins",

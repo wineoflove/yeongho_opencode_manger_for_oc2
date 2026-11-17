@@ -75,6 +75,7 @@ function codexWindows(headers: Headers, observedMs: number): UsageWindow[] {
     const prefix = `x-codex-${slot.toLowerCase()}`;
     const usedPercent = parsePercent(headers.get(`${prefix}-used-percent`));
     const minutes = Number(headers.get(`${prefix}-window-minutes`) ?? NaN);
+    if (Number.isFinite(minutes) && minutes <= 0) continue;
     const after = Number(headers.get(`${prefix}-reset-after-seconds`) ?? NaN);
     const resetAt =
       parseTime(headers.get(`${prefix}-reset-at`)) ??
