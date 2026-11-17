@@ -1,8 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
-import type {
-  OpenCodeConfigFile,
-  OpenCodeConfigSourceName,
-} from '../types/settings'
+import type { OpenCodeConfigFile, OpenCodeConfigSourceName } from '../types/settings'
 import {
   buildOpenCodeConfigSeedSnapshot,
   readOpenCodeConfigFile,
@@ -33,9 +30,12 @@ export interface ApplyOpenCodeConfigInput {
   mode?: OpenCodeConfigUpdateMode
   settingsService: SettingsService
   openCodeClient: OpenCodeClient
+  beforeWrite?: () => Promise<void>
 }
 
-export async function captureLastKnownGoodOpenCodeConfig(settingsService: SettingsService): Promise<OpenCodeConfigFile | null> {
+export async function captureLastKnownGoodOpenCodeConfig(
+  settingsService: SettingsService,
+): Promise<OpenCodeConfigFile | null> {
   const previous = await readOpenCodeConfigFile()
   if (previous?.isValid) {
     settingsService.saveLastKnownGoodConfig(serializeOpenCodeConfigSnapshot(previous))
@@ -43,7 +43,9 @@ export async function captureLastKnownGoodOpenCodeConfig(settingsService: Settin
   return previous
 }
 
-export async function restoreLastKnownGoodOpenCodeConfig(settingsService: SettingsService): Promise<OpenCodeConfigFile | null> {
+export async function restoreLastKnownGoodOpenCodeConfig(
+  settingsService: SettingsService,
+): Promise<OpenCodeConfigFile | null> {
   const lastGood = settingsService.getLastKnownGoodConfig()
   if (!lastGood) {
     return null
@@ -64,18 +66,19 @@ export async function seedOpenCodeConfigFile(): Promise<OpenCodeConfigFile> {
   })
 }
 
-export function toOpenCodeConfigApplyResponse(
-  result: ApplyOpenCodeConfigResult,
-): { status: 200; body: Record<string, unknown> } {
+export function toOpenCodeConfigApplyResponse(result: ApplyOpenCodeConfigResult): {
+  status: 200
+  body: Record<string, unknown>
+} {
   return {
     status: 200,
-    body: result.status === 'restart_pending'
-      ? { ...result.config, restartRequired: true }
-      : { ...result.config },
+    body: result.status === 'restart_pending' ? { ...result.config, restartRequired: true } : { ...result.config },
   }
 }
 
-export async function reloadOpenCodeOrMarkRestartPending(openCodeClient: OpenCodeClient): Promise<OpenCodeReloadOutcome> {
+export async function reloadOpenCodeOrMarkRestartPending(
+  openCodeClient: OpenCodeClient,
+): Promise<OpenCodeReloadOutcome> {
   try {
     await reloadOpenCodeConfig(openCodeClient)
     return 'reloaded'
@@ -98,16 +101,21 @@ function requiresOpenCodeReload(previous: OpenCodeConfigFile | null, next: OpenC
   return listChangedTopLevelKeys(previous?.content ?? {}, next.content).length > 0
 }
 
-export async function applyOpenCodeConfigUpdate(
-  input: ApplyOpenCodeConfigInput,
-): Promise<ApplyOpenCodeConfigResult> {
+export async function applyOpenCodeConfigUpdate(input: ApplyOpenCodeConfigInput): Promise<ApplyOpenCodeConfigResult> {
   const { reloadRequired, config } = await withOpenCodeConfigLock(async () => {
     const { content, source, expectedRevision, mode, settingsService } = input
 
     const snapshot = await readOpenCodeConfigSnapshot()
     const previous = await readOpenCodeConfigFile(snapshot)
 
-    const next = await updateOpenCodeConfigFile(content, { source, expectedRevision, snapshot, mode })
+    await input.beforeWrite?.()
+
+    const next = await updateOpenCodeConfigFile(content, {
+      source,
+      expectedRevision,
+      snapshot,
+      mode,
+    })
 
     if (previous?.isValid) {
       const snapshot = serializeOpenCodeConfigSnapshot(previous)
@@ -119,12 +127,18 @@ export async function applyOpenCodeConfigUpdate(
       }
     }
 
-    return { reloadRequired: requiresOpenCodeReload(previous, next), config: next }
+    return {
+      reloadRequired: requiresOpenCodeReload(previous, next),
+      config: next,
+    }
   })
 
   if (!reloadRequired) {
     return { status: 'applied', config }
   }
 
-  return { status: await reloadOpenCodeOrMarkRestartPending(input.openCodeClient), config }
+  return {
+    status: await reloadOpenCodeOrMarkRestartPending(input.openCodeClient),
+    config,
+  }
 }

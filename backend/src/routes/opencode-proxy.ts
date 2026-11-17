@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
+import type { MiddlewareHandler } from 'hono'
 import type { UpgradeWebSocket } from 'hono/ws'
 import type { Database } from 'bun:sqlite'
 import { buildOpenCodeBasicAuth } from '@opencode-manager/shared/opencode'
@@ -48,8 +49,10 @@ function stripProxyPrefix(pathname: string): string {
 }
 
 function isWebSocketUpgrade(c: Context): boolean {
-  return (c.req.header('connection')?.toLowerCase() ?? '').includes('upgrade')
-    && c.req.header('upgrade')?.toLowerCase() === 'websocket'
+  return (
+    (c.req.header('connection')?.toLowerCase() ?? '').includes('upgrade') &&
+    c.req.header('upgrade')?.toLowerCase() === 'websocket'
+  )
 }
 
 /**
@@ -81,7 +84,11 @@ function createRepoDirectoryResolver(repoPath: string): RepoDirectoryResolver {
   return (directory) => (directory && isPathWithinRoot(getWorkspacePath(), directory) ? directory : repoPath)
 }
 
-function rewriteRepoLocation(parts: ProxyRequestParts, directory: string, resolveDirectory: RepoDirectoryResolver): void {
+function rewriteRepoLocation(
+  parts: ProxyRequestParts,
+  directory: string,
+  resolveDirectory: RepoDirectoryResolver,
+): void {
   parts.headers[OPENCODE_DIRECTORY_HEADER] = encodeURIComponent(directory)
 
   if (parts.searchParams.has('location[directory]')) {
@@ -108,24 +115,38 @@ function rewriteRepoLocationBody(bodyText: string, resolveDirectory: RepoDirecto
 
   const requested = (location as { directory?: unknown }).directory
   const directory = resolveDirectory(typeof requested === 'string' ? requested : undefined)
-  ;(parsed as { location: Record<string, unknown> }).location = { ...location, directory }
+  ;(parsed as { location: Record<string, unknown> }).location = {
+    ...location,
+    directory,
+  }
   return JSON.stringify(parsed)
 }
 
-export function createOpenCodeProxyRoutes(db: Database, settingsService: SettingsService, upgradeWebSocket: UpgradeWebSocket) {
+export function createOpenCodeProxyRoutes(
+  db: Database,
+  settingsService: SettingsService,
+  upgradeWebSocket: UpgradeWebSocket,
+  ownershipGuard?: MiddlewareHandler,
+) {
   const app = new Hono()
   const requireInternalToken = createInternalTokenMiddleware(db)
 
   app.use('/*', (c, next) => {
     const url = new URL(c.req.url)
-    const isTicketedSocket = isWebSocketUpgrade(c)
-      && isTicketedPersistentPtyConnect(stripProxyPrefix(url.pathname), url.searchParams)
+    const isTicketedSocket =
+      isWebSocketUpgrade(c) && isTicketedPersistentPtyConnect(stripProxyPrefix(url.pathname), url.searchParams)
     return isTicketedSocket ? proxyTicketedPtySocket(c, url) : requireInternalToken(c, next)
   })
+  if (ownershipGuard) app.use('/*', ownershipGuard)
 
   async function proxyTicketedPtySocket(c: Context, url: URL): Promise<Response> {
     if (!opencodeServerManager.isLifecycleInitialized()) {
-      return c.json({ error: 'OpenCode lifecycle initialization is incomplete; refusing to proxy to an unmanaged server' }, 503)
+      return c.json(
+        {
+          error: 'OpenCode lifecycle initialization is incomplete; refusing to proxy to an unmanaged server',
+        },
+        503,
+      )
     }
 
     if (!isAllowedUpgradeOrigin(c.req.header('origin'), getTrustedOrigins())) {
@@ -135,7 +156,9 @@ export function createOpenCodeProxyRoutes(db: Database, settingsService: Setting
     const pathSuffix = stripProxyPrefix(url.pathname)
     let pending: PendingUpstream
     try {
-      pending = await connectUpstreamWebSocket(toWebSocketUrl(`${getOpenCodeUpstreamBaseUrl()}${pathSuffix}${url.search}`))
+      pending = await connectUpstreamWebSocket(
+        toWebSocketUrl(`${getOpenCodeUpstreamBaseUrl()}${pathSuffix}${url.search}`),
+      )
     } catch {
       return c.json({ error: 'PTY connection rejected' }, 403)
     }
@@ -151,11 +174,21 @@ export function createOpenCodeProxyRoutes(db: Database, settingsService: Setting
     rewriteBody?: ProxyBodyRewrite,
   ): Promise<Response> {
     if (!opencodeServerManager.isLifecycleInitialized()) {
-      return c.json({ error: 'OpenCode lifecycle initialization is incomplete; refusing to proxy to an unmanaged server' }, 503)
+      return c.json(
+        {
+          error: 'OpenCode lifecycle initialization is incomplete; refusing to proxy to an unmanaged server',
+        },
+        503,
+      )
     }
 
     if (isWebSocketUpgrade(c)) {
-      return c.json({ error: 'WebSocket proxying is only supported for ticketed persistent PTY connects' }, 501)
+      return c.json(
+        {
+          error: 'WebSocket proxying is only supported for ticketed persistent PTY connects',
+        },
+        501,
+      )
     }
 
     const url = new URL(c.req.url)

@@ -1119,6 +1119,30 @@ describe('OpenCodeServerManager - server auth', () => {
     }
   })
 
+  it('refuses fallback when an explicit OpenCode binary cannot be executed', async () => {
+    const previous = process.env.OPENCODE_BIN
+    const access = vi.mocked(accessSync)
+    const original = access.getMockImplementation()
+    process.env.OPENCODE_BIN = '/missing/pinned/opencode'
+    try {
+      access.mockImplementation((candidate) => {
+        if (candidate === '/missing/pinned/opencode') throw new Error('ENOENT')
+      })
+      expect(() => resolveOpenCodeExecutable()).toThrow('OPENCODE_BIN')
+      const { OpenCodeServerManager } = await import('../../src/services/opencode-single-server')
+      const manager = OpenCodeServerManager.getInstance()
+      await expect(manager.start()).rejects.toThrow('OPENCODE_BIN')
+      expect(manager.getLastStartupError()).toContain('OPENCODE_BIN')
+      expect(manager.isLastStartupErrorNonRecoverable()).toBe(true)
+      expect(spawnMock).not.toHaveBeenCalled()
+      expect(processKillMock).not.toHaveBeenCalled()
+    } finally {
+      if (original) access.mockImplementation(original)
+      if (previous === undefined) delete process.env.OPENCODE_BIN
+      else process.env.OPENCODE_BIN = previous
+    }
+  })
+
   it('exposes the running child sandbox enforcement state for worktree placement', async () => {
     const { OpenCodeServerManager } = await import('../../src/services/opencode-single-server')
     const manager = OpenCodeServerManager.getInstance()

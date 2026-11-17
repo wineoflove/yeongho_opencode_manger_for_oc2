@@ -15,6 +15,12 @@ import {
 import type { OpenCodeClient } from '../services/opencode/client'
 import { runWhenIntegrationReady } from '../services/opencode/integration-ready'
 import { createProviderExternalRoutes } from './provider-external'
+import { createProviderPoolRoutes } from './provider-pool'
+import type { SettingsService } from '../services/settings'
+import { removePoolAccounts } from '../services/provider-pool-removal'
+import { createClaudeProxyRoutes } from './claude-proxy'
+import type { ClaudeProxyClient } from '../services/claude-proxy-client'
+import { protectNativeClaudeMutations } from './claude-proxy-ownership'
 import {
   ModelSelectionSchema,
   readOpenCodeModelState,
@@ -39,9 +45,19 @@ function credentialConnections(integration: IntegrationInfo) {
   return integration.connections.filter((connection) => connection.type === 'credential')
 }
 
-export function createProvidersRoutes(openCodeClient: OpenCodeClient) {
+export function createProvidersRoutes(
+  openCodeClient: OpenCodeClient,
+  settingsService?: SettingsService,
+  claudeProxy?: {
+    readonly client?: ClaudeProxyClient
+    readonly ownsInference: boolean
+  },
+) {
   const app = new Hono()
+  app.use('/:id/*', protectNativeClaudeMutations(claudeProxy?.ownsInference === true))
+  app.route('/', createClaudeProxyRoutes(claudeProxy?.client, claudeProxy?.ownsInference))
   app.route('/', createProviderExternalRoutes(openCodeClient))
+  app.route('/', createProviderPoolRoutes(openCodeClient, settingsService))
   app.get('/:id/rate-limits', (c) =>
     c.json({
       observations: providerRateLimitStore.list(c.req.param('id')),
@@ -263,11 +279,22 @@ export function createProvidersRoutes(openCodeClient: OpenCodeClient) {
         openCodeClient.api.integration.get({ integrationID }),
       )
 
-      for (const connection of credentialConnections(integration.data)) {
-        await openCodeClient.api.credential.remove({
-          credentialID: connection.id,
-        })
-      }
+      const connections = credentialConnections(integration.data)
+      const removal = await removePoolAccounts(
+        connections.map((connection) => connection.id),
+        openCodeClient,
+      )
+      if (removal !== 'allowed')
+        return c.json(
+          {
+            error:
+              removal === 'referenced'
+                ? 'Remove accounts from the pool configuration before deleting them'
+                : 'Pool configuration could not be checked',
+            code: removal === 'referenced' ? 'POOL_ACCOUNT_IN_USE' : 'POOL_CONFIG_UNAVAILABLE',
+          },
+          removal === 'referenced' ? 409 : 503,
+        )
 
       return c.json({ success: true })
     } catch (error) {
@@ -283,7 +310,18 @@ export function createProvidersRoutes(openCodeClient: OpenCodeClient) {
       if (!before.some((entry) => entry.id === credentialID && entry.integrationID === integrationID)) {
         return c.json({ error: 'Account not found', code: 'ACCOUNT_NOT_FOUND' }, 404)
       }
-      await openCodeClient.api.credential.remove({ credentialID })
+      const removal = await removePoolAccounts([credentialID], openCodeClient)
+      if (removal !== 'allowed')
+        return c.json(
+          {
+            error:
+              removal === 'referenced'
+                ? 'Remove the account from the pool configuration before deleting it'
+                : 'Pool configuration could not be checked',
+            code: removal === 'referenced' ? 'POOL_ACCOUNT_IN_USE' : 'POOL_CONFIG_UNAVAILABLE',
+          },
+          removal === 'referenced' ? 409 : 503,
+        )
       const after = await openCodeClient.api.credential.list()
       const othersPreserved = before
         .filter((entry) => entry.id !== credentialID)

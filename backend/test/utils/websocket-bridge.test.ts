@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import { maintenanceAdmission } from '../../src/services/maintenance-admission'
 import type { WSContext } from 'hono/ws'
 import {
   bridgeWebSocket,
@@ -183,6 +184,25 @@ afterEach(() => {
 })
 
 describe('bridgeWebSocket', () => {
+  it.each(['already-open', 'queued'])('does not forward client work after maintenance begins: %s', (state) => {
+    const spy = vi.spyOn(maintenanceAdmission, 'isClosed').mockReturnValue(false)
+    const upstream = new FakeUpstream()
+    const peer = createPeer()
+    const bridge = bridgeWebSocket(asUpstream(upstream), peer)
+    try {
+      if (state === 'already-open') upstream.emit('open', {})
+      else bridge.send('queued-work')
+      spy.mockReturnValue(true)
+      if (state === 'already-open') bridge.send('new-work')
+      else upstream.emit('open', {})
+      expect(upstream.sent).toEqual([])
+      expect(upstream.close).toHaveBeenCalledOnce()
+      expect(peer.closeCalls).toEqual([{ code: 1013, reason: 'Maintenance draining' }])
+    } finally {
+      bridge.close()
+      spy.mockRestore()
+    }
+  })
   it('requests arraybuffer frames from the upstream', () => {
     const upstream = new FakeUpstream()
     const bridge = bridgeWebSocket(asUpstream(upstream), createPeer())
@@ -390,7 +410,9 @@ describe('bridgeWebSocket', () => {
     const peer = createPeer()
     peer.buffered = MAX_PEER_BUFFERED_BYTES + 1
 
-    bridgeWebSocket(asUpstream(upstream), peer, { initialMessages: ['overflow'] })
+    bridgeWebSocket(asUpstream(upstream), peer, {
+      initialMessages: ['overflow'],
+    })
 
     expect(peer.closeCalls).toEqual([{ code: 1013, reason: 'Client too slow' }])
     expect(upstream.close).toHaveBeenCalledTimes(1)
@@ -402,7 +424,9 @@ describe('connectUpstreamWebSocket', () => {
     vi.stubGlobal('WebSocket', ControllableUpstream)
     ControllableUpstream.reset()
 
-    const promise = connectUpstreamWebSocket('ws://upstream', { protocols: ['vite-hmr'] })
+    const promise = connectUpstreamWebSocket('ws://upstream', {
+      protocols: ['vite-hmr'],
+    })
     const socket = ControllableUpstream.last()
     expect(socket.protocols).toEqual(['vite-hmr'])
     expect(socket.binaryType).toBe('arraybuffer')
@@ -451,7 +475,9 @@ describe('connectUpstreamWebSocket', () => {
     vi.stubGlobal('WebSocket', ControllableUpstream)
     ControllableUpstream.reset()
 
-    const promise = connectUpstreamWebSocket('ws://upstream', { timeoutMs: 50 })
+    const promise = connectUpstreamWebSocket('ws://upstream', {
+      timeoutMs: 50,
+    })
     const socket = ControllableUpstream.last()
     const rejection = expect(promise).rejects.toThrow('timed out')
 
@@ -466,7 +492,9 @@ describe('connectUpstreamWebSocket', () => {
     vi.stubGlobal('WebSocket', ControllableUpstream)
     ControllableUpstream.reset()
 
-    const promise = connectUpstreamWebSocket('ws://upstream', { timeoutMs: 50 })
+    const promise = connectUpstreamWebSocket('ws://upstream', {
+      timeoutMs: 50,
+    })
     const socket = ControllableUpstream.last()
     socket.open()
     const pending = await promise
@@ -492,11 +520,14 @@ describe('connectUpstreamWebSocket', () => {
   })
 
   it('rejects when the WebSocket constructor throws', async () => {
-    vi.stubGlobal('WebSocket', class {
-      constructor() {
-        throw new Error('constructor failed')
-      }
-    })
+    vi.stubGlobal(
+      'WebSocket',
+      class {
+        constructor() {
+          throw new Error('constructor failed')
+        }
+      },
+    )
 
     await expect(connectUpstreamWebSocket('ws://upstream')).rejects.toThrow('constructor failed')
   })
@@ -552,9 +583,10 @@ describe('createBridgedSocketEvents', () => {
   it('closes a bridge that resolves after the client closed', async () => {
     let resolveBridge!: (bridge: WebSocketBridge) => void
     const events = createBridgedSocketEvents(
-      () => new Promise<WebSocketBridge>((resolve) => {
-        resolveBridge = resolve
-      }),
+      () =>
+        new Promise<WebSocketBridge>((resolve) => {
+          resolveBridge = resolve
+        }),
     )
     const ws = createWs()
 
@@ -571,9 +603,10 @@ describe('createBridgedSocketEvents', () => {
   it('waits for the connect before forwarding messages', async () => {
     let resolveBridge!: (bridge: WebSocketBridge) => void
     const events = createBridgedSocketEvents(
-      () => new Promise<WebSocketBridge>((resolve) => {
-        resolveBridge = resolve
-      }),
+      () =>
+        new Promise<WebSocketBridge>((resolve) => {
+          resolveBridge = resolve
+        }),
     )
     const ws = createWs()
 

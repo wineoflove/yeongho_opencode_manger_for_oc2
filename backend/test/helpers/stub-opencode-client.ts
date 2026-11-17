@@ -105,7 +105,12 @@ export function createStubOpenCodeClient(overrides: Partial<OpenCodeClient> = {}
         })),
       },
     } as unknown as OpenCodeApi,
-    forwardRaw: vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })),
+    forwardRaw: vi.fn(
+      async (request: Request) =>
+        new Response(JSON.stringify(new URL(request.url).pathname === '/api/provider' ? { data: [] } : {}), {
+          status: 200,
+        }),
+    ),
     ...overrides,
   } as OpenCodeClient
 }

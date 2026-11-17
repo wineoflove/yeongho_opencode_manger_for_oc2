@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { promises as fs } from 'fs'
 import os from 'os'
 import path from 'path'
@@ -14,6 +14,7 @@ describe('opencode service mode paths', () => {
   const settingsPath = getOpenCodeServiceSettingsPath()
 
   afterEach(async () => {
+    vi.unstubAllEnvs()
     await fs.rm(settingsPath, { force: true })
   })
 
@@ -22,9 +23,12 @@ describe('opencode service mode paths', () => {
   })
 
   it('derives the registration path from the state home', () => {
-    expect(getOpenCodeServiceRegistrationPath({ XDG_CONFIG_HOME: '/config', XDG_STATE_HOME: '/state' })).toBe(
-      '/state/opencode/service.json',
-    )
+    expect(
+      getOpenCodeServiceRegistrationPath({
+        XDG_CONFIG_HOME: '/config',
+        XDG_STATE_HOME: '/state',
+      }),
+    ).toBe('/state/opencode/service.json')
   })
 
   it('writes the service settings with owner-only permissions', async () => {
@@ -32,10 +36,32 @@ describe('opencode service mode paths', () => {
     try {
       await writeOpenCodeServiceSettings(directory, 'secret-password')
 
-      expect(JSON.parse(await fs.readFile(path.join(directory, 'service.json'), 'utf8'))).toEqual({ password: 'secret-password' })
+      expect(JSON.parse(await fs.readFile(path.join(directory, 'service.json'), 'utf8'))).toEqual({
+        password: 'secret-password',
+      })
       expect((await fs.stat(path.join(directory, 'service.json'))).mode & 0o777).toBe(0o600)
     } finally {
       await fs.rm(directory, { recursive: true, force: true })
+    }
+  })
+  it('writes the configured channel file and leaves the default channel untouched', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'ocm-channel-'))
+    try {
+      await fs.writeFile(path.join(directory, 'service.json'), 'preserved')
+      vi.stubEnv('OPENCODE_SERVICE_CHANNEL', 'ocm-pool')
+      await writeOpenCodeServiceSettings(directory, 'fixture-channel-password')
+      expect(JSON.parse(await fs.readFile(path.join(directory, 'service-ocm-pool.json'), 'utf8'))).toEqual({
+        password: 'fixture-channel-password',
+      })
+      expect(await fs.readFile(path.join(directory, 'service.json'), 'utf8')).toBe('preserved')
+      expect(
+        getOpenCodeServiceRegistrationPath({
+          XDG_CONFIG_HOME: '/config',
+          XDG_STATE_HOME: '/state',
+        }),
+      ).toBe('/state/opencode/service-ocm-pool.json')
+    } finally {
+      await fs.rm(directory, { recursive: true })
     }
   })
 
@@ -43,10 +69,16 @@ describe('opencode service mode paths', () => {
     const attackerDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'ocm-service-mode-attacker-'))
     const stateDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'ocm-service-mode-state-'))
     try {
-      const env = { XDG_CONFIG_HOME: attackerDirectory, XDG_STATE_HOME: stateDirectory, OPENCODE_CONFIG_DIR: attackerDirectory }
+      const env = {
+        XDG_CONFIG_HOME: attackerDirectory,
+        XDG_STATE_HOME: stateDirectory,
+        OPENCODE_CONFIG_DIR: attackerDirectory,
+      }
       await prepareOpenCodeServiceLaunch(env, 'secret-password')
 
-      expect(JSON.parse(await fs.readFile(settingsPath, 'utf8'))).toEqual({ password: 'secret-password' })
+      expect(JSON.parse(await fs.readFile(settingsPath, 'utf8'))).toEqual({
+        password: 'secret-password',
+      })
       await expect(fs.access(path.join(attackerDirectory, 'service.json'))).rejects.toThrow()
       await expect(fs.access(path.join(stateDirectory, 'opencode', 'service.json'))).rejects.toThrow()
     } finally {

@@ -276,8 +276,16 @@ async function removeChildStateMarker(): Promise<void> {
 }
 
 export function resolveOpenCodeExecutable(): string | null {
+  const configured = process.env.OPENCODE_BIN
+  if (configured) {
+    try {
+      accessSync(configured, constants.X_OK)
+      return configured
+    } catch {
+      throw new NonRecoverableStartupError('Configured OPENCODE_BIN is not executable; refusing binary fallback')
+    }
+  }
   const candidates = [
-    process.env.OPENCODE_BIN,
     resolveOpenCodeBinaryPath(getOpenCodeHome()),
     '/usr/local/bin/opencode',
     '/opt/opencode/bin/opencode',
@@ -913,6 +921,13 @@ class OpenCodeServerManager {
       if (this.version) {
         logger.info(`OpenCode version: ${this.version}`)
       }
+    } catch (error) {
+      if (
+        error instanceof NonRecoverableStartupError &&
+        (!this.lastStartupErrorNonRecoverable || this.lastStartupError !== error.message)
+      )
+        this.failNonRecoverable(error.message)
+      throw error
     } finally {
       this.releaseOp(acquired)
     }

@@ -32,6 +32,14 @@ async function getAppVersion(): Promise<string> {
   }
 }
 import { createProvidersRoutes } from "./routes/providers";
+import { loadClaudeProxyClient } from "./services/claude-proxy-config";
+import { loadClaudeInference } from "./services/claude-inference-config";
+import { createClaudeInferenceRoutes } from "./routes/claude-inference";
+import { protectRawClaudeMutations } from "./routes/claude-raw-ownership";
+import {
+  maintenanceAdmission,
+  maintenanceHttpAdmission,
+} from "./services/maintenance-admission";
 import { createMessageSearchRoutes } from "./routes/message-search";
 import { MessageSearchService } from "./services/message-search";
 import { MESSAGE_SEARCH_PROJECTION } from "./services/message-search-projection";
@@ -45,7 +53,10 @@ import { SystemStatusService } from "./services/system-status";
 import { WorkflowStatsSource } from "./services/stats/workflow-source";
 import { runLearningScript } from "./services/learnings/script-runner";
 import { getAssistantModeDirectory } from "./services/assistant-mode";
-import { mcpStatusByName, openCodeLocation } from "@opencode-manager/shared/opencode";
+import {
+  mcpStatusByName,
+  openCodeLocation,
+} from "@opencode-manager/shared/opencode";
 import { z } from "zod";
 import { createOAuthRoutes } from "./routes/oauth";
 import { createSSERoutes } from "./routes/sse";
@@ -155,6 +166,8 @@ import {
 
 const { PORT, HOST } = ENV.SERVER;
 const DB_PATH = getDatabasePath();
+const claudeProxyClient = await loadClaudeProxyClient(process.env);
+const claudeInference = await loadClaudeInference(process.env);
 
 const app = new Hono();
 const { start, upgradeWebSocket } = createHttpServer(app);
@@ -195,6 +208,7 @@ app.use(
 );
 
 const db = initializeDatabase(DB_PATH);
+app.use("/api/*", maintenanceHttpAdmission(maintenanceAdmission));
 const auth = createAuth(db);
 const requireAuth = createAuthMiddleware(auth);
 const openCodeClient = createOpenCodeClient(
@@ -575,6 +589,10 @@ const previewAvailability = createPreviewAvailability(false);
 app.route("/api/auth", createAuthRoutes(auth));
 app.route("/api/auth-info", createAuthInfoRoutes(auth));
 app.route("/api/health", createHealthRoutes(db, openCodeSupervisor));
+app.route(
+  "/api/claude-inference",
+  createClaudeInferenceRoutes(claudeInference),
+);
 
 app.route(
   "/api/mcp-oauth-proxy",
@@ -602,7 +620,20 @@ app.route(
 );
 app.route(
   "/api/opencode-proxy",
-  createOpenCodeProxyRoutes(db, settingsService, upgradeWebSocket),
+  createOpenCodeProxyRoutes(
+    db,
+    settingsService,
+    upgradeWebSocket,
+    protectRawClaudeMutations({
+      ownsInference: Boolean(claudeInference),
+      async credentialIntegration(id) {
+        const credentials = await openCodeClient.api.credential.list({
+          signal: AbortSignal.timeout(5000),
+        });
+        return credentials.find((entry) => entry.id === id)?.integrationID;
+      },
+    }),
+  ),
 );
 
 const protectedApi = new Hono();
@@ -626,16 +657,30 @@ const workflowSource = new WorkflowStatsSource({
   searchLessons: async (queries) => {
     const result = await runLearningScript({
       script: "search.mjs",
-      args: ["--batch", "--include-pending", "--limit", "3", "--entries", getLearningsEntriesPath()],
+      args: [
+        "--batch",
+        "--include-pending",
+        "--limit",
+        "3",
+        "--entries",
+        getLearningsEntriesPath(),
+      ],
       stdin: JSON.stringify(queries),
       timeoutMs: 10_000,
     });
-    if (result.timedOut || result.exitCode !== 0) throw new Error("WORKFLOW_LEARNING_SEARCH_FAILED");
-    return z.array(z.object({ query: z.string(), ids: z.array(z.string()) })).parse(JSON.parse(result.stdout));
+    if (result.timedOut || result.exitCode !== 0)
+      throw new Error("WORKFLOW_LEARNING_SEARCH_FAILED");
+    return z
+      .array(z.object({ query: z.string(), ids: z.array(z.string()) }))
+      .parse(JSON.parse(result.stdout));
   },
   mcpStatus: async () => {
     const directory = getAssistantModeDirectory();
-    const servers = (await openCodeClient.api.mcp.list(openCodeLocation(directory) ?? {}, { signal: AbortSignal.timeout(10_000) })).data;
+    const servers = (
+      await openCodeClient.api.mcp.list(openCodeLocation(directory) ?? {}, {
+        signal: AbortSignal.timeout(10_000),
+      })
+    ).data;
     return { directory, statuses: mcpStatusByName(servers) };
   },
 });
@@ -693,9 +738,18 @@ protectedApi.route(
   createFileRoutes(() => listRepos(db)),
 );
 protectedApi.route("/filesystem", createFilesystemRoutes());
-protectedApi.route("/providers", createProvidersRoutes(openCodeClient));
+protectedApi.route(
+  "/providers",
+  createProvidersRoutes(openCodeClient, settingsService, {
+    client: claudeProxyClient,
+    ownsInference: Boolean(claudeInference),
+  }),
+);
 protectedApi.route("/learnings", createLearningLintRoutes());
-protectedApi.route("/oauth", createOAuthRoutes(openCodeClient));
+protectedApi.route(
+  "/oauth",
+  createOAuthRoutes(openCodeClient, Boolean(claudeInference)),
+);
 protectedApi.route("/tts", createTTSRoutes(db));
 protectedApi.route("/stt", createSTTRoutes(db));
 protectedApi.route("/sse", createSSERoutes());
@@ -754,7 +808,10 @@ protectedApi.route(
 );
 protectedApi.route(
   "/schedules",
-  createScheduleRoutes(scheduleService, new ScheduleOverviewReader(db, modelPriceCache)),
+  createScheduleRoutes(
+    scheduleService,
+    new ScheduleOverviewReader(db, modelPriceCache),
+  ),
 );
 protectedApi.route("/logs", createLogRoutes());
 protectedApi.route(
@@ -849,6 +906,13 @@ let isShuttingDown = false;
 const shutdown = async (signal: string) => {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  maintenanceAdmission.closeForShutdown();
+  try {
+    scheduleRunnerInstance?.stop();
+    logger.info("Schedule runner stopped");
+  } catch (error) {
+    logger.error("Schedule runner shutdown failed:", error);
+  }
 
   logger.info(`${signal} received, shutting down gracefully...`);
   try {
@@ -863,8 +927,6 @@ const shutdown = async (signal: string) => {
     if (openCodeSupervisor) {
       await openCodeSupervisor.stop();
     }
-    scheduleRunnerInstance?.stop();
-    logger.info("Schedule runner stopped");
     if (!openCodeSupervisor) {
       await opencodeServerManager.stop();
     }

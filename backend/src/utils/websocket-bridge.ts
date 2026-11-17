@@ -1,5 +1,6 @@
 import type { WSContext, WSEvents } from 'hono/ws'
 import { getErrorMessage } from './error-utils'
+import { maintenanceAdmission } from '../services/maintenance-admission'
 import {
   registerSessionConnection,
   SESSION_CONNECTION_CLOSE_CODE,
@@ -57,10 +58,7 @@ export function toWebSocketPeer(ws: WSContext): WebSocketPeer {
   }
 }
 
-export function isAllowedUpgradeOrigin(
-  origin: string | undefined,
-  trustedOrigins: readonly string[],
-): boolean {
+export function isAllowedUpgradeOrigin(origin: string | undefined, trustedOrigins: readonly string[]): boolean {
   if (origin === undefined) return true
   if (origin === 'null') return false
   return trustedOrigins.includes(origin)
@@ -155,6 +153,10 @@ export function bridgeWebSocket(
     upstreamOpen = true
     clearConnectTimer()
     while (queue.length > 0) {
+      if (maintenanceAdmission.isClosed()) {
+        failUpstream(1013, 'Maintenance draining')
+        return
+      }
       upstream.send(queue.shift()!)
       if (upstream.bufferedAmount > MAX_UPSTREAM_BUFFERED_BYTES) {
         failUpstream(1013, 'Upstream too slow')
@@ -202,6 +204,10 @@ export function bridgeWebSocket(
   return {
     send(data) {
       if (finished) return
+      if (maintenanceAdmission.isClosed()) {
+        failUpstream(1013, 'Maintenance draining')
+        return
+      }
       const payload = typeof data === 'string' ? data : toBytes(data)
       if (upstreamOpen) {
         upstream.send(payload)
@@ -224,10 +230,7 @@ export function bridgeWebSocket(
   }
 }
 
-export function connectUpstreamWebSocket(
-  url: string,
-  options: ConnectUpstreamOptions = {},
-): Promise<PendingUpstream> {
+export function connectUpstreamWebSocket(url: string, options: ConnectUpstreamOptions = {}): Promise<PendingUpstream> {
   return new Promise<PendingUpstream>((resolve, reject) => {
     let socket: WebSocket
     try {
@@ -284,7 +287,9 @@ export function connectUpstreamWebSocket(
           attached = true
           clearTimer()
           detachListeners()
-          return bridgeWebSocket(socket, peer, { initialMessages: buffered.splice(0, buffered.length) })
+          return bridgeWebSocket(socket, peer, {
+            initialMessages: buffered.splice(0, buffered.length),
+          })
         },
         abandon() {
           if (attached) return
