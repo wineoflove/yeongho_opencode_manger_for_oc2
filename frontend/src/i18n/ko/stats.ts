@@ -254,8 +254,8 @@ export const stats: Record<string, string> = {
   'since {date}': '{date}부터',
   'after next restart': '다음 재시작 후',
   'after the first CLIProxy request': '첫 CLIProxy 요청 후',
-  'Usage comes from every assistant response stored by OpenCode 2. Responses before account tracking started are listed as before tracking, and responses that cannot be matched to exactly one CLIProxy account are listed as unattributed.':
-    '사용량은 OpenCode 2에 저장된 모든 어시스턴트 응답에서 가져옵니다. 계정 추적 시작 전 응답은 추적 전(before tracking)으로, CLIProxy 계정 하나에 정확히 연결되지 않는 응답은 미귀속(unattributed)으로 표시됩니다.',
+  'Usage comes from every assistant response stored by OpenCode 2. Responses before account tracking started are listed as before tracking, and responses that cannot be matched to exactly one CLIProxy account are listed as unattributed. CLIProxy usage events used for account matching are kept for 90 days.':
+    '사용량은 OpenCode 2에 저장된 모든 어시스턴트 응답에서 가져옵니다. 계정 추적 시작 전 응답은 추적 전(before tracking)으로, CLIProxy 계정 하나에 정확히 연결되지 않는 응답은 미귀속(unattributed)으로 표시됩니다. 계정 연결에 쓰는 CLIProxy 사용량 기록은 90일간 보관합니다.',
   'Responses indexed': '색인된 응답',
   'History from': '기록 시작',
   Updated: '업데이트됨',

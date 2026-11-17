@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { migrate } from "../../src/db/migration-runner";
 import { allMigrations } from "../../src/db/migrations";
 import { CliproxyUsageCollector } from "../../src/services/cliproxy-usage-collector";
+import { insertUsageEvents } from "../../src/db/cliproxy-usage-events";
 import type { ProxyUsageRecord } from "../../src/services/claude-proxy-usage-contract";
 
 function record(executionId: string): ProxyUsageRecord {
@@ -141,5 +142,39 @@ describe("CLIProxy usage collector", () => {
     expect(rows()).toEqual([
       { execution_id: "late", account_label: "user@example.test" },
     ]);
+  });
+
+  it("prunes events older than the retention window at most once per interval", async () => {
+    let clock = 10_000;
+    const popUsageQueue = vi.fn(async () => page([]));
+    const instance = new CliproxyUsageCollector({
+      client: {
+        popUsageQueue,
+        listAccounts: vi.fn(async () => ({ observedAt: "2026-11-17T01:00:00Z", accounts: [] })),
+      },
+      db,
+      pageSize: 2,
+      maxPagesPerTick: 1,
+      intervalMs: 1000,
+      now: () => clock,
+      retention: { maxAgeMs: 1000, everyMs: 5000 },
+    });
+    const at = (ms: number, executionId: string) => ({
+      ...record(executionId),
+      occurredAt: new Date(ms).toISOString(),
+    });
+    const ids = () => (rows() as { execution_id: string }[]).map((row) => row.execution_id);
+    insertUsageEvents(db, [at(8_000, "expired"), at(9_500, "kept")], new Map(), 1);
+    await instance.tick();
+    expect(ids()).toEqual(["kept"]);
+
+    insertUsageEvents(db, [at(10_500, "late")], new Map(), 1);
+    clock = 12_000;
+    await instance.tick();
+    expect(ids()).toEqual(["kept", "late"]);
+
+    clock = 15_000;
+    await instance.tick();
+    expect(ids()).toEqual([]);
   });
 });

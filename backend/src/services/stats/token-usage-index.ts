@@ -32,6 +32,7 @@ export interface UsageAttributionSource {
     afterRowId: number,
     limit: number,
   ) => readonly StoredUsageEvent[];
+  readonly retentionMs?: number;
 }
 
 export interface TokenUsageIndexOptions {
@@ -212,7 +213,7 @@ export class TokenUsageIndex {
   private lastRowId = 0;
   private watermark = 0;
   private sessions = new Map<string, UsageSession>();
-  private readonly events: StoredUsageEvent[] = [];
+  private events: StoredUsageEvent[] = [];
   private eventCursor = 0;
   private snapshot: UsageIndexSnapshot | null = null;
   private refreshedAt = -Infinity;
@@ -334,6 +335,10 @@ export class TokenUsageIndex {
     } catch (error) {
       logger.warn("Token stats could not read CLIProxy usage events", error);
     }
+    if (source.retentionMs === undefined) return;
+    const cutoff = this.now() - source.retentionMs;
+    if (this.events.some((event) => event.occurredAt < cutoff))
+      this.events = this.events.filter((event) => event.occurredAt >= cutoff);
   }
 
   private attribution(): AccountAttribution | null {

@@ -34,7 +34,10 @@ async function getAppVersion(): Promise<string> {
 import { createProvidersRoutes } from "./routes/providers";
 import { loadClaudeProxyClient } from "./services/claude-proxy-config";
 import { CliproxyUsageCollector } from "./services/cliproxy-usage-collector";
-import { listUsageEventsAfter } from "./db/cliproxy-usage-events";
+import {
+  listUsageEventsAfter,
+  USAGE_EVENT_RETENTION_MS,
+} from "./db/cliproxy-usage-events";
 import { getOpenCodeDatabasePath } from "./services/opencode-service-mode";
 import { loadClaudeInference } from "./services/claude-inference-config";
 import { createClaudeInferenceRoutes } from "./routes/claude-inference";
@@ -447,6 +450,7 @@ const cliproxyUsageCollector = claudeProxyClient
       pageSize: 200,
       maxPagesPerTick: 10,
       intervalMs: 30_000,
+      retention: { maxAgeMs: USAGE_EVENT_RETENTION_MS, everyMs: 3_600_000 },
     })
   : null;
 cliproxyUsageCollector?.start();
@@ -709,6 +713,7 @@ protectedApi.route(
             attribution: {
               loadEvents: (afterRowId: number, limit: number) =>
                 listUsageEventsAfter(db, afterRowId, limit),
+              retentionMs: USAGE_EVENT_RETENTION_MS,
             },
           }
         : {}),

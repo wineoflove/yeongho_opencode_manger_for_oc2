@@ -1,6 +1,9 @@
 import type { Database } from "bun:sqlite";
 import type { ProxyUsageRecord } from "../services/claude-proxy-usage-contract";
 
+/** How long CLIProxy usage events are kept for account attribution. */
+export const USAGE_EVENT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+
 /** Provider names CLIProxyAPI reports for the accounts Manager tracks. */
 export type UsageEventProvider = "claude" | "codex";
 
@@ -155,6 +158,13 @@ export function insertUsageEvents(
     }
   })();
   return { inserted, skipped };
+}
+
+/** Deletes events that occurred before `cutoff` and returns how many were removed. */
+export function pruneUsageEventsBefore(db: Database, cutoff: number): number {
+  return db
+    .prepare("DELETE FROM cliproxy_usage_events WHERE occurred_at < ?")
+    .run(cutoff).changes;
 }
 
 /** Events stored after the `afterRowId` cursor in insertion order, at most `limit` rows. */

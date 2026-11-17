@@ -189,7 +189,7 @@ function Coverage({ data }: { data: TokenStatsResponse }) {
       </dl>
       <p className="mt-3 text-xs text-muted-foreground">
         {t(
-          'Usage comes from every assistant response stored by OpenCode 2. Responses before account tracking started are listed as before tracking, and responses that cannot be matched to exactly one CLIProxy account are listed as unattributed.',
+          'Usage comes from every assistant response stored by OpenCode 2. Responses before account tracking started are listed as before tracking, and responses that cannot be matched to exactly one CLIProxy account are listed as unattributed. CLIProxy usage events used for account matching are kept for 90 days.',
         )}
       </p>
       {data.totals.unpricedMessages > 0 && (

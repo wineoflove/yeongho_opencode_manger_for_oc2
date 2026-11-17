@@ -6,6 +6,7 @@ import { cliproxyUsageEventsMigration } from "../../src/db/migrations/2026111712
 import {
   insertUsageEvents,
   listUsageEventsAfter,
+  pruneUsageEventsBefore,
 } from "../../src/db/cliproxy-usage-events";
 import type { ProxyUsageRecord } from "../../src/services/claude-proxy-usage-contract";
 
@@ -211,6 +212,22 @@ describe("CLIProxy usage events storage", () => {
       inserted: 0,
       skipped: 1,
     });
+  });
+
+  it("prunes only events that occurred before the cutoff", () => {
+    insertUsageEvents(
+      db,
+      [
+        record({ executionId: "old", occurredAt: "2026-08-01T00:00:00.000Z" }),
+        record({ executionId: "edge", occurredAt: "2026-08-19T00:00:00.000Z" }),
+        record({ executionId: "new", occurredAt: "2026-11-17T00:00:00.000Z" }),
+      ],
+      new Map(),
+      100,
+    );
+    expect(pruneUsageEventsBefore(db, Date.parse("2026-08-19T00:00:00.000Z"))).toBe(1);
+    expect(listUsageEventsAfter(db, 0, 10).map((event) => event.id)).toEqual(["edge", "new"]);
+    expect(pruneUsageEventsBefore(db, Date.parse("2026-08-19T00:00:00.000Z"))).toBe(0);
   });
 
   it("pages events after a row cursor in insertion order with every model name", () => {

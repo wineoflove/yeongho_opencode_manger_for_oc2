@@ -321,6 +321,57 @@ test("splits usage by CLIProxy account once events are stored and keeps earlier 
   }
 });
 
+test("forgets usage events once they pass the retention window", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ocm-token-stats-retention-"));
+  const dbPath = join(root, "opencode.db");
+  const db = seed(dbPath);
+  let clock = T0 + 200_000;
+  const stored: StoredUsageEvent[] = [
+    usageEvent(1, { occurredAt: T0 + 60_014, label: "old@example.test" }),
+    usageEvent(2, { authIndex: "fedcba9876543210", occurredAt: T0 + 150_014 }),
+  ];
+  const index = new TokenUsageIndex({
+    openCodeDbPath: dbPath,
+    listRepos: () => [],
+    refreshIntervalMs: 0,
+    now: () => clock,
+    attribution: {
+      loadEvents: (afterRowId, limit) =>
+        stored.filter((event) => event.rowId > afterRowId).slice(0, limit),
+      retentionMs: 100_000,
+    },
+  });
+  const claude = (created: number) =>
+    assistant(
+      { input: 2, output: 4, reasoning: 59, cache: { read: 0, write: 3785 } },
+      {
+        model: { id: "claude-opus-5-5", providerID: "anthropic", variant: "default" },
+        time: { created, completed: created + 2674 },
+      },
+    );
+  try {
+    const add = db.query("INSERT INTO session_message VALUES (?,?,?,?,?,?,?)");
+    add.run("msg_old", "ses_root", "assistant", 1, T0 + 60_000, T0 + 60_000, claude(T0 + 60_000));
+    add.run("msg_new", "ses_root", "assistant", 2, T0 + 150_000, T0 + 150_000, claude(T0 + 150_000));
+    const accountOf = (snapshot: Awaited<ReturnType<typeof index.getSnapshot>>, id: string) =>
+      snapshot.records.find((record) => record.messageId === id)?.keys.account;
+
+    const first = await index.getSnapshot();
+    expect(accountOf(first, "msg_new")).toBe("anthropic:fedcba9876543210");
+    expect(accountOf(first, "msg_old")).toBe("anthropic:untracked");
+    expect(first.trackedSince).toBe(T0 + 150_014);
+
+    clock = T0 + 300_000;
+    const second = await index.getSnapshot();
+    expect(accountOf(second, "msg_new")).toBe("anthropic:untracked");
+    expect(second.trackedSince).toBeNull();
+  } finally {
+    index.close();
+    db.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("estimates API-equivalent cost only for zero-cost usage, with context tiers from the model catalog", () => {
   const prices = buildPriceTable([
     {

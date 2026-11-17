@@ -1,5 +1,8 @@
 import type { Database } from "bun:sqlite";
-import { insertUsageEvents } from "../db/cliproxy-usage-events";
+import {
+  insertUsageEvents,
+  pruneUsageEventsBefore,
+} from "../db/cliproxy-usage-events";
 import { logger } from "../utils/logger";
 import type { ProxyUsageRecord } from "./claude-proxy-usage-contract";
 
@@ -31,6 +34,7 @@ export class CliproxyUsageCollector {
   private labels: ReadonlyMap<string, string> | null = null;
   private running: Promise<UsageCollectorTick> | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private prunedAt = -Infinity;
 
   constructor(
     private readonly options: {
@@ -40,6 +44,10 @@ export class CliproxyUsageCollector {
       readonly maxPagesPerTick: number;
       readonly intervalMs: number;
       readonly now?: () => number;
+      readonly retention?: {
+        readonly maxAgeMs: number;
+        readonly everyMs: number;
+      };
     },
   ) {}
 
@@ -113,6 +121,16 @@ export class CliproxyUsageCollector {
       }
       if (page.received < pageSize) break;
     }
+    this.prune(now());
     return totals;
+  }
+
+  private prune(at: number): void {
+    const { retention, db } = this.options;
+    if (!retention || at - this.prunedAt < retention.everyMs) return;
+    const removed = pruneUsageEventsBefore(db, at - retention.maxAgeMs);
+    this.prunedAt = at;
+    if (removed > 0)
+      logger.info(`Pruned ${removed} CLIProxy usage events past retention`);
   }
 }
