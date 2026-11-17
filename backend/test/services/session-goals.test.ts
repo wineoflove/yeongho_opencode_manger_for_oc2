@@ -15,6 +15,8 @@ import {
 
 const DIRECTORY = '/abs/repo'
 
+import { maintenanceAdmission } from '../../src/services/maintenance-admission'
+
 function createTestDb(): Database {
   const db = new Database(':memory:')
   migrate(db, allMigrations)
@@ -125,7 +127,11 @@ describe('SessionGoalService', () => {
     })
     const service = createService(db, { tokens: { ses_1: { input: 100, output: 50, reasoning: 10 } } }, settingsService)
 
-    const goal = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship the feature' })
+    const goal = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship the feature',
+    })
 
     expect(goal).toMatchObject({
       sessionId: 'ses_1',
@@ -149,7 +155,11 @@ describe('SessionGoalService', () => {
   it('lets explicit input override the settings defaults', async () => {
     const settingsService = new SettingsService(db)
     settingsService.updateSettings({
-      sessionDefaults: { permissionMode: 'ask', goalMaxContinuations: 7, goalTokenBudget: 1234 },
+      sessionDefaults: {
+        permissionMode: 'ask',
+        goalMaxContinuations: 7,
+        goalTokenBudget: 1234,
+      },
     })
     const service = createService(db, {}, settingsService)
 
@@ -167,10 +177,16 @@ describe('SessionGoalService', () => {
 
   it('falls back to the default max continuations when settings do not set it', async () => {
     const settingsService = new SettingsService(db)
-    settingsService.updateSettings({ sessionDefaults: { permissionMode: 'ask' } })
+    settingsService.updateSettings({
+      sessionDefaults: { permissionMode: 'ask' },
+    })
     const service = createService(db, {}, settingsService)
 
-    const goal = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const goal = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     expect(goal.maxContinuations).toBe(20)
     expect(goal.tokenBudget).toBeNull()
@@ -179,7 +195,11 @@ describe('SessionGoalService', () => {
   it('uses zero tokens when the session lookup fails', async () => {
     const service = createService(db, { failSessionGet: true })
 
-    const goal = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const goal = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     expect(getSessionGoalById(db, goal.id)?.tokensAtStart).toBe(0)
   })
@@ -187,10 +207,18 @@ describe('SessionGoalService', () => {
   it('rejects a second open goal for the same session with 409', async () => {
     const service = createService(db)
 
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'First' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'First',
+    })
 
     await expect(
-      service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Second' }),
+      service.start({
+        sessionId: 'ses_1',
+        directory: DIRECTORY,
+        objective: 'Second',
+      }),
     ).rejects.toMatchObject({ status: 409 })
     expect(listOpenSessionGoals(db)).toHaveLength(1)
   })
@@ -201,8 +229,15 @@ describe('SessionGoalService', () => {
     })
 
     await expect(
-      service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' }),
-    ).rejects.toMatchObject({ status: 409, message: 'Scheduled runs cannot run goals' })
+      service.start({
+        sessionId: 'ses_1',
+        directory: DIRECTORY,
+        objective: 'Ship it',
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: 'Scheduled runs cannot run goals',
+    })
     expect(listOpenSessionGoals(db)).toHaveLength(0)
   })
 
@@ -212,8 +247,15 @@ describe('SessionGoalService', () => {
     })
 
     await expect(
-      service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' }),
-    ).rejects.toMatchObject({ status: 400, message: 'Goals can only be started on top-level sessions' })
+      service.start({
+        sessionId: 'ses_1',
+        directory: DIRECTORY,
+        objective: 'Ship it',
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: 'Goals can only be started on top-level sessions',
+    })
     expect(listOpenSessionGoals(db)).toHaveLength(0)
   })
 
@@ -222,7 +264,11 @@ describe('SessionGoalService', () => {
       resolveSessionLock: async () => null,
     })
 
-    const goal = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const goal = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     expect(goal.status).toBe('active')
     expect(listOpenSessionGoals(db)).toHaveLength(1)
@@ -235,17 +281,29 @@ describe('SessionGoalService', () => {
       },
     })
 
-    const goal = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const goal = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     expect(goal.status).toBe('active')
   })
 
   it('allows a new goal once the previous one is cancelled', async () => {
     const service = createService(db)
-    const first = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'First' })
+    const first = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'First',
+    })
 
     service.cancel(first.id)
-    const second = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Second' })
+    const second = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Second',
+    })
 
     expect(second.status).toBe('active')
     expect(listOpenSessionGoals(db)).toHaveLength(1)
@@ -253,7 +311,11 @@ describe('SessionGoalService', () => {
 
   it('pauses and resumes a goal', async () => {
     const service = createService(db)
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     const paused = service.pause(started.id)
     expect(paused.status).toBe('paused')
@@ -267,7 +329,11 @@ describe('SessionGoalService', () => {
 
   it('cancels a paused goal and rejects cancelling a finished goal', async () => {
     const service = createService(db)
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     service.pause(started.id)
 
     const cancelled = service.cancel(started.id)
@@ -275,9 +341,7 @@ describe('SessionGoalService', () => {
     expect(cancelled.stopReason).toBe('cancelled')
     expect(cancelled.finishedAt).not.toBeNull()
 
-    expect(() => service.cancel(started.id)).toThrowError(
-      expect.objectContaining({ status: 409 }) as Error,
-    )
+    expect(() => service.cancel(started.id)).toThrowError(expect.objectContaining({ status: 409 }) as Error)
   })
 
   it('rejects pausing a missing goal with 404', async () => {
@@ -291,7 +355,11 @@ describe('SessionGoalService', () => {
     const service = createService(db, {}, new SettingsService(db), {
       onOutcome: (goal) => outcomes.push(goal.status),
     })
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     const paused = service.pause(started.id)
 
@@ -304,7 +372,11 @@ describe('SessionGoalService', () => {
     const service = createService(db, {}, new SettingsService(db), {
       onOutcome: (goal) => outcomes.push(goal.status),
     })
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     const cancelled = service.cancel(started.id)
 
@@ -317,7 +389,11 @@ describe('SessionGoalService', () => {
     const service = createService(db, {}, new SettingsService(db), {
       onOutcome: (goal) => outcomes.push(goal.status),
     })
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     service.pause(started.id)
     outcomes.length = 0
 
@@ -331,7 +407,11 @@ describe('SessionGoalService', () => {
     const service = createService(db, {}, new SettingsService(db), {
       onOutcome: (goal) => outcomes.push(goal.status),
     })
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     service.pause(started.id)
     outcomes.length = 0
 
@@ -345,7 +425,11 @@ describe('SessionGoalService', () => {
     const service = createService(db, {}, new SettingsService(db), {
       onOutcome: (goal) => outcomes.push(goal.status),
     })
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     service.cancel(started.id)
     outcomes.length = 0
 
@@ -359,7 +443,11 @@ describe('SessionGoalService', () => {
     const service = createService(db, {}, new SettingsService(db), {
       onOutcome: (goal) => outcomes.push(goal.status),
     })
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     service.pause(started.id)
     outcomes.length = 0
 
@@ -374,13 +462,21 @@ describe('SessionGoalService', () => {
 
     expect(service.getLatest('ses_1')).toBeNull()
 
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     expect(service.getLatest('ses_1')?.id).toBe(started.id)
   })
 
   it('loads open goals so events are handled after a restart', async () => {
-    const started = await createService(db).start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await createService(db).start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     const fake = createFakeSessionGoalClient()
     const restarted = new SessionGoalService(db, fake.client, new SettingsService(db), { quietMs: 0 })
 
@@ -403,7 +499,9 @@ describe('SessionGoalService audit loop', () => {
     vi.useFakeTimers()
     db = createTestDb()
     fake = createFakeSessionGoalClient()
-    service = new SessionGoalService(db, fake.client, new SettingsService(db), { quietMs: 0 })
+    service = new SessionGoalService(db, fake.client, new SettingsService(db), {
+      quietMs: 0,
+    })
   })
 
   afterEach(() => {
@@ -420,7 +518,11 @@ describe('SessionGoalService audit loop', () => {
   it('completes the goal when the auditor says done', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('The feature is shipped and tested.')])
     fake.setAuditorReplies(['{"verdict":"done","reason":"Objective achieved."}'])
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await runTurn('ses_1')
 
@@ -436,10 +538,42 @@ describe('SessionGoalService audit loop', () => {
     expect(getSessionGoalById(db, started.id)?.turnState).toBe('running')
   })
 
+  it('defers auditing and continuation during maintenance without spending a continuation', async () => {
+    fake.setMessages('ses_1', [fakeAssistantMessage('Still working.')])
+    fake.setAuditorReplies(['{"verdict":"continue","reason":"More work remains."}'])
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
+    const spy = vi.spyOn(maintenanceAdmission, 'isClosed').mockReturnValue(true)
+    try {
+      await service.handleEvent(DIRECTORY, executionStarted('ses_1'))
+      await service.handleEvent(DIRECTORY, sessionIdle('ses_1'))
+      await vi.advanceTimersByTimeAsync(10000)
+      expect(fake.auditorCalls).toHaveLength(0)
+      expect(fake.promptCalls).toHaveLength(0)
+      expect(service.getLatest('ses_1')).toMatchObject({
+        status: 'active',
+        continuationCount: 0,
+      })
+      spy.mockReturnValue(false)
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(fake.promptCalls).toHaveLength(1)
+      expect(service.getLatest('ses_1')?.continuationCount).toBe(1)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('sends one continuation prompt and increments the count on continue', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Working on the route.')])
     fake.setAuditorReplies(['{"verdict":"continue","reason":"Tests still fail."}'])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await runTurn('ses_1')
 
@@ -455,7 +589,12 @@ describe('SessionGoalService audit loop', () => {
 
   it('stops the goal at the continuation cap', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Still working.')])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it', maxContinuations: 1 })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+      maxContinuations: 1,
+    })
 
     await runTurn('ses_1')
     await runTurn('ses_1')
@@ -474,7 +613,11 @@ describe('SessionGoalService audit loop', () => {
       '{"verdict":"blocked","reason":"Needs a decision."}',
       '{"verdict":"blocked","reason":"Needs a decision."}',
     ])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await runTurn('ses_1')
     expect(service.getLatest('ses_1')?.status).toBe('active')
@@ -498,7 +641,11 @@ describe('SessionGoalService audit loop', () => {
       '{"verdict":"continue","reason":"Unblocked."}',
       '{"verdict":"blocked","reason":"Needs a decision."}',
     ])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await runTurn('ses_1')
     await runTurn('ses_1')
@@ -510,7 +657,12 @@ describe('SessionGoalService audit loop', () => {
 
   it('stops on a token budget overrun before calling the auditor', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Still working.')])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it', tokenBudget: 100 })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+      tokenBudget: 100,
+    })
     fake.setTokens('ses_1', { input: 250, output: 0, reasoning: 0 })
 
     await runTurn('ses_1')
@@ -523,7 +675,11 @@ describe('SessionGoalService audit loop', () => {
   })
 
   it('stops with turn_error when the execution fails', async () => {
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, executionFailed('ses_1'))
 
@@ -535,7 +691,11 @@ describe('SessionGoalService audit loop', () => {
 
   it('stops with turn_error when the latest reply carries an error', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Partial output', { error: 'provider crashed' })])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await runTurn('ses_1')
 
@@ -548,7 +708,11 @@ describe('SessionGoalService audit loop', () => {
   it('pauses with audit_failed after two auditor failures', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Still working.')])
     fake.failNextAuditorCalls(2)
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await runTurn('ses_1')
 
@@ -562,7 +726,11 @@ describe('SessionGoalService audit loop', () => {
   it('treats an unparseable verdict as continue', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Still working.')])
     fake.setAuditorReplies(['I am not sure.'])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await runTurn('ses_1')
 
@@ -574,7 +742,11 @@ describe('SessionGoalService audit loop', () => {
   })
 
   it('does not audit an idle event while the turn is waiting', async () => {
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, sessionIdle('ses_1'))
     await vi.runAllTimersAsync()
@@ -585,7 +757,11 @@ describe('SessionGoalService audit loop', () => {
   it('audits on execution.succeeded and on a session.status idle event', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Done.')])
     fake.setAuditorReplies(['{"verdict":"continue","reason":"keep going"}', '{"verdict":"done","reason":"finished"}'])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await service.handleEvent(DIRECTORY, executionSucceeded('ses_1'))
@@ -601,7 +777,11 @@ describe('SessionGoalService audit loop', () => {
   })
 
   it('ignores events for a session without an open goal', async () => {
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, executionStarted('ses_other'))
     await service.handleEvent(DIRECTORY, executionFailed('ses_other'))
@@ -614,7 +794,11 @@ describe('SessionGoalService audit loop', () => {
   it('schedules an audit immediately when a paused goal resumes', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Back.')])
     fake.setAuditorReplies(['{"verdict":"done","reason":"finished"}'])
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     service.pause(started.id)
 
     service.resume(started.id)
@@ -625,7 +809,11 @@ describe('SessionGoalService audit loop', () => {
   })
 
   it('does not schedule an audit on resume while the session is busy', async () => {
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     service.pause(started.id)
     fake.setBusy('ses_1', true)
 
@@ -637,7 +825,11 @@ describe('SessionGoalService audit loop', () => {
   })
 
   it('pauses with interrupted when the execution is interrupted', async () => {
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, executionInterrupted('ses_1'))
 
@@ -648,7 +840,11 @@ describe('SessionGoalService audit loop', () => {
   })
 
   it('stops with session_deleted when the session is deleted', async () => {
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     service.pause(started.id)
 
     await service.handleEvent(DIRECTORY, sessionDeleted('ses_1'))
@@ -663,7 +859,11 @@ describe('SessionGoalService audit loop', () => {
     const failingService = new SessionGoalService(db, failing.client, new SettingsService(db), { quietMs: 0 })
     failing.setMessages('ses_1', [fakeAssistantMessage('Working.')])
     failing.setAuditorReplies(['{"verdict":"continue","reason":"keep going"}'])
-    await failingService.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await failingService.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await failingService.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await failingService.handleEvent(DIRECTORY, sessionIdle('ses_1'))
@@ -683,7 +883,11 @@ describe('SessionGoalService audit loop', () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Working.')])
     fake.setAuditorReplies(['{"verdict":"continue","reason":"keep going"}'])
     fake.deferNextSessionPrompts(1)
-    await tracked.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await tracked.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await tracked.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await tracked.handleEvent(DIRECTORY, sessionIdle('ses_1'))
@@ -711,7 +915,11 @@ describe('SessionGoalService audit loop', () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Working.')])
     fake.setAuditorReplies(['{"verdict":"continue","reason":"keep going"}'])
     fake.deferNextSessionPrompts(1)
-    const started = await tracked.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await tracked.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await tracked.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await tracked.handleEvent(DIRECTORY, sessionIdle('ses_1'))
@@ -735,17 +943,29 @@ describe('SessionGoalService audit loop', () => {
 
   it('passes the configured auditor model to the auditor call', async () => {
     const settingsService = new SettingsService(db)
-    settingsService.updateSettings({ sessionDefaults: { permissionMode: 'ask', goalAuditorModel: 'anthropic/claude-x' } })
+    settingsService.updateSettings({
+      sessionDefaults: {
+        permissionMode: 'ask',
+        goalAuditorModel: 'anthropic/claude-x',
+      },
+    })
     const configured = new SessionGoalService(db, fake.client, settingsService, { quietMs: 0 })
     fake.setMessages('ses_1', [fakeAssistantMessage('Done.')])
     fake.setAuditorReplies(['{"verdict":"done","reason":"finished"}'])
-    await configured.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await configured.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await configured.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await configured.handleEvent(DIRECTORY, sessionIdle('ses_1'))
     await vi.runAllTimersAsync()
 
-    expect(fake.auditorCalls[0]?.model).toEqual({ providerID: 'anthropic', id: 'claude-x' })
+    expect(fake.auditorCalls[0]?.model).toEqual({
+      providerID: 'anthropic',
+      id: 'claude-x',
+    })
   })
 
   it('calls onOutcome for terminal transitions', async () => {
@@ -756,7 +976,11 @@ describe('SessionGoalService audit loop', () => {
     })
     fake.setMessages('ses_1', [fakeAssistantMessage('Done.')])
     fake.setAuditorReplies(['{"verdict":"done","reason":"finished"}'])
-    await tracked.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await tracked.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await tracked.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await tracked.handleEvent(DIRECTORY, sessionIdle('ses_1'))
@@ -772,7 +996,11 @@ describe('SessionGoalService audit loop', () => {
       onOutcome: (goal) => outcomes.push(goal.status),
     })
     fake.setMessages('ses_1', [fakeAssistantMessage('Working.')])
-    await tracked.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await tracked.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     fake.setFailSessionActive(true)
 
     await tracked.handleEvent(DIRECTORY, executionStarted('ses_1'))
@@ -791,7 +1019,12 @@ describe('SessionGoalService audit loop', () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Working.')])
     fake.setTokens('ses_1', { input: 50, output: 0, reasoning: 0 })
     fake.setAuditorReplies(['{"verdict":"continue","reason":"keep going"}'])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it', tokenBudget: 100 })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+      tokenBudget: 100,
+    })
 
     fake.setTokens('ses_1', { input: 100, output: 0, reasoning: 0 })
     await runTurn('ses_1')
@@ -811,7 +1044,11 @@ describe('SessionGoalService audit loop', () => {
 
   it('pauses with audit_failed when the reply lookup fails', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Working.')])
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     fake.setFailMessageList(true)
 
     await runTurn('ses_1')
@@ -829,7 +1066,11 @@ describe('SessionGoalService audit loop', () => {
       quietMs: 0,
       onOutcome: (goal) => outcomes.push(goal.status),
     })
-    const started = await tracked.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await tracked.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     tracked.pause(started.id)
     outcomes.length = 0
     fake.setFailSessionActive(true)
@@ -847,7 +1088,11 @@ describe('SessionGoalService audit loop', () => {
   it('discards a stale continue verdict when a new execution starts mid-audit', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Working.')])
     fake.deferNextAuditorCalls(1)
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await service.handleEvent(DIRECTORY, sessionIdle('ses_1'))
@@ -869,7 +1114,11 @@ describe('SessionGoalService audit loop', () => {
   it('discards a stale done verdict when the goal is paused mid-audit', async () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Done.')])
     fake.deferNextAuditorCalls(1)
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await service.handleEvent(DIRECTORY, sessionIdle('ses_1'))
@@ -890,7 +1139,11 @@ describe('SessionGoalService audit loop', () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Turn 1.')])
     fake.setAuditorReplies(['{"verdict":"continue","reason":"second"}'])
     fake.deferNextAuditorCalls(1)
-    await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await service.handleEvent(DIRECTORY, sessionIdle('ses_1'))
@@ -919,7 +1172,11 @@ describe('SessionGoalService audit loop', () => {
     fake.setMessages('ses_1', [fakeAssistantMessage('Working.')])
     fake.setAuditorReplies(['{"verdict":"continue","reason":"fresh"}'])
     fake.deferNextAuditorCalls(1)
-    const started = await service.start({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+    const started = await service.start({
+      sessionId: 'ses_1',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
 
     await service.handleEvent(DIRECTORY, executionStarted('ses_1'))
     await service.handleEvent(DIRECTORY, sessionIdle('ses_1'))
@@ -955,8 +1212,16 @@ describe('SessionGoalService recovery', () => {
   })
 
   it('resumes auditing a running goal on recovery and leaves a waiting goal alone', async () => {
-    const running = await createService(db).start({ sessionId: 'ses_run', directory: DIRECTORY, objective: 'Ship it' })
-    const waiting = await createService(db).start({ sessionId: 'ses_wait', directory: DIRECTORY, objective: 'Later' })
+    const running = await createService(db).start({
+      sessionId: 'ses_run',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
+    const waiting = await createService(db).start({
+      sessionId: 'ses_wait',
+      directory: DIRECTORY,
+      objective: 'Later',
+    })
     transitionSessionGoal(db, running.id, ['active'], { turnState: 'running' })
 
     const fake = createFakeSessionGoalClient()
@@ -972,7 +1237,11 @@ describe('SessionGoalService recovery', () => {
   })
 
   it('leaves a running goal alone while the session is busy', async () => {
-    const running = await createService(db).start({ sessionId: 'ses_run', directory: DIRECTORY, objective: 'Ship it' })
+    const running = await createService(db).start({
+      sessionId: 'ses_run',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     transitionSessionGoal(db, running.id, ['active'], { turnState: 'running' })
 
     const fake = createFakeSessionGoalClient()
@@ -988,7 +1257,11 @@ describe('SessionGoalService recovery', () => {
 
   it('stops a running goal when its session no longer exists', async () => {
     const outcomes: string[] = []
-    const running = await createService(db).start({ sessionId: 'ses_run', directory: DIRECTORY, objective: 'Ship it' })
+    const running = await createService(db).start({
+      sessionId: 'ses_run',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     transitionSessionGoal(db, running.id, ['active'], { turnState: 'running' })
 
     const fake = createFakeSessionGoalClient()
@@ -1009,7 +1282,11 @@ describe('SessionGoalService recovery', () => {
   })
 
   it('retries recovery after a transient session lookup failure without session events', async () => {
-    const running = await createService(db).start({ sessionId: 'ses_run', directory: DIRECTORY, objective: 'Ship it' })
+    const running = await createService(db).start({
+      sessionId: 'ses_run',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     transitionSessionGoal(db, running.id, ['active'], { turnState: 'running' })
 
     const fake = createFakeSessionGoalClient({ failSessionGet: true })
@@ -1028,7 +1305,11 @@ describe('SessionGoalService recovery', () => {
   })
 
   it('retries recovery after a transient busy-check failure without session events', async () => {
-    const running = await createService(db).start({ sessionId: 'ses_run', directory: DIRECTORY, objective: 'Ship it' })
+    const running = await createService(db).start({
+      sessionId: 'ses_run',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     transitionSessionGoal(db, running.id, ['active'], { turnState: 'running' })
 
     const fake = createFakeSessionGoalClient()
@@ -1047,7 +1328,11 @@ describe('SessionGoalService recovery', () => {
   })
 
   it('stops with session_deleted when the session disappears before the recovery retry', async () => {
-    const running = await createService(db).start({ sessionId: 'ses_run', directory: DIRECTORY, objective: 'Ship it' })
+    const running = await createService(db).start({
+      sessionId: 'ses_run',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     transitionSessionGoal(db, running.id, ['active'], { turnState: 'running' })
 
     const fake = createFakeSessionGoalClient({ failSessionGet: true })
@@ -1065,7 +1350,11 @@ describe('SessionGoalService recovery', () => {
   })
 
   it('does not audit a goal paused during the recovery retry delay', async () => {
-    const running = await createService(db).start({ sessionId: 'ses_run', directory: DIRECTORY, objective: 'Ship it' })
+    const running = await createService(db).start({
+      sessionId: 'ses_run',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     transitionSessionGoal(db, running.id, ['active'], { turnState: 'running' })
 
     const fake = createFakeSessionGoalClient({ failSessionGet: true })
@@ -1082,7 +1371,11 @@ describe('SessionGoalService recovery', () => {
   })
 
   it('does not audit a goal cancelled during the recovery retry delay', async () => {
-    const running = await createService(db).start({ sessionId: 'ses_run', directory: DIRECTORY, objective: 'Ship it' })
+    const running = await createService(db).start({
+      sessionId: 'ses_run',
+      directory: DIRECTORY,
+      objective: 'Ship it',
+    })
     transitionSessionGoal(db, running.id, ['active'], { turnState: 'running' })
 
     const fake = createFakeSessionGoalClient({ failSessionGet: true })
@@ -1112,8 +1405,7 @@ describe('SessionGoalService remote servers', () => {
     options: { missing?: boolean; disabled?: boolean } = {},
   ) {
     return {
-      getClient: (serverId: string) =>
-        serverId === 'local' ? local.client : remote.client,
+      getClient: (serverId: string) => (serverId === 'local' ? local.client : remote.client),
       get: (serverId: string) => {
         if (serverId === 'local') return { enabled: true }
         if (options.missing) return null
@@ -1133,7 +1425,9 @@ describe('SessionGoalService remote servers', () => {
   })
 
   it('continues a remote goal through the remote client while the auditor stays local', async () => {
-    const local = createFakeSessionGoalClient({ auditorReplies: ['{"verdict":"continue","reason":"keep going"}'] })
+    const local = createFakeSessionGoalClient({
+      auditorReplies: ['{"verdict":"continue","reason":"keep going"}'],
+    })
     const remote = createFakeSessionGoalClient({
       tokens: { ses_remote: { input: 10, output: 5, reasoning: 0 } },
     })
@@ -1180,7 +1474,9 @@ describe('SessionGoalService remote servers', () => {
   })
 
   it('recovers a remote goal using the remote client', async () => {
-    const local = createFakeSessionGoalClient({ auditorReplies: ['{"verdict":"done","reason":"finished"}'] })
+    const local = createFakeSessionGoalClient({
+      auditorReplies: ['{"verdict":"done","reason":"finished"}'],
+    })
     const remote = createFakeSessionGoalClient()
     const starter = new SessionGoalService(db, createRemoteRegistry(local, remote), new SettingsService(db))
     const goal = await starter.start({
@@ -1223,7 +1519,9 @@ describe('SessionGoalService remote servers', () => {
     await restarted.recoverOpenGoals()
     await vi.runAllTimersAsync()
 
-    expect(restarted.getLatest('ses_remote', REMOTE_SERVER_ID)).toMatchObject({ status: 'active' })
+    expect(restarted.getLatest('ses_remote', REMOTE_SERVER_ID)).toMatchObject({
+      status: 'active',
+    })
     expect(local.auditorCalls).toHaveLength(0)
     expect(remote.auditorCalls).toHaveLength(0)
   })
@@ -1249,7 +1547,9 @@ describe('SessionGoalService remote servers', () => {
     await restarted.recoverOpenGoals()
     await vi.runAllTimersAsync()
 
-    expect(restarted.getLatest('ses_remote', REMOTE_SERVER_ID)).toMatchObject({ status: 'active' })
+    expect(restarted.getLatest('ses_remote', REMOTE_SERVER_ID)).toMatchObject({
+      status: 'active',
+    })
     expect(local.auditorCalls).toHaveLength(0)
     expect(remote.auditorCalls).toHaveLength(0)
   })
@@ -1273,7 +1573,11 @@ describe('SessionGoalService remote servers', () => {
       fake.setAuditorReplies(['{"verdict":"done","reason":"finished"}'])
       await service.handleEvent(DIRECTORY, executionStarted('ses_1'))
 
-      const goal = await service.startFromRunningTurn({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+      const goal = await service.startFromRunningTurn({
+        sessionId: 'ses_1',
+        directory: DIRECTORY,
+        objective: 'Ship it',
+      })
       await vi.runAllTimersAsync()
 
       expect(goal).toMatchObject({ status: 'active', turnState: 'running' })
@@ -1293,7 +1597,11 @@ describe('SessionGoalService remote servers', () => {
       fake.setMessages('ses_1', [fakeAssistantMessage('Done.')])
       fake.setAuditorReplies(['{"verdict":"done","reason":"finished"}'])
 
-      await service.startFromRunningTurn({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+      await service.startFromRunningTurn({
+        sessionId: 'ses_1',
+        directory: DIRECTORY,
+        objective: 'Ship it',
+      })
       await vi.runAllTimersAsync()
 
       expect(fake.auditorCalls).toHaveLength(1)
@@ -1302,7 +1610,11 @@ describe('SessionGoalService remote servers', () => {
 
     it('recovers a running agent goal after a restart', async () => {
       const first = createAgentService({ busySessions: ['ses_1'] })
-      await first.service.startFromRunningTurn({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' })
+      await first.service.startFromRunningTurn({
+        sessionId: 'ses_1',
+        directory: DIRECTORY,
+        objective: 'Ship it',
+      })
       await vi.runAllTimersAsync()
       expect(first.fake.auditorCalls).toHaveLength(0)
 
@@ -1329,10 +1641,13 @@ describe('SessionGoalService remote servers', () => {
       })
 
       await expect(
-        service.startFromRunningTurn({ sessionId: 'ses_1', directory: DIRECTORY, objective: 'Ship it' }),
+        service.startFromRunningTurn({
+          sessionId: 'ses_1',
+          directory: DIRECTORY,
+          objective: 'Ship it',
+        }),
       ).rejects.toMatchObject({ status })
       expect(listOpenSessionGoals(db)).toEqual([])
     })
   })
 })
-

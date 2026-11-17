@@ -1,4 +1,5 @@
 import type { Database } from 'bun:sqlite'
+import { maintenanceAdmission } from './maintenance-admission'
 import {
   DEFAULT_SESSION_DEFAULTS,
   LOCAL_OPENCODE_SERVER_ID,
@@ -178,9 +179,7 @@ export class SessionGoalService {
       return
     }
 
-    const busy = await this.readPrerequisite(record.id, 'busy check', () =>
-      isSessionBusy(client, record.sessionId),
-    )
+    const busy = await this.readPrerequisite(record.id, 'busy check', () => isSessionBusy(client, record.sessionId))
     if (!busy.ok) {
       this.scheduleRecoveryRetry(key, record.id, generation)
       return
@@ -274,12 +273,12 @@ export class SessionGoalService {
     serverId: string,
     turnState: 'waiting' | 'running',
   ): Promise<SessionGoal> {
-
     const defaults = this.settingsService.getSettings().preferences.sessionDefaults
     const maxContinuations =
       input.maxContinuations ?? defaults?.goalMaxContinuations ?? DEFAULT_SESSION_DEFAULTS.goalMaxContinuations
     const tokenBudget = input.tokenBudget ?? defaults?.goalTokenBudget ?? null
     const tokensAtStart = await this.readSessionTokenTotalOrDefault(input.sessionId, serverId)
+    if (maintenanceAdmission.isClosed()) throw new SessionGoalError('Maintenance in progress', 503)
 
     const record = insertSessionGoal(this.db, {
       sessionId: input.sessionId,
@@ -323,10 +322,14 @@ export class SessionGoalService {
   }
 
   pause(id: number): SessionGoal {
-    return this.transitionWithOutcome(id, ['active'], { status: 'paused', stopReason: 'user_paused' })
+    return this.transitionWithOutcome(id, ['active'], {
+      status: 'paused',
+      stopReason: 'user_paused',
+    })
   }
 
   resume(id: number): SessionGoal {
+    if (maintenanceAdmission.isClosed()) throw new SessionGoalError('Maintenance in progress', 503)
     const record = this.transition(id, ['paused'], {
       status: 'active',
       stopReason: null,
@@ -469,12 +472,11 @@ export class SessionGoalService {
 
     const sessionId = goal.sessionId
     const key = goalKey(goal.serverId, sessionId)
+    if (this.deferForMaintenance(goalId, key)) return
     const generation = this.currentAuditGeneration(key)
     const client = this.servers.getClient(goal.serverId)
 
-    const busy = await this.readPrerequisite(goalId, 'busy check', () =>
-      isSessionBusy(client, sessionId),
-    )
+    const busy = await this.readPrerequisite(goalId, 'busy check', () => isSessionBusy(client, sessionId))
     if (!busy.ok) {
       this.failAudit(goalId, key, generation)
       return
@@ -505,9 +507,7 @@ export class SessionGoalService {
       return
     }
 
-    const reply = await this.readPrerequisite(goalId, 'reply read', () =>
-      readLatestAssistantReply(client, sessionId),
-    )
+    const reply = await this.readPrerequisite(goalId, 'reply read', () => readLatestAssistantReply(client, sessionId))
     if (!reply.ok) {
       this.failAudit(goalId, key, generation)
       return
@@ -521,7 +521,9 @@ export class SessionGoalService {
       return
     }
 
+    if (this.deferForMaintenance(goalId, key)) return
     const verdict = await this.evaluateAudit(updated, reply.value)
+    if (this.deferForMaintenance(goalId, key)) return
     if (!this.isAuditCurrent(goalId, key, generation)) {
       return
     }
@@ -534,14 +536,23 @@ export class SessionGoalService {
   }
 
   private async evaluateAudit(goal: SessionGoalRecord, reply: AssistantReplyState | null): Promise<GoalVerdict | null> {
-    const prompt = buildGoalAuditPrompt({ objective: goal.objective, reply: reply?.responseText ?? null })
+    const prompt = buildGoalAuditPrompt({
+      objective: goal.objective,
+      reply: reply?.responseText ?? null,
+    })
     const model = this.resolveAuditorModel()
     const localClient = this.servers.getClient(LOCAL_OPENCODE_SERVER_ID)
 
     for (let attempt = 0; attempt < AUDITOR_ATTEMPTS; attempt += 1) {
+      if (maintenanceAdmission.isClosed()) return null
       try {
         const result = await localClient.api.generate.text(model ? { prompt, model } : { prompt })
-        return parseGoalVerdict(result.text) ?? { verdict: 'continue', reason: GOAL_AUDIT_UNPARSED_REASON }
+        return (
+          parseGoalVerdict(result.text) ?? {
+            verdict: 'continue',
+            reason: GOAL_AUDIT_UNPARSED_REASON,
+          }
+        )
       } catch (error) {
         logger.error(`Goal auditor call failed for goal ${goal.id} (attempt ${attempt + 1}):`, error)
       }
@@ -598,6 +609,12 @@ export class SessionGoalService {
     })
   }
 
+  private deferForMaintenance(goalId: number, key: string): boolean {
+    if (!maintenanceAdmission.isClosed()) return false
+    this.scheduleAudit(key, goalId, 5000)
+    return true
+  }
+
   private async continueGoal(
     goalId: number,
     key: string,
@@ -615,6 +632,7 @@ export class SessionGoalService {
       return
     }
 
+    if (this.deferForMaintenance(goalId, key)) return
     const record = this.applyTransition(goalId, ['active'], {
       ...patch,
       continuationCount: goal.continuationCount + 1,
@@ -627,7 +645,10 @@ export class SessionGoalService {
     try {
       await this.servers.getClient(record.serverId).api.session.prompt({
         sessionID: record.sessionId,
-        text: buildGoalContinuationPrompt({ objective: record.objective, reason }),
+        text: buildGoalContinuationPrompt({
+          objective: record.objective,
+          reason,
+        }),
       })
     } catch (error) {
       logger.error(`Failed to send continuation for goal ${goalId}:`, error)
@@ -709,11 +730,7 @@ export class SessionGoalService {
     return record
   }
 
-  private transitionWithOutcome(
-    id: number,
-    fromStatuses: SessionGoalStatus[],
-    patch: SessionGoalPatch,
-  ): SessionGoal {
+  private transitionWithOutcome(id: number, fromStatuses: SessionGoalStatus[], patch: SessionGoalPatch): SessionGoal {
     const goal = toSessionGoal(this.transition(id, fromStatuses, patch))
     this.onOutcome(goal)
     return goal
