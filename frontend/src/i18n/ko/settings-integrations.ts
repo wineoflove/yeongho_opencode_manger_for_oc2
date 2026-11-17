@@ -1,4 +1,71 @@
 export const settingsIntegrations: Record<string, string> = {
+  'AI accounts': 'AI 계정',
+  'CLIProxy sends Claude and OpenAI requests to the registered accounts in turn (round robin). Turn an account off to leave it out of the rotation.':
+    'CLIProxy가 Claude·OpenAI 요청을 등록된 계정에 차례로 나눠 보냅니다(라운드 로빈). 계정을 끄면 순환에서 빠집니다.',
+  'Could not confirm whether CLIProxy manages the AI accounts. Direct Claude and OpenAI sign-ins stay hidden until it is confirmed.':
+    'CLIProxy가 AI 계정을 관리하는지 확인하지 못했습니다. 확인될 때까지 Claude·OpenAI 직접 로그인은 숨겨 둡니다.',
+  'Could not refresh the accounts. Showing the last loaded list.':
+    '계정 목록을 새로 고치지 못했습니다. 마지막으로 불러온 목록을 표시합니다.',
+  'Could not load AI accounts from CLIProxy.': 'CLIProxy에서 AI 계정을 불러오지 못했습니다.',
+  'CLIProxy is not configured on this server.': '이 서버에는 CLIProxy가 설정되어 있지 않습니다.',
+  'Could not reach CLIProxy. Try again in a moment.': 'CLIProxy에 연결하지 못했습니다. 잠시 후 다시 시도하세요.',
+  'CLIProxy refused the management request. Check the CLIProxy management key.':
+    'CLIProxy가 관리 요청을 거부했습니다. CLIProxy 관리 키를 확인하세요.',
+  'CLIProxy did not answer in time. Try again in a moment.':
+    'CLIProxy가 제때 응답하지 않았습니다. 잠시 후 다시 시도하세요.',
+  'This account no longer exists in CLIProxy. The list has been refreshed.':
+    '이 계정은 CLIProxy에 더 이상 없습니다. 목록을 새로 불러왔습니다.',
+  'The change could not be confirmed. Refresh the list and try again.':
+    '변경 사항을 확인하지 못했습니다. 목록을 새로 고친 뒤 다시 시도하세요.',
+  '{available}/{total} available': '{available}/{total} 사용 가능',
+  'No {provider} accounts are registered yet.': '등록된 {provider} 계정이 없습니다.',
+  'Account {number}': '계정 {number}',
+  'Temporarily unavailable': '일시 사용 불가',
+  Inactive: '비활성',
+  'Next retry: {time}': '다음 재시도 {time}',
+  '{success} succeeded · {failure} failed': '성공 {success} · 실패 {failure}',
+  'Include {name} in rotation': '{name} 순환 사용',
+  'Turn off {name}?': '{name} 끄기',
+  'Turn off': '끄기',
+  'Turning off…': '끄는 중…',
+  'CLIProxy stops sending requests to this account. You can turn it back on at any time.':
+    'CLIProxy가 이 계정으로 요청을 보내지 않습니다. 언제든 다시 켤 수 있습니다.',
+  'This is the last enabled {provider} account. While it is off, {provider} requests fail until you add or enable another account.':
+    '사용 중인 마지막 {provider} 계정입니다. 끄면 다른 계정을 추가하거나 켤 때까지 {provider} 요청이 실패합니다.',
+  'This removes the account from CLIProxy. To use it again, you need to sign in again.':
+    '이 계정을 CLIProxy에서 삭제합니다. 다시 쓰려면 새로 로그인해야 합니다.',
+  'This is the last enabled {provider} account. After it is deleted, {provider} requests fail until you add or enable another account.':
+    '사용 중인 마지막 {provider} 계정입니다. 삭제하면 다른 계정을 추가하거나 켤 때까지 {provider} 요청이 실패합니다.',
+  'Sign in to {provider}': '{provider}에 로그인',
+  'Open sign-in page': '로그인 페이지 열기',
+  'Open sign-in page again': '로그인 페이지 다시 열기',
+  'Copy link': '링크 복사',
+  'Link copied': '링크를 복사했습니다',
+  'This sign-in link has expired.': '로그인 링크가 만료되었습니다.',
+  'Create a new link': '새 링크 만들기',
+  'To add a different account, use a private window or another browser profile.':
+    '다른 계정을 추가하려면 시크릿 창이나 다른 브라우저 프로필을 사용하세요.',
+  'Paste the address': '주소 붙여 넣기',
+  "After you sign in, the browser moves to a localhost address and shows that the site can't be reached. That is expected. Copy the full URL from the address bar and paste it here.":
+    "로그인을 마치면 브라우저가 localhost 주소로 이동하며 '연결할 수 없음'이 표시됩니다. 정상입니다. 주소창의 URL 전체를 복사해 붙여 넣으세요.",
+  'Address after sign-in': '로그인 후 주소',
+  'Register account': '계정 등록',
+  'Registering account…': '계정 등록 중…',
+  'This can take up to 30 seconds.': '최대 30초 정도 걸릴 수 있습니다.',
+  '{provider} account added': '{provider} 계정을 추가했습니다',
+  'This is not the address from the sign-in page. After signing in, copy the full URL from the address bar.':
+    '로그인 후 이동한 주소가 아닙니다. 로그인을 마친 뒤 주소창의 URL 전체를 복사하세요.',
+  'The sign-in was denied or cancelled. Open the sign-in page and try again.':
+    '로그인이 거부되었거나 취소되었습니다. 로그인 페이지를 다시 열어 시도하세요.',
+  'CLIProxy could not register the account. Sign in again.':
+    'CLIProxy가 계정을 등록하지 못했습니다. 다시 로그인하세요.',
+  'CLIProxy is still confirming the account. Check the account list in a moment.':
+    'CLIProxy가 아직 계정 등록을 확인하고 있습니다. 잠시 후 계정 목록을 확인하세요.',
+  'Could not add the account. Try again.': '계정을 추가하지 못했습니다. 다시 시도하세요.',
+  'Direct login (advanced)': '직접 로그인 (고급)',
+  "Accounts signed in here do not go through CLIProxy. Manage Claude and OpenAI accounts in 'AI accounts' above.":
+    "여기서 로그인한 계정은 CLIProxy를 거치지 않습니다. Claude·OpenAI 계정은 위 'AI 계정'에서 관리하세요.",
+  'Managed in CLIProxy: {providers}': 'CLIProxy에서 관리 중: {providers}',
   'Enter API key': 'API 키 입력',
   'Remove this selected account. OpenCode may automatically select another saved account for this provider.':
     '선택된 계정을 삭제합니다. OpenCode가 이 제공자의 다른 저장된 계정을 자동으로 선택할 수 있습니다.',
@@ -63,6 +130,17 @@ export const settingsIntegrations: Record<string, string> = {
   'Account deletion could not be confirmed. Review the account list before trying again.':
     '계정 삭제를 확인하지 못했습니다. 다시 시도하기 전에 계정 목록을 확인하세요.',
   'Use account': '계정 선택',
+  'No pool accounts are enabled. Requests are blocked.': '사용하도록 설정된 풀 계정이 없습니다. 요청이 차단됩니다.',
+  'Select accounts with the same authentication method. Eligible accounts rotate in list order. An empty pool blocks requests instead of using another account.':
+    '동일한 인증 방식의 계정을 선택하세요. 사용 가능한 계정을 목록 순서대로 순환합니다. 빈 풀은 다른 계정을 사용하지 않고 요청을 차단합니다.',
+  'Remove the referenced accounts from the pool configuration first. No accounts were deleted.':
+    '먼저 계정 풀 설정에서 참조된 계정을 제외하세요. 삭제된 계정은 없습니다.',
+  'The pool configuration could not be checked. No accounts were deleted.':
+    '계정 풀 설정을 확인하지 못했습니다. 삭제된 계정은 없습니다.',
+  'Remove this account from the pool configuration before deleting it.':
+    '계정을 삭제하기 전에 계정 풀 설정에서 먼저 제외하세요.',
+  'The pool configuration could not be checked. The account was not deleted.':
+    '계정 풀 설정을 확인하지 못해 계정을 삭제하지 않았습니다.',
   'Use account {name}': '{name} 계정 선택',
   'Account change could not be confirmed. Review the current selection and try again.':
     '계정 변경을 확인하지 못했습니다. 현재 선택 상태를 확인한 뒤 다시 시도하세요.',
@@ -572,6 +650,36 @@ export const settingsIntegrations: Record<string, string> = {
     'Claude Agent 연결을 등록하지 못했습니다. 상태를 새로고침한 뒤 다시 시도하세요.',
   'Use Claude Code login': 'Claude Code 로그인 사용',
   'Refresh status': '상태 새로고침',
+  'Could not load account pool status.': '계정 풀 상태를 불러오지 못했습니다.',
+  'Checking account pool status…': '계정 풀 상태 확인 중…',
+  'Account pooling is unavailable on this runtime.': '이 실행 환경에서는 계정 풀을 사용할 수 없습니다.',
+  'Round-robin pool is not configured.': '라운드 로빈 계정 풀이 설정되지 않았습니다.',
+  'Account pool paused after access denial. Automatic requests are blocked.':
+    '접근 거부로 계정 풀이 중단됐습니다. 자동 요청이 차단됩니다.',
+  'Round robin is enabled. The pool selects an eligible account for each request.':
+    '라운드 로빈이 켜져 있습니다. 요청마다 사용 가능한 계정을 선택합니다.',
+  'All enabled pool accounts require sign-in. Requests are blocked.':
+    '사용 중인 풀 계정 모두 재인증이 필요합니다. 요청이 차단됩니다.',
+  'Refresh pool status': '풀 상태 새로고침',
+  'Not included in this pool': '이 풀에 포함되지 않음',
+  'Pool account disabled': '풀에서 사용 안 함',
+  'Account sign-in required': '계정 재인증 필요',
+  'Waiting until {time}': '{time}까지 대기',
+  'Eligible for round robin': '라운드 로빈 선택 가능',
+  'Account pool is paused': '계정 풀 중단됨',
+  'Configure account pool': '계정 풀 설정',
+  'Select accounts with the same authentication method. Eligible accounts rotate in list order.':
+    '인증 방식이 같은 계정들을 선택하세요. 사용 가능한 계정을 목록 순서대로 순환합니다.',
+  'Saving this configuration does not resume a paused pool.': '이 설정을 저장해도 중단된 풀은 재개되지 않습니다.',
+  'Enable pool account {name}': '{name} 계정을 풀에서 사용',
+  'Pool accounts must use the same authentication method.': '풀의 계정들은 같은 인증 방식을 사용해야 합니다.',
+  'Pool configuration was not confirmed. Close this dialog, refresh the status, and try again.':
+    '풀 설정 저장을 확인하지 못했습니다. 창을 닫고 상태를 새로고침한 뒤 다시 시도하세요.',
+  'Save pool configuration': '풀 설정 저장',
+  'Pool configuration saved. These changes are pending runtime application.':
+    '풀 설정을 저장했습니다. 이번 변경 사항은 실행 환경에 아직 적용되지 않았습니다.',
+  'Pool configuration saved. Refresh the status to verify the effective configuration.':
+    '풀 설정을 저장했습니다. 상태를 새로고침해 실제 적용된 설정을 확인하세요.',
   'Remove connection': '연결 제거',
   'Remove Claude Agent connection': 'Claude Agent 연결 제거',
   'This removes only the connection registered in OpenCode. It does not sign Claude Code out on the server host, and the stored Claude Code login stays as it is.':

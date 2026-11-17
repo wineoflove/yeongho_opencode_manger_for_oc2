@@ -4,6 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { providerAccountsApi } from '@/api/provider-accounts'
 import { ProviderAccounts } from './ProviderAccounts'
+import { getProviderPool } from '@/api/providerPool'
+import { FetchError } from '@opencode-manager/shared'
+
+vi.mock('@/api/providerPool', () => ({ getProviderPool: vi.fn() }))
 
 vi.mock('@/api/provider-accounts', () => ({
   providerAccountsApi: {
@@ -22,7 +26,53 @@ const selectionScope =
   'The selected account applies to every session on this OpenCode server, starting with its next request. It is not kept per session.'
 
 describe('provider account list', () => {
-  beforeEach(() => vi.resetAllMocks())
+  it.each([
+    ['POOL_ACCOUNT_IN_USE', 'Remove this account from the pool configuration before deleting it.'],
+    ['POOL_CONFIG_UNAVAILABLE', 'The pool configuration could not be checked. The account was not deleted.'],
+  ])('shows a safe actionable deletion failure for %s', async (code, message) => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    vi.mocked(providerAccountsApi.list).mockResolvedValue({
+      accounts: [
+        {
+          id: 'id',
+          integrationID: 'provider',
+          label: 'A',
+          active: false,
+          type: 'key',
+          methodID: null,
+        },
+      ],
+    })
+    vi.mocked(providerAccountsApi.remove).mockRejectedValue(new FetchError('private-fixture', 409, code))
+    const user = userEvent.setup()
+    const view = render(
+      <QueryClientProvider client={client}>
+        <ProviderAccounts integrationId="provider" />
+      </QueryClientProvider>,
+    )
+    try {
+      await user.click(await screen.findByRole('button', { name: 'Delete account {name}' }))
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Delete saved account',
+      })
+      await user.click(within(dialog).getByRole('button', { name: 'Delete', exact: true }))
+      expect(await within(dialog).findByText(message)).toHaveAttribute('role', 'alert')
+      expect(screen.queryByText('private-fixture')).not.toBeInTheDocument()
+      expect(dialog).toBeInTheDocument()
+    } finally {
+      view.unmount()
+      client.clear()
+    }
+  })
+  beforeEach(() => {
+    vi.resetAllMocks()
+    vi.mocked(getProviderPool).mockResolvedValue({ supported: false })
+  })
   it.each([true, false])(
     'requires confirmation for deletion and retains its dialog on failure: %s',
     async (success) => {
@@ -152,8 +202,22 @@ describe('provider account list', () => {
     })
     vi.mocked(providerAccountsApi.list).mockResolvedValue({
       accounts: [
-        { id: 'primary', integrationID: 'provider', label: 'Primary', active: true, type: 'oauth', methodID: 'oauth' },
-        { id: 'backup', integrationID: 'provider', label: 'Backup', active: false, type: 'oauth', methodID: 'oauth' },
+        {
+          id: 'primary',
+          integrationID: 'provider',
+          label: 'Primary',
+          active: true,
+          type: 'oauth',
+          methodID: 'oauth',
+        },
+        {
+          id: 'backup',
+          integrationID: 'provider',
+          label: 'Backup',
+          active: false,
+          type: 'oauth',
+          methodID: 'oauth',
+        },
       ],
     })
     const { unmount } = render(
