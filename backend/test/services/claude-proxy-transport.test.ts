@@ -7,7 +7,10 @@ import { describe, expect, it } from 'vitest'
 import { ClaudeProxyGate } from '../../src/services/claude-proxy-gate'
 import { ClaudeProxyTransport } from '../../src/services/claude-proxy-transport'
 
-async function fixture(handler: RequestListener) {
+async function fixture(
+  handler: RequestListener,
+  timeouts: { headersTimeoutMs?: number; streamIdleTimeoutMs?: number } = {},
+) {
   const root = await mkdtemp(join(tmpdir(), 'proxy-transport-'))
   const path = join(root, 'gate')
   const gate = await ClaudeProxyGate.initialize(path)
@@ -19,6 +22,7 @@ async function fixture(handler: RequestListener) {
   const settings = {
     baseUrl: `http://127.0.0.1:${address.port}`,
     apiKey: 'fixture-private-client-key',
+    ...timeouts,
   }
   return {
     client: new ClaudeProxyTransport(gate, settings),
@@ -178,6 +182,70 @@ describe('Claude proxy inference transport', () => {
       expect(second.status).toBe(403)
       await rejected
       expect(calls).toBe(2)
+    } finally {
+      await source.close()
+    }
+  })
+
+  it('keeps relaying a stream that outlives both timeouts while bytes keep arriving', async () => {
+    const source = await fixture(
+      (_request, response) => {
+        response.writeHead(200, { 'content-type': 'text/event-stream' })
+        let sent = 0
+        const timer = setInterval(() => {
+          sent++
+          if (sent < 20) response.write('event: ping\ndata: {"type":"ping"}\n\n')
+          else {
+            clearInterval(timer)
+            response.end('event: message_stop\ndata: {"type":"message_stop"}\n\n')
+          }
+        }, 50)
+        response.on('close', () => clearInterval(timer))
+      },
+      { headersTimeoutMs: 300, streamIdleTimeoutMs: 300 },
+    )
+    try {
+      const response = await source.client.messages('{}', AbortSignal.timeout(5000))
+      const body = await response.text()
+      expect(body.match(/"type":"ping"/g)).toHaveLength(19)
+      expect(body.endsWith('event: message_stop\ndata: {"type":"message_stop"}\n\n')).toBe(true)
+    } finally {
+      await source.close()
+    }
+  })
+
+  it('fails when upstream headers do not arrive within the headers timeout', async () => {
+    const source = await fixture(() => {}, { headersTimeoutMs: 200, streamIdleTimeoutMs: 3000 })
+    try {
+      const started = performance.now()
+      await expect(source.client.messages('{}', AbortSignal.timeout(4000))).rejects.toMatchObject({
+        code: 'UPSTREAM_UNAVAILABLE',
+      })
+      const elapsed = performance.now() - started
+      expect(elapsed).toBeGreaterThanOrEqual(150)
+      expect(elapsed).toBeLessThan(2000)
+    } finally {
+      await source.close()
+    }
+  })
+
+  it('fails a stream that stays silent longer than the idle timeout', async () => {
+    const source = await fixture(
+      (_request, response) => {
+        response.writeHead(200, { 'content-type': 'text/event-stream' })
+        response.write('event: ping\ndata: {"type":"ping"}\n\n')
+      },
+      { headersTimeoutMs: 3000, streamIdleTimeoutMs: 200 },
+    )
+    try {
+      const response = await source.client.messages('{}', AbortSignal.timeout(4000))
+      const reader = response.body?.getReader()
+      expect((await reader?.read())?.done).toBe(false)
+      const started = performance.now()
+      await expect(reader?.read()).rejects.toMatchObject({ code: 'UPSTREAM_UNAVAILABLE' })
+      const elapsed = performance.now() - started
+      expect(elapsed).toBeGreaterThanOrEqual(100)
+      expect(elapsed).toBeLessThan(2000)
     } finally {
       await source.close()
     }

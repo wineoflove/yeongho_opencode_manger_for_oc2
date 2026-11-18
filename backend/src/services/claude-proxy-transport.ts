@@ -8,6 +8,10 @@ import {
   safeProxyError,
   safeProxyHeaders,
 } from './claude-proxy-response'
+import { logger } from '../utils/logger'
+
+const UPSTREAM_HEADERS_TIMEOUT_MS = 120_000
+const UPSTREAM_STREAM_IDLE_TIMEOUT_MS = 240_000
 
 export class ClaudeProxyTransportError extends Error {
   constructor(readonly code: 'INVALID_TARGET' | 'UPSTREAM_UNAVAILABLE') {
@@ -25,6 +29,8 @@ export class ClaudeProxyTransport {
       readonly baseUrl: string
       readonly apiKey: string
       readonly compression?: Pick<ClaudeCompression, 'compress'>
+      readonly headersTimeoutMs?: number
+      readonly streamIdleTimeoutMs?: number
     },
   ) {
     const base = new URL(settings.baseUrl)
@@ -44,10 +50,25 @@ export class ClaudeProxyTransport {
 
   async messages(body: string, signal: AbortSignal): Promise<Response> {
     const lease = await this.gate.acquire(signal)
+    const {
+      headersTimeoutMs = UPSTREAM_HEADERS_TIMEOUT_MS,
+      streamIdleTimeoutMs = UPSTREAM_STREAM_IDLE_TIMEOUT_MS,
+    } = this.settings
+    const deadline = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const arm = (milliseconds: number, phase: 'headers' | 'body' | 'stream') => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        logger.warn(`Claude proxy upstream ${phase} timed out after ${milliseconds}ms`)
+        deadline.abort()
+      }, milliseconds)
+    }
+    const disarm = () => clearTimeout(timer)
     let response: Response
     try {
       const outgoing = this.settings.compression ? await this.settings.compression.compress(body, lease.signal) : body
       lease.signal.throwIfAborted()
+      arm(headersTimeoutMs, 'headers')
       response = await fetch(this.endpoint, {
         method: 'POST',
         headers: {
@@ -56,13 +77,15 @@ export class ClaudeProxyTransport {
           'anthropic-version': '2023-06-01',
         },
         body: outgoing,
-        signal: AbortSignal.any([lease.signal, AbortSignal.timeout(120000)]),
+        signal: AbortSignal.any([lease.signal, deadline.signal]),
         redirect: 'error',
       })
     } catch (error) {
       lease.release()
       if (error instanceof Error) throw new ClaudeProxyTransportError('UPSTREAM_UNAVAILABLE')
       throw error
+    } finally {
+      disarm()
     }
     if (response.status === 403) {
       try {
@@ -108,6 +131,7 @@ export class ClaudeProxyTransport {
     const headers = safeProxyHeaders(response.headers)
     const contentType = response.headers.get('content-type') ?? ''
     if (contentType.includes('application/json')) {
+      arm(streamIdleTimeoutMs, 'body')
       try {
         const payload = await readProxyJson(response)
         const parsed = proxyEnvelopeSchema.safeParse(payload.value)
@@ -124,6 +148,7 @@ export class ClaudeProxyTransport {
         headers.set('content-type', 'application/json')
         return new Response(payload.text, { status: response.status, headers })
       } finally {
+        disarm()
         lease.release()
       }
     }
@@ -152,19 +177,23 @@ export class ClaudeProxyTransport {
     }
     const stream = new ReadableStream<Uint8Array>({
       async pull(controller) {
+        arm(streamIdleTimeoutMs, 'stream')
         try {
           const part = await reader.read()
+          disarm()
           if (part.done) {
             if (await deliver(decoder.finish(), controller)) return
             lease.release()
             controller.close()
           } else await deliver(decoder.push(part.value), controller)
         } catch (error) {
+          disarm()
           lease.release()
           controller.error(error instanceof Error ? new ClaudeProxyTransportError('UPSTREAM_UNAVAILABLE') : error)
         }
       },
       async cancel() {
+        disarm()
         try {
           await reader.cancel()
         } finally {
