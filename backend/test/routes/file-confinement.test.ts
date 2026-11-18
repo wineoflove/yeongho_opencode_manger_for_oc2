@@ -114,6 +114,16 @@ test('applies the same confinement to absolute workspace paths', async () => {
   expect(await readFile(join(outside, 'sentinel.txt'), 'utf8')).toBe('OUTSIDE')
 })
 
+test('resolves absolute paths inside a registered external root through its alias', async () => {
+  expect(await (await raw(join(external, 'note.txt'))).text()).toBe('external\nsecond\n')
+  const listing = await app.request(`/api/files/ignored?path=${encodeURIComponent(external)}`)
+  expect(listing.status).toBe(200)
+  expect((await raw(join(external, 'escape-dir', 'sentinel.txt'))).status).toBe(403)
+  expect((await put(join(external, 'escape-dir', 'sentinel.txt'), 'bad')).status).toBe(403)
+  expect((await raw(join(outside, 'sentinel.txt'))).status).toBe(403)
+  expect(await readFile(join(outside, 'sentinel.txt'), 'utf8')).toBe('OUTSIDE')
+})
+
 test('rejects traversing away from the selected namespace and symlink-parent creation', async () => {
   expect((await raw(`${inside}/../${other}/other.txt`)).status).toBe(403)
   expect((await put(`${alias}/escape-dir/new.txt`, 'bad')).status).toBe(403)

@@ -90,12 +90,17 @@ export function createFileAccessPolicy(input: {
     return `${registered.localPath}${sep}${suffix(resolve(registered.sourcePath))}`
   }
 
-  /** Maps an absolute path inside the workspace to the repos-relative form the file service resolves it to. */
+  /** Maps an absolute path inside the workspace or a registered external root to the repos-relative form the file service resolves it to. */
   function serviceRelative(input: string): string {
     const userPath = input.trim()
     if (!isAbsolute(userPath)) return userPath
     const absolute = resolve(userPath)
-    return within(workspace, absolute) ? relative(repos, absolute) : userPath
+    if (within(workspace, absolute)) return relative(repos, absolute)
+    const registered = roots
+      .filter((root) => root.sourcePath && within(resolve(root.sourcePath), absolute))
+      .sort((left, right) => (right.sourcePath?.length ?? 0) - (left.sourcePath?.length ?? 0))[0]
+    if (!registered?.sourcePath) throw new FileAccessDenied()
+    return relative(repos, join(registered.alias, relative(resolve(registered.sourcePath), absolute)))
   }
 
   function assertTraversal(userPath: string): void {

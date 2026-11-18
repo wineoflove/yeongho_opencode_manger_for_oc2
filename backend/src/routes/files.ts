@@ -4,7 +4,7 @@ import * as fileService from '../services/files'
 import * as archiveService from '../services/archive'
 import { logger } from '../utils/logger'
 import { getErrorMessage, getStatusCode } from '../utils/error-utils'
-import { relative, sep } from 'node:path'
+import { isAbsolute, relative, sep } from 'node:path'
 import { getReposPath, getWorkspacePath } from '@opencode-manager/shared/config/env'
 import { createFileAccessPolicy, type RegisteredFileRoot } from '../services/file-access'
 import { createPromptAttachmentRoutes } from './prompt-attachments'
@@ -128,7 +128,8 @@ export function createFileRoutes(
     try {
       const userPath = getFilePathFromRequest(c, path.replace(/^\/api\/files\//, '') || '')
       const policy = await access()
-      await policy.resolve(userPath)
+      const target = await policy.resolve(userPath)
+      const servicePath = isAbsolute(userPath.trim()) ? target : userPath
       const canReadEntry = (entry: string) => policy.canRead(relative(policy.reposPath, entry))
       const download = c.req.query('download') === 'true'
       const raw = c.req.query('raw') === 'true'
@@ -143,15 +144,15 @@ export function createFileRoutes(
           return c.json({ error: 'Invalid line range parameters' }, 400)
         }
         
-        const result = await fileService.getFileRange(userPath, startLine, endLine)
+        const result = await fileService.getFileRange(servicePath, startLine, endLine)
         return c.json(result)
       }
       
       if (raw) {
-        const metadata = await fileService.getRawFileMetadata(userPath)
+        const metadata = await fileService.getRawFileMetadata(servicePath)
 
         if (!metadata) {
-          const result = await fileService.getFile(userPath, canReadEntry)
+          const result = await fileService.getFile(servicePath, canReadEntry)
           return c.json(result)
         }
 
@@ -171,7 +172,7 @@ export function createFileRoutes(
           })
         }
 
-        const content = await fileService.getRawFileContent(userPath)
+        const content = await fileService.getRawFileContent(servicePath)
         return new Response(content, {
           headers: {
             'Content-Type': metadata.mimeType,
@@ -185,7 +186,7 @@ export function createFileRoutes(
         })
       }
 
-      const result = await fileService.getFile(userPath, canReadEntry)
+      const result = await fileService.getFile(servicePath, canReadEntry)
 
       if (download && !result.isDirectory) {
         const content = result.content ? Buffer.from(result.content, 'base64') : Buffer.alloc(0)
