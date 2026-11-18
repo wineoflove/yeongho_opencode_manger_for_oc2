@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
@@ -291,6 +291,43 @@ test("refreshes changed text and never returns stale matches before refresh", as
     }
   } finally {
     engine?.close();
+    source.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("keeps the search index and its WAL files private to the owner", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ocm-message-private-"));
+  const sourcePath = join(root, "source.db");
+  const indexPath = join(root, "index.db");
+  const source = new Database(sourcePath);
+  const options = { sourcePath, indexPath, projection: MESSAGE_SEARCH_PROJECTION };
+  let service: MessageSearchService | undefined;
+  const modes = async () =>
+    Promise.all(["", "-wal", "-shm"].map(async (suffix) => (await stat(indexPath + suffix)).mode & 0o777));
+  const search = async () => {
+    service = new MessageSearchService(options);
+    const app = new Hono().route("/messages", createMessageSearchRoutes(service));
+    const response = await app.request("/messages/search?q=private");
+    expect(response.status).toBe(200);
+    await service.stop();
+    service = undefined;
+  };
+  try {
+    source.exec(`CREATE TABLE session_v2(id TEXT PRIMARY KEY,parent_id TEXT,directory TEXT,title TEXT,time_archived INTEGER);
+      CREATE TABLE session_message(id TEXT PRIMARY KEY,session_id TEXT,type TEXT,time_created INTEGER,time_updated INTEGER,data TEXT);
+      CREATE TABLE session_part(message_id TEXT,session_id TEXT,ordinal INTEGER,type TEXT,time_updated INTEGER,data TEXT);
+      INSERT INTO session_v2 VALUES ('root',NULL,'/fixture','Root',NULL);`);
+    source
+      .query("INSERT INTO session_message VALUES (?,?,?,?,?,?)")
+      .run("user", "root", "user", 1, 1, JSON.stringify({ text: "private body" }));
+    await search();
+    expect(await modes()).toEqual([0o600, 0o600, 0o600]);
+    for (const suffix of ["", "-wal", "-shm"]) await chmod(indexPath + suffix, 0o644);
+    await search();
+    expect(await modes()).toEqual([0o600, 0o600, 0o600]);
+  } finally {
+    await service?.stop();
     source.close();
     await rm(root, { recursive: true, force: true });
   }

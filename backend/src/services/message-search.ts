@@ -1,3 +1,4 @@
+import { chmodSync, closeSync, existsSync, openSync } from 'node:fs'
 import { Worker } from 'node:worker_threads'
 import { z } from 'zod'
 import { MessageSearchResponseSchema, type MessageSearchQuery } from '@opencode-manager/shared/schemas'
@@ -10,6 +11,15 @@ const ReplySchema = z.object({
   result: z.unknown().optional(),
   error: z.string().optional(),
 })
+
+const INDEX_FILE_SUFFIXES = ['', '-wal', '-shm'] as const
+
+function restrictIndexFiles(indexPath: string): void {
+  closeSync(openSync(indexPath, 'a', 0o600))
+  for (const suffix of INDEX_FILE_SUFFIXES) {
+    if (existsSync(indexPath + suffix)) chmodSync(indexPath + suffix, 0o600)
+  }
+}
 
 export class MessageSearchUnavailable extends Error {
   constructor() {
@@ -36,6 +46,12 @@ export class MessageSearchService {
   private start(): Worker {
     if (this.closing) throw new MessageSearchUnavailable()
     if (this.worker) return this.worker
+    try {
+      restrictIndexFiles(this.options.indexPath)
+    } catch (error) {
+      logger.error('Message search index permissions could not be restricted', error)
+      throw new MessageSearchUnavailable()
+    }
     const worker = new Worker(`(${runMessageSearchWorker.toString()})(${MessageSearchEngine.toString()})`, {
       eval: true,
       workerData: this.options,
