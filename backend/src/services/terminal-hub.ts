@@ -5,6 +5,7 @@ import {
   type WebSocketBridge,
   type WebSocketPeer,
 } from '../utils/websocket-bridge'
+import { maintenanceAdmission } from './maintenance-admission'
 
 const BUFFER_LIMIT_CHARS = 256 * 1024
 const REPLAY_CHUNK_CHARS = 64 * 1024
@@ -55,8 +56,11 @@ export class TerminalHub {
   private cursor = 0
   private exitCode = DEFAULT_EXIT_CODE
   private released = false
+  private readonly unsubscribe: () => void
 
-  constructor(private readonly options: TerminalHubOptions) {}
+  constructor(private readonly options: TerminalHubOptions) {
+    this.unsubscribe = maintenanceAdmission.onReopen(() => this.flushInput())
+  }
 
   start(): Promise<void> {
     return this.connect()
@@ -94,6 +98,7 @@ export class TerminalHub {
   }
 
   dispose(): void {
+    this.unsubscribe()
     this.clearRetry()
     this.clearAttemptTimer()
     const closeCode = this.state === 'failed' ? ABNORMAL_CLOSE_CODE : this.exitCode
@@ -158,8 +163,15 @@ export class TerminalHub {
     if (this.socket !== socket || this.state !== 'connecting') return
     this.state = 'open'
     this.clearAttemptTimer()
+    this.flushInput()
+  }
+
+  private flushInput(): void {
+    const socket = this.socket
+    if (this.state !== 'open' || !socket || maintenanceAdmission.isClosed()) return
     if (!this.sendRelease(socket)) return
     while (this.pendingInput.length > 0) {
+      if (maintenanceAdmission.isClosed()) return
       const item = this.pendingInput.shift()!
       this.pendingInputBytes -= byteLengthOf(item)
       try {
@@ -172,6 +184,7 @@ export class TerminalHub {
   }
 
   private sendRelease(socket: WebSocket): boolean {
+    if (maintenanceAdmission.isClosed()) return false
     const payload = this.options.releaseOnOpen
     if (payload === undefined || this.released) return true
     try {
@@ -256,6 +269,7 @@ export class TerminalHub {
   private endStream(code: number): void {
     if (this.state === 'closed' || this.state === 'failed') return
     this.state = 'closed'
+    this.unsubscribe()
     this.exitCode = code
     this.closeSubscribers(code)
   }
@@ -263,6 +277,7 @@ export class TerminalHub {
   private failStream(code: number, reason?: string): void {
     if (this.state === 'failed') return
     this.state = 'failed'
+    this.unsubscribe()
     this.clearRetry()
     this.clearAttemptTimer()
     this.pendingInput.length = 0
@@ -321,9 +336,13 @@ export class TerminalHub {
 
   private write(data: string | ArrayBuffer | Uint8Array<ArrayBuffer>): void {
     if (this.state === 'closed' || this.state === 'failed') return
+    if (maintenanceAdmission.isClosed()) return
+    this.flushInput()
+    if (this.isEnded()) return
     const payload: string | Uint8Array<ArrayBuffer> =
       typeof data === 'string' ? data : data instanceof Uint8Array ? data : new Uint8Array(data)
     if (this.state === 'open' && this.socket) {
+      if (maintenanceAdmission.isClosed()) return
       try {
         this.socket.send(payload)
       } catch {

@@ -3,6 +3,7 @@ import { TerminalService, TerminalNotFoundError } from '../../src/services/termi
 import type { OpenCodeClient } from '../../src/services/opencode/client'
 import type { CredentialProvider } from '../../src/services/credential-provider'
 import { createStubRepoEnvService } from '../helpers/stub-repo-env-service'
+import { maintenanceAdmission } from '../../src/services/maintenance-admission'
 
 interface PtyRecord {
   id: string
@@ -255,7 +256,7 @@ describe('TerminalService', () => {
       const list = vi.fn(async () => ({ location: { directory: '/repo' }, data: [actionTerminal] }))
       const factory = createSocketFactory()
       const service = createTerminalService(
-        createClient({ create, list }),
+        createClient({ create, list, remove: vi.fn(async () => undefined) }),
         createCredentialProvider(),
         factory.openSocket,
       )
@@ -287,6 +288,32 @@ describe('TerminalService', () => {
       command: '/bin/sh',
       args: ['-c', 'echo hi'],
     }
+
+    it.each(['open', 'connecting'] as const)('blocks actual hub input after enter while retaining queued input and output: %s', async (state) => {
+      const { service, sockets } = createCapturingService()
+      await service.create('/repo', actionInput)
+      await vi.waitFor(() => expect(sockets).toHaveLength(1))
+      const socket = sockets[0]!
+      const peer = createPeer()
+      const bridge = await service.connect('/repo', 'pty-action', undefined, peer)
+      if (state === 'open') socket.emit('open', {})
+      else bridge.send('queued-before-enter')
+      const before = [...socket.sent]
+      try {
+        maintenanceAdmission.enter('terminal-owner')
+        if (state === 'connecting') socket.emit('open', {})
+        bridge.send('blocked-input')
+        socket.emit('message', { data: 'output-still-arrives' })
+        expect(socket.sent).toEqual(before)
+        expect(peer.sent).toContain('output-still-arrives')
+        expect(socket.close).not.toHaveBeenCalled()
+      } finally { maintenanceAdmission.exit('terminal-owner') }
+      if (state === 'connecting') expect(socket.sent).toEqual(['\n', 'queued-before-enter'])
+      bridge.send('after-exit')
+      expect(socket.sent.at(-1)).toBe('after-exit')
+      expect(socket.sent).not.toContain('blocked-input')
+      await service.remove('/repo', 'pty-action')
+    })
 
     it('opens the upstream at creation so output is captured before the first client attaches', async () => {
       const { service, sockets } = createCapturingService()
@@ -406,7 +433,13 @@ describe('TerminalService', () => {
       const peer = createPeer()
       await service.connect('/repo', 'pty-action', undefined, peer)
       expect(sockets).toHaveLength(4)
-      sockets[3]!.emit('open', {})
+      try {
+        maintenanceAdmission.enter('fallback-owner')
+        Object.assign(sockets[3]!, { readyState: WebSocket.OPEN })
+        sockets[3]!.emit('open', {})
+        expect(sockets[3]!.sent).toEqual([])
+        expect(sockets[3]!.close).not.toHaveBeenCalled()
+      } finally { maintenanceAdmission.exit('fallback-owner') }
       expect(sockets[3]!.sent).toEqual(['\n'])
 
       await service.connect('/repo', 'pty-action', undefined, createPeer())

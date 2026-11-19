@@ -12,6 +12,9 @@ import { resolveOpenCode2Binary, startOpenCodeServe } from '../helpers/opencode-
 import { buildOpenCodeBasicAuth } from '@opencode-manager/shared/opencode'
 import type { OpenCodeClient } from '../../src/services/opencode/client'
 import type { OpenCodeApi } from '@opencode-manager/shared/opencode'
+import { Hono } from 'hono'
+import { maintenanceAdmission, maintenanceHttpAdmission } from '../../src/services/maintenance-admission'
+import { storeMcpOAuthFlow, consumeMcpOAuthFlow } from '../../src/services/mcp-oauth-state'
 
 vi.mock('../../src/utils/logger', () => ({
   logger: {
@@ -499,6 +502,32 @@ describe('mcp oauth proxy routes', () => {
   })
 
   describe('GET /callback', () => {
+    it('tracks an admitted delayed callback and rejects closed callbacks before consuming state or forwarding', async () => {
+      const api = createApi()
+      const app = new Hono()
+      app.use('/api/*', maintenanceHttpAdmission(maintenanceAdmission))
+      app.route('/api/mcp-oauth-proxy', createApp(createClient(api)))
+      const flow = (state: string) => storeMcpOAuthFlow({ state, serverName: SERVER_NAME, integrationID: INTEGRATION_ID, attemptID: ATTEMPT_ID, callbackPort: 12345 })
+      flow('admitted')
+      flow('closed')
+      let finish!: (response: Response) => void
+      fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve }))
+      const pending = app.request(`${CALLBACK_PATH}?code=code&state=admitted`)
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+      try {
+        maintenanceAdmission.enter('oauth-owner')
+        expect(maintenanceAdmission.status().pendingHandlers).toBe(1)
+        expect((await app.request(`${CALLBACK_PATH}?error=denied&state=closed`)).status).toBe(503)
+        expect(fetchMock).toHaveBeenCalledOnce()
+        expect(api.integration.oauth.cancel).not.toHaveBeenCalled()
+        expect(consumeMcpOAuthFlow('closed')).toBeDefined()
+      } finally {
+        finish(new Response('ok'))
+        await pending
+        maintenanceAdmission.exit('oauth-owner')
+      }
+      expect(maintenanceAdmission.status().pendingHandlers).toBe(0)
+    })
     it('returns 400 when the state parameter is missing', async () => {
       const res = await createApp().request('/callback?code=abc')
 

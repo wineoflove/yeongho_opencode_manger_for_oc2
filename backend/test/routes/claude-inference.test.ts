@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { CLAUDE_REQUEST_LIMIT, createClaudeInferenceRoutes } from '../../src/routes/claude-inference'
 import { ClaudeProxyGateError } from '../../src/services/claude-proxy-gate'
+import { Hono } from 'hono'
+import { maintenanceAdmission, maintenanceHttpAdmission } from '../../src/services/maintenance-admission'
 
 const key = 'fixture-incoming-key'
 const body = JSON.stringify({
@@ -10,6 +12,26 @@ const body = JSON.stringify({
 })
 
 describe('Claude inference ingress', () => {
+  it('preserves authenticated followups and exact body during enter, but never invokes transport after seal', async () => {
+    const received: string[] = []
+    const app = new Hono()
+    app.use('/api/*', maintenanceHttpAdmission(maintenanceAdmission))
+    app.route('/api/claude-inference', createClaudeInferenceRoutes({ key, transport: {
+      messages: async (text) => { received.push(text); return new Response('ok') },
+    } }))
+    const request = () => app.request('/api/claude-inference/v1/messages', {
+      method: 'POST', headers: { 'x-api-key': key, 'content-type': 'application/json' }, body,
+    })
+    expect((await request()).status).toBe(200)
+    try {
+      maintenanceAdmission.enter('inference-ingress-owner')
+      expect((await request()).status).toBe(200)
+      maintenanceAdmission.seal('inference-ingress-owner')
+      expect((await request()).status).toBe(503)
+      expect(received).toEqual([body, body])
+    } finally { maintenanceAdmission.exit('inference-ingress-owner') }
+    expect((await request()).status).toBe(200)
+  })
   it('requires the inference key before invoking transport', async () => {
     let calls = 0
     const app = createClaudeInferenceRoutes({

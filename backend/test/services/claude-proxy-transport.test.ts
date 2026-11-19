@@ -3,9 +3,22 @@ import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ClaudeProxyGate } from '../../src/services/claude-proxy-gate'
 import { ClaudeProxyTransport } from '../../src/services/claude-proxy-transport'
+import { maintenanceAdmission } from '../../src/services/maintenance-admission'
+import type { Database } from 'bun:sqlite'
+import type { OpenCodeClient } from '../../src/services/opencode/client'
+import { getMaintenanceStatus } from '../../src/services/maintenance-status'
+
+function idleNativeStatus() {
+  const db = { query: () => ({ get: () => ({ count: 0 }), all: () => [] }) } as unknown as Database
+  const client = { api: {
+    session: { active: async () => ({}), list: async () => ({ data: [], cursor: {} }) },
+    debug: { location: { list: async () => [] } }, pty: { list: async () => ({ data: [] }) },
+  } } as unknown as OpenCodeClient
+  return getMaintenanceStatus(db, client)
+}
 
 async function fixture(
   handler: RequestListener,
@@ -36,6 +49,45 @@ async function fixture(
 }
 
 describe('Claude proxy inference transport', () => {
+  afterEach(() => { expect(maintenanceAdmission.status().pendingHandlers).toBe(0) })
+  it.each(['close', 'error', 'cancel'] as const)('retains admission through streamed %s, allows enter followups, then seal blocks upstream', async (ending) => {
+    let calls = 0
+    const upstreams: import('node:http').ServerResponse[] = []
+    const source = await fixture((_request, response) => {
+      calls++
+      upstreams.push(response)
+      response.writeHead(200, { 'content-type': 'text/event-stream' })
+      response.write('event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[]}}\n\n')
+    })
+    try {
+      const response = await source.client.messages('{}', AbortSignal.timeout(5000))
+      maintenanceAdmission.enter('stream-owner')
+      expect(maintenanceAdmission.status().pendingHandlers).toBe(1)
+      expect((await idleNativeStatus()).drained).toBe(false)
+      const followup = await source.client.messages('{}', AbortSignal.timeout(5000))
+      expect(calls).toBe(2)
+      expect(maintenanceAdmission.status().pendingHandlers).toBe(2)
+      await followup.body!.cancel()
+      expect(maintenanceAdmission.status().pendingHandlers).toBe(1)
+      maintenanceAdmission.seal('stream-owner')
+      expect((await idleNativeStatus()).drained).toBe(false)
+      await expect(source.client.messages('{}', AbortSignal.timeout(5000))).rejects.toThrow('MAINTENANCE_DRAINING')
+      expect(calls).toBe(2)
+      if (ending === 'cancel') await response.body!.cancel()
+      else {
+        const consumption = response.text()
+        if (ending === 'close') upstreams[0]!.end()
+        else upstreams[0]!.destroy(new Error('stream failed'))
+        if (ending === 'close') await consumption
+        else await expect(consumption).rejects.toThrow()
+      }
+      await vi.waitFor(() => expect(maintenanceAdmission.status().pendingHandlers).toBe(0))
+      expect((await idleNativeStatus()).drained).toBe(true)
+    } finally {
+      maintenanceAdmission.exit('stream-owner')
+      await source.close()
+    }
+  })
   it('blocks a JSON permission error even when HTTP status is 200', async () => {
     const source = await fixture((_request, response) => {
       response.writeHead(200, { 'content-type': 'application/json' })

@@ -7,6 +7,7 @@ import type { RepoEnvService } from './repo-env'
 import { toWebSocketUrl } from './opencode/upstream'
 import { bridgeWebSocket, type WebSocketBridge, type WebSocketPeer } from '../utils/websocket-bridge'
 import { TerminalHub, TerminalHubRegistry } from './terminal-hub'
+import { maintenanceAdmission } from './maintenance-admission'
 
 type OpenCodePty = Awaited<ReturnType<OpenCodeClient['api']['pty']['list']>>['data'][number]
 type OpenCodePersistentPty = Awaited<ReturnType<OpenCodeClient['api']['experimental']['persistentPty']['list']>>[number]
@@ -186,6 +187,10 @@ export class TerminalService {
 
   private releaseOnOpen(key: string, upstream: WebSocket): void {
     const release = (): void => this.sendRelease(key, upstream)
+    const unsubscribe = maintenanceAdmission.onReopen(() => {
+      if (upstream.readyState === WebSocket.OPEN) release()
+    })
+    upstream.addEventListener('close', unsubscribe)
     if (upstream.readyState === WebSocket.OPEN) {
       release()
       return
@@ -194,6 +199,7 @@ export class TerminalService {
   }
 
   private sendRelease(key: string, upstream: WebSocket): void {
+    if (maintenanceAdmission.isClosed()) return
     if (this.deferredReleases.get(key) !== 'pending') return
     try {
       upstream.send(DEFERRED_START_RELEASE)

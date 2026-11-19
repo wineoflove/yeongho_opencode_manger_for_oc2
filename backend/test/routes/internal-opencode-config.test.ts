@@ -12,6 +12,7 @@ import { migrate } from '../../src/db/migration-runner'
 import { OPENCODE_CONFIG_SEED, readOpenCodeConfigFile, writeOpenCodeConfigFile } from '../../src/services/opencode-config-file'
 import { createTempAssistantWorkspace } from '../helpers/assistant-workspace'
 import { createInternalTestApp } from '../helpers/internal-test-app'
+import { maintenanceAdmission, maintenanceHttpAdmission } from '../../src/services/maintenance-admission'
 
 describe('internal/opencode-config routes', () => {
   let db: Database
@@ -53,17 +54,39 @@ describe('internal/opencode-config routes', () => {
     } as unknown as OpenCodeClient
     const settingsService = new SettingsService(db)
     app = new Hono()
+    app.use('/api/*', maintenanceHttpAdmission(maintenanceAdmission))
     app.route('/api/internal', createInternalTestApp(db, { settingsService, openCodeClient }))
     token = getOrCreateInternalToken(db)
   })
 
   afterEach(async () => {
+    maintenanceAdmission.exit('config-test-owner')
     await ws.cleanup()
   })
 
   it('GET /api/internal/opencode-config returns 401 without bearer token', async () => {
     const res = await app.request('/api/internal/opencode-config')
     expect(res.status).toBe(401)
+  })
+
+  it('blocks config mutation before reading or forwarding its body during maintenance but keeps authenticated redacted reads', async () => {
+    await writeOpenCodeConfigFile(JSON.stringify({ provider: { example: { apiKey: 'fixture-secret' } } }), 'opencode.jsonc')
+    const before = await readFile(configPath('opencode.jsonc'), 'utf8')
+    maintenanceAdmission.enter('config-test-owner')
+    const blocked = await app.request('/api/internal/opencode-config', {
+      method: 'PATCH', headers: { 'content-type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ patch: { theme: 'light' } }),
+    })
+    expect(blocked.status).toBe(503)
+    expect(locationReloadMock).not.toHaveBeenCalled()
+    expect(forwardRawMock).not.toHaveBeenCalled()
+    expect(await readFile(configPath('opencode.jsonc'), 'utf8')).toBe(before)
+    expect((await app.request('/api/internal/opencode-config')).status).toBe(401)
+    const response = await app.request('/api/internal/opencode-config', { headers: authHeaders() })
+    expect(response.status).toBe(200)
+    const text = await response.text()
+    expect(text).toContain('<redacted>')
+    expect(text).not.toContain('fixture-secret')
   })
 
   it('GET /api/internal/opencode-config returns 404 when no config file exists', async () => {

@@ -9,6 +9,7 @@ import {
   safeProxyHeaders,
 } from './claude-proxy-response'
 import { logger } from '../utils/logger'
+import { maintenanceAdmission } from './maintenance-admission'
 
 const UPSTREAM_HEADERS_TIMEOUT_MS = 120_000
 const UPSTREAM_STREAM_IDLE_TIMEOUT_MS = 240_000
@@ -49,7 +50,18 @@ export class ClaudeProxyTransport {
   }
 
   async messages(body: string, signal: AbortSignal): Promise<Response> {
-    const lease = await this.gate.acquire(signal)
+    const releaseAdmission = maintenanceAdmission.admitInference()
+    let gateLease: Awaited<ReturnType<ClaudeProxyGate['acquire']>>
+    try {
+      gateLease = await this.gate.acquire(signal)
+    } catch (error) {
+      releaseAdmission()
+      throw error
+    }
+    const lease = {
+      signal: gateLease.signal,
+      release: () => { gateLease.release(); releaseAdmission() },
+    }
     const {
       headersTimeoutMs = UPSTREAM_HEADERS_TIMEOUT_MS,
       streamIdleTimeoutMs = UPSTREAM_STREAM_IDLE_TIMEOUT_MS,
@@ -168,6 +180,7 @@ export class ClaudeProxyTransport {
         if (frame.denied) await gate.deny()
         controller.enqueue(encoder.encode(frame.text))
         if (frame.terminal) {
+          await reader.cancel().catch(() => undefined)
           lease.release()
           controller.close()
           return true
@@ -188,6 +201,7 @@ export class ClaudeProxyTransport {
           } else await deliver(decoder.push(part.value), controller)
         } catch (error) {
           disarm()
+          await reader.cancel().catch(() => undefined)
           lease.release()
           controller.error(error instanceof Error ? new ClaudeProxyTransportError('UPSTREAM_UNAVAILABLE') : error)
         }
