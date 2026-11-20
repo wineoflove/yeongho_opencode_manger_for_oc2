@@ -29,6 +29,7 @@ interface SessionStatusStore {
   statusCache: Map<string, string>
   statusRevisions: Map<string, number>
   knownSessions: Set<string>
+  unavailableSessions: Set<string>
   outcomes: Map<string, ChildOutcome>
   parents: Map<string, string | null>
   directories: Map<string, string>
@@ -44,6 +45,7 @@ interface SessionStatusStore {
   replaceStatuses: (statuses: Record<string, SessionStatusType>, token: StatusSnapshotToken) => void
   replaceServerStatuses: (serverId: string, statuses: Record<string, SessionStatusType>, token: StatusSnapshotToken) => void
   applySessionSnapshot: (sessionID: string, session: SessionInfo, token: StatusSnapshotToken) => void
+  applyMissingSessionSnapshot: (sessionID: string, token: StatusSnapshotToken) => void
   beginStatusSnapshot: () => StatusSnapshotToken
   endStatusSnapshot: (token: StatusSnapshotToken) => void
   getStatus: (sessionID: string) => SessionStatusType
@@ -63,6 +65,7 @@ const DEFAULT_STATUS: SessionStatusType = { type: 'idle' }
 const OPTIMISTIC_ACTIVE_TIMEOUT_MS = 120_000
 const optimisticActiveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const inFlightSnapshots = new Map<number, number>()
+const sessionSnapshotOrders = new Map<string, number>()
 let snapshotOrderCounter = 0
 let lastAppliedSnapshotOrder = 0
 const lastAppliedServerSnapshotOrders = new Map<string, number>()
@@ -246,18 +249,26 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
     statuses.set(sessionID, status)
     statusCache.set(sessionID, getStatusHash(status))
     const knownSessions = markSessionKnown(state.knownSessions, sessionID)
+    const unavailableSessions = new Set(state.unavailableSessions)
+    unavailableSessions.delete(sessionID)
     return {
       statuses,
       statusCache,
       ...(knownSessions ? { knownSessions } : {}),
+      unavailableSessions,
       ...(recordRevisionPatch(state, sessionID) ?? {}),
     }
   }
 
-  const isLiveAfterCapture = (sessionID: string, captureRevision: number): boolean => {
+  const isLiveAfterCapture = (sessionID: string, captureRevision: number, captureOrder: number): boolean => {
     if (optimisticActiveTimers.has(sessionID)) return true
     const touched = get().statusRevisions.get(sessionID)
-    return touched !== undefined && touched > captureRevision
+    return (touched !== undefined && touched > captureRevision) ||
+      (sessionSnapshotOrders.get(sessionID) ?? 0) > captureOrder
+  }
+
+  const recordSnapshotOrder = (sessionID: string, order: number): void => {
+    if (inFlightSnapshots.size > 0) sessionSnapshotOrders.set(sessionID, order)
   }
 
   const isRemoteOwned = (sessionID: string): boolean => get().sessionServers.has(sessionID)
@@ -266,6 +277,7 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
     state: SessionStatusStore,
     statuses: Record<string, SessionStatusType>,
     captureRevision: number,
+    captureOrder: number,
     keepsCurrentStatus: (sessionID: string) => boolean,
     snapshotServerId: string | null,
   ): Partial<SessionStatusStore> | null => {
@@ -284,7 +296,8 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
 
     const snapshotSessionIDs: string[] = []
     for (const [sessionID, status] of Object.entries(statuses)) {
-      if (isLiveAfterCapture(sessionID, captureRevision)) continue
+      if (isLiveAfterCapture(sessionID, captureRevision, captureOrder)) continue
+      recordSnapshotOrder(sessionID, captureOrder)
       if (status.type === 'idle') continue
       const current = currentStatuses.get(sessionID)
       const effective = status.type === 'busy' && current !== undefined && current.type !== 'idle' ? current : status
@@ -311,12 +324,15 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
     const sessionServers = snapshotServerId === null
       ? null
       : withServerOwnership(state.sessionServers, snapshotSessionIDs, snapshotServerId)
+    const unavailableSessions = new Set(state.unavailableSessions)
+    for (const sessionID of newMap.keys()) unavailableSessions.delete(sessionID)
 
     if (
       sessionServers === null &&
       sameEntries(state.statusCache, newCache) &&
       sameEntries(currentRevisions, nextRevisions) &&
-      sameSets(currentKnownSessions, nextKnownSessions)
+      sameSets(currentKnownSessions, nextKnownSessions) &&
+      sameSets(state.unavailableSessions, unavailableSessions)
     ) return null
 
     return {
@@ -324,11 +340,13 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
       statusCache: newCache,
       statusRevisions: nextRevisions,
       knownSessions: nextKnownSessions,
+      unavailableSessions,
       ...(sessionServers === null ? {} : { sessionServers }),
     }
   }
 
   const pruneRevisionsForRejectedSnapshot = (): void => {
+    if (inFlightSnapshots.size === 0) sessionSnapshotOrders.clear()
     const currentRevisions = get().statusRevisions
     const nextRevisions = prunedRevisions(currentRevisions)
     if (!sameEntries(currentRevisions, nextRevisions)) {
@@ -341,6 +359,7 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
     statusCache: new Map(),
     statusRevisions: new Map(),
     knownSessions: new Set(),
+    unavailableSessions: new Set(),
     outcomes: new Map(),
     parents: new Map(),
     directories: new Map(),
@@ -397,7 +416,8 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
 
     applySessionSnapshot: (sessionID: string, session: SessionInfo, token: StatusSnapshotToken) => {
       releaseSnapshot(token)
-      if (isLiveAfterCapture(sessionID, token.revision)) return
+      if (isLiveAfterCapture(sessionID, token.revision, token.order)) return
+      recordSnapshotOrder(sessionID, token.order)
       if (session.time.idle !== undefined) {
         get().setStatus(sessionID, { type: 'idle' })
         if (session.outcome) get().setOutcome(sessionID, session.outcome)
@@ -405,6 +425,13 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
       }
       get().clearOutcome(sessionID)
       get().setStatus(sessionID, { type: 'busy' })
+    },
+
+    applyMissingSessionSnapshot: (sessionID: string, token: StatusSnapshotToken) => {
+      releaseSnapshot(token)
+      if (isLiveAfterCapture(sessionID, token.revision, token.order)) return
+      recordSnapshotOrder(sessionID, token.order)
+      get().forgetSession(sessionID)
     },
 
     setOptimisticActive: (sessionID: string, timeoutMs = OPTIMISTIC_ACTIVE_TIMEOUT_MS) => {
@@ -446,10 +473,12 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
         get(),
         statuses,
         token.revision,
-        (sessionID) => isLiveAfterCapture(sessionID, token.revision) || isRemoteOwned(sessionID),
+        token.order,
+        (sessionID) => isLiveAfterCapture(sessionID, token.revision, token.order) || isRemoteOwned(sessionID),
         null,
       )
       if (patch) set(patch)
+      if (inFlightSnapshots.size === 0) sessionSnapshotOrders.clear()
     },
 
     replaceServerStatuses: (serverId: string, statuses: Record<string, SessionStatusType>, token: StatusSnapshotToken) => {
@@ -469,10 +498,12 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
         get(),
         statuses,
         token.revision,
-        (sessionID) => isLiveAfterCapture(sessionID, token.revision) || get().sessionServers.get(sessionID) !== serverId,
+        token.order,
+        (sessionID) => isLiveAfterCapture(sessionID, token.revision, token.order) || get().sessionServers.get(sessionID) !== serverId,
         serverId,
       )
       if (patch) set(patch)
+      if (inFlightSnapshots.size === 0) sessionSnapshotOrders.clear()
     },
 
     beginStatusSnapshot: () => {
@@ -487,6 +518,7 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
     endStatusSnapshot: (token: StatusSnapshotToken) => {
       releaseSnapshot(token)
       if (inFlightSnapshots.size > 0) return
+      sessionSnapshotOrders.clear()
       if (get().statusRevisions.size === 0) return
       set({ statusRevisions: new Map() })
     },
@@ -498,7 +530,7 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
     clearStatus: (sessionID: string) => {
       clearOptimisticActiveTimer(sessionID)
       const knownPatch = markSessionKnown(get().knownSessions, sessionID)
-      if (!get().statuses.has(sessionID) && inFlightSnapshots.size === 0) {
+      if (!get().statuses.has(sessionID) && !get().unavailableSessions.has(sessionID) && inFlightSnapshots.size === 0) {
         if (knownPatch) set({ knownSessions: knownPatch })
         return
       }
@@ -507,14 +539,16 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
         const revisionPatch = recordRevisionPatch(state, sessionID)
         const knownSessions = markSessionKnown(state.knownSessions, sessionID)
         const knownFields = knownSessions ? { knownSessions } : {}
+        const unavailableSessions = new Set(state.unavailableSessions)
+        unavailableSessions.delete(sessionID)
         if (!state.statuses.has(sessionID)) {
-          return { ...(revisionPatch ?? {}), ...knownFields }
+          return { ...(revisionPatch ?? {}), ...knownFields, unavailableSessions }
         }
         const statuses = new Map(state.statuses)
         const statusCache = new Map(state.statusCache)
         statuses.delete(sessionID)
         statusCache.delete(sessionID)
-        return { statuses, statusCache, ...(revisionPatch ?? {}), ...knownFields }
+        return { statuses, statusCache, ...(revisionPatch ?? {}), ...knownFields, unavailableSessions }
       })
     },
 
@@ -635,12 +669,14 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
         current.directories.has(sessionID) ||
         current.sessionServers.has(sessionID) ||
         ownsShell
-      if (!hasSession && inFlightSnapshots.size === 0) return
+      if (!hasSession && current.unavailableSessions.has(sessionID) && inFlightSnapshots.size === 0) return
 
       set((state) => {
         const statuses = new Map(state.statuses)
         const statusCache = new Map(state.statusCache)
         const knownSessions = new Set(state.knownSessions)
+        const unavailableSessions = new Set(state.unavailableSessions)
+        unavailableSessions.add(sessionID)
         const outcomes = new Map(state.outcomes)
         const parents = new Map(state.parents)
         const directories = new Map(state.directories)
@@ -663,6 +699,7 @@ export const useSessionStatus = create<SessionStatusStore>((set, get) => {
           statuses,
           statusCache,
           knownSessions,
+          unavailableSessions,
           outcomes,
           parents,
           directories,
@@ -686,7 +723,12 @@ export const useChildLifecycleForSession = (sessionID: string | undefined): Back
   return useSessionStatus((state) => {
     if (!sessionID) return 'unknown'
     const status = state.statuses.get(sessionID) ?? DEFAULT_STATUS
-    return childLifecycle(status, state.knownSessions.has(sessionID), state.outcomes.get(sessionID))
+    return childLifecycle(
+      status,
+      state.knownSessions.has(sessionID),
+      state.outcomes.get(sessionID),
+      state.unavailableSessions.has(sessionID),
+    )
   })
 }
 

@@ -246,6 +246,10 @@ export const useChildSessionReconciliation = (sessionID: string | undefined) => 
         const session = await getSession(sessionID!, serverId);
         useSessionStatus.getState().applySessionSnapshot(sessionID!, session, token);
         return session;
+      } catch (error) {
+        if (!(error instanceof FetchError) || error.statusCode !== 404) throw error;
+        useSessionStatus.getState().applyMissingSessionSnapshot(sessionID!, token);
+        return null;
       } finally {
         useSessionStatus.getState().endStatusSnapshot(token);
       }
@@ -332,6 +336,7 @@ export const useDeleteSession = (directory?: string | string[]) => {
       for (const target of targets) {
         try {
           await deleteSession(getDeleteSessionTargetId(target), serverId)
+          useSessionStatus.getState().forgetSession(getDeleteSessionTargetId(target))
           results.push({ status: 'fulfilled', value: undefined })
         } catch (reason) {
           results.push({ status: 'rejected', reason })

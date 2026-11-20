@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { busyStatusesFromActiveSessions, hasBackgroundActivity, useSessionStatus } from './sessionStatusStore'
+import { childLifecycle } from '@/lib/backgroundWork'
 
 const resetStore = () => {
   useSessionStatus.setState({
@@ -7,6 +8,7 @@ const resetStore = () => {
     statusCache: new Map(),
     statusRevisions: new Map(),
     knownSessions: new Set(),
+    unavailableSessions: new Set(),
     outcomes: new Map(),
     parents: new Map(),
     directories: new Map(),
@@ -521,6 +523,69 @@ describe('sessionStatusStore', () => {
     expect(after.statusCache.has('child-a')).toBe(false)
     expect(after.knownSessions.has('child-a')).toBe(false)
     expect(after.outcomes.has('child-a')).toBe(false)
+  })
+
+  it('keeps a deleted child unavailable across empty status snapshots', () => {
+    const store = useSessionStatus.getState()
+    store.forgetSession('child-deleted')
+    store.replaceStatuses({}, store.beginStatusSnapshot())
+
+    const state = useSessionStatus.getState()
+    expect(state.unavailableSessions.has('child-deleted')).toBe(true)
+    expect(childLifecycle(state.getStatus('child-deleted'), state.knownSessions.has('child-deleted'),
+      state.outcomes.get('child-deleted'), state.unavailableSessions.has('child-deleted'))).toBe('unavailable')
+    expect(state.outcomes.has('child-deleted')).toBe(false)
+  })
+
+  it('clears unavailability when a fresh busy event confirms a session', () => {
+    const store = useSessionStatus.getState()
+    store.forgetSession('child-deleted')
+    store.setStatus('child-deleted', { type: 'busy' })
+
+    expect(useSessionStatus.getState().unavailableSessions.has('child-deleted')).toBe(false)
+    expect(useSessionStatus.getState().getStatus('child-deleted')).toEqual({ type: 'busy' })
+  })
+
+  it('clears unavailability when a fresh active snapshot confirms a session', () => {
+    const store = useSessionStatus.getState()
+    store.forgetSession('child-deleted')
+    store.replaceStatuses({ 'child-deleted': { type: 'busy' } }, store.beginStatusSnapshot())
+
+    expect(useSessionStatus.getState().unavailableSessions.has('child-deleted')).toBe(false)
+    expect(useSessionStatus.getState().getStatus('child-deleted')).toEqual({ type: 'busy' })
+  })
+
+  it('does not let an older active snapshot resurrect an unavailable session', () => {
+    const store = useSessionStatus.getState()
+    const active = store.beginStatusSnapshot()
+    const missing = store.beginStatusSnapshot()
+    store.applyMissingSessionSnapshot('child-deleted', missing)
+    store.replaceStatuses({ 'child-deleted': { type: 'busy' } }, active)
+
+    expect(useSessionStatus.getState().unavailableSessions.has('child-deleted')).toBe(true)
+    expect(useSessionStatus.getState().statuses.has('child-deleted')).toBe(false)
+  })
+
+  it('does not let an older 404 override a newer accepted active snapshot', () => {
+    const store = useSessionStatus.getState()
+    const missing = store.beginStatusSnapshot()
+    const active = store.beginStatusSnapshot()
+    store.replaceStatuses({ 'child-deleted': { type: 'busy' } }, active)
+    store.applyMissingSessionSnapshot('child-deleted', missing)
+
+    expect(useSessionStatus.getState().unavailableSessions.has('child-deleted')).toBe(false)
+    expect(useSessionStatus.getState().getStatus('child-deleted')).toEqual({ type: 'busy' })
+  })
+
+  it('accepts a newer 404 after an older active snapshot finishes', () => {
+    const store = useSessionStatus.getState()
+    const active = store.beginStatusSnapshot()
+    const missing = store.beginStatusSnapshot()
+    store.replaceStatuses({ 'child-deleted': { type: 'busy' } }, active)
+    store.applyMissingSessionSnapshot('child-deleted', missing)
+
+    expect(useSessionStatus.getState().unavailableSessions.has('child-deleted')).toBe(true)
+    expect(useSessionStatus.getState().statuses.has('child-deleted')).toBe(false)
   })
 
   it('does not let an in-flight snapshot resurrect a forgotten session', () => {

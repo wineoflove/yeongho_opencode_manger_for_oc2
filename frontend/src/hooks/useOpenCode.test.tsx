@@ -513,6 +513,7 @@ describe('useChildSessionReconciliation', () => {
       statusCache: new Map(),
       statusRevisions: new Map(),
       knownSessions: new Set(),
+      unavailableSessions: new Set(),
       outcomes: new Map(),
       revision: 0,
     })
@@ -604,5 +605,60 @@ describe('useChildSessionReconciliation', () => {
 
     expect(mocks.getSession).not.toHaveBeenCalled()
     expect(queryClient.getQueryState(['opencode', 'session-reconcile', 'child-1'])?.fetchStatus).not.toBe('fetching')
+  })
+
+  it('does not let a late missing response hide a newer running child', async () => {
+    let rejectSession: ((error: Error) => void) | undefined
+    mocks.getSession.mockImplementation(() => new Promise<SessionInfo>((_, reject) => { rejectSession = reject }))
+    const queryClient = createQueryClient()
+    renderHook(() => useChildSessionReconciliation('child-1'), { wrapper: createWrapper(queryClient) })
+    await waitFor(() => expect(mocks.getSession).toHaveBeenCalledTimes(1))
+
+    await act(async () => {
+      useSessionStatus.getState().setStatus('child-1', { type: 'busy' })
+      rejectSession?.(new FetchError('Session not found', 404))
+    })
+
+    expect(useSessionStatus.getState().getStatus('child-1')).toEqual({ type: 'busy' })
+    expect(useSessionStatus.getState().unavailableSessions.has('child-1')).toBe(false)
+    expect(useSessionStatus.getState().statusRevisions.size).toBe(0)
+    expect(queryClient.getQueryState(['opencode', 'session-reconcile', 'child-1'])?.status).toBe('success')
+  })
+})
+
+describe('deleted background session lifecycle', () => {
+  beforeEach(() => {
+    mocks.deleteSession.mockReset()
+    useSessionStatus.setState({
+      statuses: new Map(), statusCache: new Map(), statusRevisions: new Map(),
+      knownSessions: new Set(), unavailableSessions: new Set(), outcomes: new Map(), revision: 0,
+    })
+  })
+
+  it('marks a successful deletion unavailable without waiting for an SSE event', async () => {
+    mocks.deleteSession.mockResolvedValue(undefined)
+    useSessionStatus.getState().setStatus('child-a', { type: 'busy' })
+    const client = createQueryClient()
+    const { result } = renderHook(() => useDeleteSession('/repo'), { wrapper: createWrapper(client) })
+
+    await act(async () => { await result.current.mutateAsync('child-a') })
+
+    expect(useSessionStatus.getState().unavailableSessions.has('child-a')).toBe(true)
+    expect(useSessionStatus.getState().statuses.has('child-a')).toBe(false)
+  })
+
+  it('only marks successful deletions unavailable when a batch partially fails', async () => {
+    mocks.deleteSession.mockImplementation(async (id: string) => {
+      if (id === 'child-b') throw new Error('temporary failure')
+    })
+    for (const id of ['child-a', 'child-b']) useSessionStatus.getState().setStatus(id, { type: 'busy' })
+    const client = createQueryClient()
+    const { result } = renderHook(() => useDeleteSession('/repo'), { wrapper: createWrapper(client) })
+
+    await act(async () => { await expect(result.current.mutateAsync(['child-a', 'child-b'])).rejects.toThrow() })
+
+    expect(useSessionStatus.getState().unavailableSessions.has('child-a')).toBe(true)
+    expect(useSessionStatus.getState().unavailableSessions.has('child-b')).toBe(false)
+    expect(useSessionStatus.getState().getStatus('child-b')).toEqual({ type: 'busy' })
   })
 })

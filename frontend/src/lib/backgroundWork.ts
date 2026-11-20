@@ -113,7 +113,9 @@ export function childLifecycle(
   status: SessionStatusType,
   known: boolean,
   outcome: ChildOutcome | undefined,
+  unavailable = false,
 ): BackgroundTaskLifecycle {
+  if (unavailable) return 'unavailable'
   if (!known) return 'unknown'
   if (status.type !== 'idle') return 'running'
   if (outcome === 'failed') return 'failed'

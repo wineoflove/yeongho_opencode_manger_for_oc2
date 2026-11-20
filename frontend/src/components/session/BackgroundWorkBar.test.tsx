@@ -8,6 +8,7 @@ import { clearShellExitRecord, recordShellExit } from '@/lib/backgroundWork'
 import { useSessionStatus } from '@/stores/sessionStatusStore'
 import { BackgroundWorkBar } from './BackgroundWorkBar'
 import { getLocale, setLocale } from '@/i18n/locale'
+import { FetchError } from '@/api/fetchWrapper'
 
 const api = vi.hoisted(() => ({
   backgroundSession: vi.fn(),
@@ -144,6 +145,7 @@ describe('BackgroundWorkBar', () => {
       statusCache: new Map(),
       statusRevisions: new Map(),
       knownSessions: new Set(),
+      unavailableSessions: new Set(),
       outcomes: new Map(),
       revision: 0,
     })
@@ -316,6 +318,43 @@ describe('BackgroundWorkBar', () => {
 
     await waitFor(() => expect(api.getSession).toHaveBeenCalled())
     await waitFor(() => expect(container).toBeEmptyDOMElement())
+  })
+
+  it('removes a deleted child after an authoritative 404 without reporting success', async () => {
+    api.getSession.mockRejectedValue(new FetchError('Session not found', 404))
+    const { container, queryClient } = renderBar([backgroundSubagentTool('child-deleted')], false)
+
+    await waitFor(() => expect(api.getSession).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(container).toBeEmptyDOMElement())
+    expect(useSessionStatus.getState().outcomes.has('child-deleted')).toBe(false)
+    expect(queryClient.getQueryState(['opencode', 'session-reconcile', 'child-deleted'])?.status).toBe('success')
+  })
+
+  it('removes a deleted child immediately even when its lookup is still pending', async () => {
+    useSessionStatus.getState().setStatus('child-deleted', { type: 'busy' })
+    const { container } = renderBar([backgroundSubagentTool('child-deleted')], false)
+    await waitFor(() => expect(api.getSession).toHaveBeenCalledTimes(1))
+
+    act(() => useSessionStatus.getState().forgetSession('child-deleted'))
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement())
+  })
+
+  it.each([401, 403, 500])('keeps an unconfirmed child visible after HTTP %i', async (status) => {
+    api.getSession.mockRejectedValue(new FetchError('Request failed', status))
+    const { queryClient } = renderBar([backgroundSubagentTool('child-unconfirmed')], false)
+
+    await waitFor(() => expect(queryClient.getQueryState(['opencode', 'session-reconcile', 'child-unconfirmed'])?.status).toBe('error'))
+    expect(screen.getByRole('button', { name: /1 background task$/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /1 background task$/ }))
+    expect(screen.getByText('checking')).toBeInTheDocument()
+  })
+
+  it('keeps an unconfirmed child visible after a network failure', async () => {
+    api.getSession.mockRejectedValue(new TypeError('Failed to fetch'))
+    const { queryClient } = renderBar([backgroundSubagentTool('child-network')], false)
+    await waitFor(() => expect(queryClient.getQueryState(['opencode', 'session-reconcile', 'child-network'])?.status).toBe('error'))
+    expect(screen.getByRole('button', { name: /1 background task$/ })).toBeInTheDocument()
   })
 
   it('hides a failed child session outcome', async () => {

@@ -209,6 +209,7 @@ export function BackgroundWorkBar({ sessionID, directory, messages, isSessionAct
           state.statuses.get(part.childSessionID) ?? { type: 'idle' },
           state.knownSessions.has(part.childSessionID),
           state.outcomes.get(part.childSessionID),
+          state.unavailableSessions.has(part.childSessionID),
         )
       }
       return lifecycles
