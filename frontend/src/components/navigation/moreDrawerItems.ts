@@ -41,6 +41,15 @@ function getHomeItem(): MoreDrawerItem {
   return { key: 'home', label: t('Home'), icon: Home, to: '/' }
 }
 
+/** Manager-wide overview pages, reachable from the home, project and session tool rails. */
+function getOverviewItems(): MoreDrawerItem[] {
+  return [
+    { key: 'stats', label: t('Statistics'), icon: ChartColumn, to: '/stats' },
+    { key: 'usage', label: t('Usage'), icon: Gauge, to: '/usage' },
+    { key: 'system', label: t('System status'), icon: Cpu, to: '/system' },
+  ]
+}
+
 function getBaseItems(): MoreDrawerItem[] {
   return [
     { key: 'settings', label: t('Settings'), icon: Settings },
@@ -114,6 +123,7 @@ function buildRouteNavModel(pathname: string): NavModel {
       { key: 'terminal', label: t('Terminal'), icon: SquareTerminal, dialog: 'terminal' },
       { key: 'actions', label: t('Actions'), icon: Play, dialog: 'actions' },
       { key: 'preview', label: t('Preview'), icon: Globe, dialog: 'preview' },
+      ...getOverviewItems(),
       ...baseItems,
     ]
 
@@ -140,6 +150,7 @@ function buildRouteNavModel(pathname: string): NavModel {
         ? []
         : [{ key: 'actions', label: t('Actions'), icon: Play, dialog: 'actions' }]),
       { key: 'preview', label: t('Preview'), icon: Globe, dialog: 'preview' },
+      ...getOverviewItems(),
       ...baseItems,
     ]
 
@@ -159,6 +170,7 @@ function buildRouteNavModel(pathname: string): NavModel {
       { key: 'source-control', label: t('Source Control'), icon: GitCommitHorizontal, dialog: 'sourceControl' },
       { key: 'terminal', label: t('Terminal'), icon: SquareTerminal, dialog: 'terminal' },
       { key: 'preview', label: t('Preview'), icon: Globe, dialog: 'preview' },
+      ...getOverviewItems(),
       ...baseItems,
     ]
 
@@ -173,9 +185,7 @@ function buildRouteNavModel(pathname: string): NavModel {
       primary: [getAssistantNavItem()],
       items: [
         { key: 'all-schedules', label: t('All Schedules'), icon: CalendarClock, to: '/schedules' },
-        { key: 'stats', label: t('Statistics'), icon: ChartColumn, to: '/stats' },
-        { key: 'usage', label: t('Usage'), icon: Gauge, to: '/usage' },
-        { key: 'system', label: t('System status'), icon: Cpu, to: '/system' },
+        ...getOverviewItems(),
         { key: 'files', label: t('Files'), icon: Folder, dialog: 'files' },
         ...baseItems,
       ],

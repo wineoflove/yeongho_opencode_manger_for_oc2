@@ -10,7 +10,7 @@ describe('buildMoreItems', () => {
 
   it('returns repo-specific items for /repos/:id', () => {
     const items = buildMoreItems('/repos/42')
-    expect(items).toHaveLength(13)
+    expect(items).toHaveLength(16)
     expect(items[0].key).toBe('home')
     expect(items[1].key).toBe('files')
     expect(items[1].dialog).toBe('files')
@@ -33,13 +33,17 @@ describe('buildMoreItems', () => {
     expect(items[9].dialog).toBe('actions')
     expect(items[10].key).toBe('preview')
     expect(items[10].dialog).toBe('preview')
-    expect(items[11].key).toBe('settings')
-    expect(items[12].key).toBe('logout')
+    expect(items[11].key).toBe('stats')
+    expect(items[12].key).toBe('usage')
+    expect(items[12].to).toBe('/usage')
+    expect(items[13].key).toBe('system')
+    expect(items[14].key).toBe('settings')
+    expect(items[15].key).toBe('logout')
   })
 
   it('returns session-specific items for /repos/:id/sessions/:sid', () => {
     const items = buildMoreItems('/repos/42/sessions/abc')
-    expect(items).toHaveLength(13)
+    expect(items).toHaveLength(16)
     expect(items[0].key).toBe('home')
     expect(items[1].key).toBe('files')
     expect(items[2].key).toBe('mcp')
@@ -56,8 +60,11 @@ describe('buildMoreItems', () => {
     expect(items[9].dialog).toBe('actions')
     expect(items[10].key).toBe('preview')
     expect(items[10].dialog).toBe('preview')
-    expect(items[11].key).toBe('settings')
-    expect(items[12].key).toBe('logout')
+    expect(items[11].key).toBe('stats')
+    expect(items[12].key).toBe('usage')
+    expect(items[13].key).toBe('system')
+    expect(items[14].key).toBe('settings')
+    expect(items[15].key).toBe('logout')
   })
 
   it('returns only the server tools a linked server can serve for /servers/:id/sessions/:sid', () => {
@@ -89,19 +96,22 @@ describe('buildMoreItems', () => {
 
   it('omits the Actions item for an Assistant session', () => {
     const items = buildMoreItems('/repos/0/sessions/abc')
-    expect(items).toHaveLength(12)
+    expect(items).toHaveLength(15)
     expect(items.map((item) => item.key)).not.toContain('actions')
     expect(items[7].key).toBe('terminal')
     expect(items[8].key).toBe('walkthrough')
     expect(items[9].key).toBe('preview')
     expect(items[9].dialog).toBe('preview')
-    expect(items[10].key).toBe('settings')
-    expect(items[11].key).toBe('logout')
+    expect(items[10].key).toBe('stats')
+    expect(items[11].key).toBe('usage')
+    expect(items[12].key).toBe('system')
+    expect(items[13].key).toBe('settings')
+    expect(items[14].key).toBe('logout')
   })
 
   it('returns assistant workspace items for /repos/:id/assistant', () => {
     const items = buildMoreItems('/repos/42/assistant')
-    expect(items).toHaveLength(11)
+    expect(items).toHaveLength(14)
     expect(items[0].key).toBe('home')
     expect(items[1].key).toBe('files')
     expect(items[1].dialog).toBe('files')
@@ -114,8 +124,11 @@ describe('buildMoreItems', () => {
     expect(items[7].dialog).toBe('terminal')
     expect(items[8].key).toBe('preview')
     expect(items[8].dialog).toBe('preview')
-    expect(items[9].key).toBe('settings')
-    expect(items[10].key).toBe('logout')
+    expect(items[9].key).toBe('stats')
+    expect(items[10].key).toBe('usage')
+    expect(items[11].key).toBe('system')
+    expect(items[12].key).toBe('settings')
+    expect(items[13].key).toBe('logout')
   })
 
   it('returns only Home + Settings + Logout for /schedules', () => {
@@ -186,8 +199,20 @@ describe('buildToolItems', () => {
       'walkthrough',
       'actions',
       'preview',
+      'stats',
+      'usage',
+      'system',
     ])
   })
+
+  it.each(['/repos/42', '/repos/42/sessions/abc', '/repos/0/sessions/abc', '/assistant'])(
+    'links the Statistics, Usage and System status pages from the %s tool rail',
+    (path) => {
+      const overview = buildToolItems(path).filter((item) => ['stats', 'usage', 'system'].includes(item.key))
+      expect(overview.map((item) => item.to)).toEqual(['/stats', '/usage', '/system'])
+      expect(overview.every((item) => item.panelTool === undefined && item.dialog === undefined)).toBe(true)
+    },
+  )
 
   it('returns the linked-server session tools for the tool rail', () => {
     expect(buildToolItems('/servers/srv_kitchen/sessions/abc').map((item) => item.key)).toEqual([
