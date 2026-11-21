@@ -103,8 +103,8 @@ export function TokenStatsChart({
                   x2={width - PADDING.right}
                   y1={lineY}
                   y2={lineY}
-                  stroke="var(--color-border)"
-                  strokeOpacity={index === 0 ? 1 : 0.45}
+                  stroke="var(--color-chart-grid)"
+                  strokeOpacity={index === 0 ? 1 : 0.7}
                   strokeDasharray={index === 0 ? undefined : '2 4'}
                 />
                 <text

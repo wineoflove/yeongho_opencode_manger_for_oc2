@@ -98,7 +98,7 @@ export function WorkflowSessionTimeline({ initialSessionId = '' }: { initialSess
                       x2={chartWidth - 8}
                       y1={210 - fraction * 180}
                       y2={210 - fraction * 180}
-                      stroke="var(--color-border)"
+                      stroke="var(--color-chart-grid)"
                     />
                     <text
                       x="52"

@@ -45,6 +45,14 @@
   --color-syntax-variable: #ffa657;
   --color-syntax-operator: #79c0ff;
   --color-syntax-punctuation: #d4d4d8;
+  --color-chart-1: #60a5fa;
+  --color-chart-2: #34d399;
+  --color-chart-3: #fbbf24;
+  --color-chart-4: #f472b6;
+  --color-chart-5: #a78bfa;
+  --color-chart-6: #22d3ee;
+  --color-chart-other: #a1a1aa;
+  --color-chart-grid: #3f3f46;
 }
 
 :root:not(.dark) {
@@ -92,6 +100,14 @@
   --color-syntax-variable: #e36209;
   --color-syntax-operator: #005cc5;
   --color-syntax-punctuation: #6b7280;
+  --color-chart-1: #2563eb;
+  --color-chart-2: #059669;
+  --color-chart-3: #d97706;
+  --color-chart-4: #db2777;
+  --color-chart-5: #7c3aed;
+  --color-chart-6: #0891b2;
+  --color-chart-other: #6b7280;
+  --color-chart-grid: #d1d5db;
 }
 
 :root {
