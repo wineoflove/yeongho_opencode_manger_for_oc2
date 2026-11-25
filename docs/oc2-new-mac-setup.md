@@ -223,15 +223,16 @@ unzip -q bun-darwin-aarch64.zip
 
 - 이름(Note): `oc2-<기기명>-<계정명>`. 설정 브랜치와 같은 이름을 쓰면 어느 기기 토큰인지 알기 쉽습니다.
 - 만료일(Expiration): 기한을 정합니다. 예: 90일. 만료 전에 GitHub가 메일로 알려 줍니다.
-- Scope:
+- Scope: 아래 3개는 **반드시 포함**해야 합니다. 이 가이드의 기능은 이 3개만으로 모두 동작합니다.
   - `repo`: 비공개 저장소 clone·push, 이슈·PR
   - `workflow`: upstream 병합 때 `.github/workflows` 변경을 push하려면 필요
   - `read:org`: `gh auth login`의 최소 요구 scope
+- 추가 scope는 **선택**입니다. 이 Mac에서 다른 작업도 한다면 더 넣어도 되고, 이미 더 많은 권한을 가진 토큰을 받았다면 그대로 써도 됩니다. 예: `gist`, `write:packages`(맥미니 토큰에 포함), `admin:org`, `delete_repo`
 
 > **Fine-grained token을 쓰지 않는 이유**: GitHub 공식 문서의 fine-grained 토큰 제한 목록에 "outside collaborator 또는 repository collaborator인 저장소에는 기여할 수 없음"이 있습니다. 그래서 다른 계정 소유의 비공개 저장소(`ocm-workspace-config` 등)에 collaborator로 접근하려면 classic 토큰이 필요합니다. 출처: [Managing your personal access tokens — Fine-grained personal access tokens limitations](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#fine-grained-personal-access-tokens-limitations)
 
-Classic 토큰은 그 계정이 접근할 수 있는 **모든 저장소**에 같은 권한으로 접근합니다. 다음을 지킵니다.
-- 위 scope 외에는 추가하지 않습니다(`delete_repo`, `admin:*` 등).
+Classic 토큰은 그 계정이 접근할 수 있는 **모든 저장소**에 같은 권한으로 접근합니다. 이 토큰은 Manager를 거쳐 에이전트 세션의 `GH_TOKEN`으로도 쓰입니다.
+- 권장: 이 Mac 전용으로 새로 발급한다면 필수 3개만 두는 편이 안전합니다. 저장소 삭제(`delete_repo`)나 조직 관리(`admin:*`) 같은 강한 권한은 에이전트도 쓸 수 있게 됩니다.
 - 만료일을 둡니다.
 - 기기를 정리할 때 그 기기의 토큰을 바로 폐기합니다(Settings → Developer settings → Tokens (classic) → Delete).
 
@@ -246,7 +247,7 @@ read -rs "GHT?GitHub 토큰: "; echo
 printf '%s' "$GHT" | gh auth login --hostname github.com --git-protocol https --with-token
 unset GHT
 gh auth setup-git        # git clone·push가 gh 인증을 사용
-gh auth status           # 이 Mac의 계정, Token: ghp_**** 마스킹, scopes에 repo·workflow·read:org 확인
+gh auth status           # 이 Mac의 계정, Token: ghp_**** 마스킹, scopes에 repo·workflow·read:org가 포함되었는지 확인(더 있어도 됨)
 gh api repos/wineoflove/ocm-workspace-config -q '.full_name + " push=" + (.permissions.push|tostring)'   # push=true 여야 함
 ```
 
