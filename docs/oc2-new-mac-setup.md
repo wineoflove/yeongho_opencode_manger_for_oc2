@@ -16,16 +16,18 @@
 ## 0. 구성 한눈에 보기
 
 ```text
-브라우저 ─▶ OCM Manager :5106  (launchd io.wineoflove.ocm2.backend, bun backend/dist/index.js)
-             ├─ OC2 native :5107  (Manager가 OPENCODE_BIN을 자식 프로세스로 실행)
-             │    ├─ openai/*    ─▶ Headroom :18788/v1 ─▶ CLIProxy :5117 ─▶ ChatGPT(Codex) 계정
-             │    └─ anthropic/* ─▶ Manager :5106/api/claude-inference/v1 ─▶ Headroom :18788 ─▶ CLIProxy :5117 ─▶ Claude 계정
-             └─ preview :5108
+브라우저 ─▶ OCM Manager :MANAGER  (launchd io.wineoflove.ocm2.backend, bun backend/dist/index.js)
+             ├─ OC2 native :OPENCODE  (Manager가 OPENCODE_BIN을 자식 프로세스로 실행)
+             │    ├─ openai/*    ─▶ Headroom :HEADROOM/v1 ─▶ CLIProxy :CLIPROXY ─▶ ChatGPT(Codex) 계정
+             │    └─ anthropic/* ─▶ Manager :MANAGER/api/claude-inference/v1 ─▶ Headroom :HEADROOM ─▶ CLIProxy :CLIPROXY ─▶ Claude 계정
+             └─ preview :PREVIEW
 
-OC2 ─▶ MCP  context7 :5121 · firecrawl :5122 · markitdown :5123 · exa :5124   (launchd 공용 서버, ~/apps/mcp-shared)
+OC2 ─▶ MCP  context7 :CONTEXT7 · firecrawl :FIRECRAWL · markitdown :MARKITDOWN · exa :EXA   (launchd 공용 서버, ~/apps/mcp-shared)
             ref (원격 https://ref.theseeker.io/mcp)
             playwright · codegraph · claude-design   (OC2가 띄우는 로컬 프로세스)
 ```
+
+포트는 이 Mac에 맞게 정합니다([1.1](#11-포트-정하기)). 맥미니 기본값은 Manager `5106`, OC2 `5107`, preview `5108`, CLIProxy `5117`, Headroom `18788`, MCP `5121`~`5124`입니다.
 
 | 구성 요소 | 기준 버전 | 원본 |
 | --- | --- | --- |
@@ -75,7 +77,7 @@ $HOME/.codegraph/                   codegraph 실행 파일
 
 맥미니에서 가져온 지침·스크립트·plist·스케줄 프롬프트에는 맥미니 HOME(`/Users/yeonghokim`)이 절대경로로 들어 있습니다. [4.5](#45-맥미니-번들-풀기와-경로-변환)의 `relocate.sh`가 이 값을 새 Mac의 HOME으로 한 번에 바꿉니다. 같은 사용자명이면 아무것도 바꾸지 않습니다.
 
-아래 명령은 모두 **새 Mac의 일반 터미널(zsh)** 기준입니다. 새 터미널을 열면 먼저 이 변수를 다시 설정하세요.
+아래 명령은 모두 **새 Mac의 일반 터미널(zsh)** 기준입니다. 새 터미널을 열면 먼저 이 변수를 다시 설정하세요. 마지막 줄은 [1.1](#11-포트-정하기)에서 만든 포트 파일을 불러옵니다.
 
 ```bash
 U=$HOME
@@ -83,7 +85,59 @@ S=$U/apps/ocm-v2-staging
 W=$S/data/workspace
 T=$W/.opencode/tooling
 G=$U/apps/ocm-workspace-config.git
+set -a; . $S/env/ports.env; set +a
 ```
+
+### 1.1 포트 정하기
+
+포트는 Mac마다 상황이 다를 수 있으므로 **이 Mac에 맞게 정합니다.** 아래는 맥미니에서 쓰는 값이며, 다른 서비스와 겹치지 않으면 그대로 써도 됩니다.
+
+| 변수 | 맥미니 값 | 용도 | 바깥에서 접속 |
+| --- | --- | --- | --- |
+| `MANAGER_PORT` | 5106 | OCM Manager 웹 UI·API, Claude 추론 게이트 | 예 (`0.0.0.0`, 브라우저 접속 주소) |
+| `OPENCODE_PORT` | 5107 | OC2 native 서버 | 아니요 (`127.0.0.1`) |
+| `PREVIEW_PORT` | 5108 | 터미널·미리보기 | 예 |
+| `CLIPROXY_PORT` | 5117 | CLIProxy | 대기는 `0.0.0.0`, 관리 API는 로컬만 |
+| `HEADROOM_PORT` | 18788 | Headroom 압축 프록시 | 아니요 |
+| `CONTEXT7_PORT` | 5121 | Context7 MCP | 아니요 |
+| `FIRECRAWL_PORT` | 5122 | Firecrawl MCP | 아니요 |
+| `MARKITDOWN_PORT` | 5123 | MarkItDown MCP | 아니요 |
+| `EXA_PORT` | 5124 | Exa(websearch) MCP | 아니요 |
+
+규칙:
+- 1024~65535 사이에서 9개가 모두 달라야 합니다.
+- `5003`, `5551`은 Manager 코드의 기본 포트라 쓰지 않습니다.
+
+후보 포트가 비어 있는지 먼저 확인합니다. 출력이 없으면 비어 있는 것입니다.
+
+```bash
+for p in 5106 5107 5108 5117 18788 5121 5122 5123 5124; do lsof -nP -iTCP:$p -sTCP:LISTEN | sed -n 2p; done
+```
+
+정한 값으로 포트 파일을 만듭니다. 같은 내용의 기본 파일이 저장소의 `deploy/new-mac/ports.env`에도 있습니다.
+
+```bash
+mkdir -p $S/env && chmod 700 $S/env
+cat > $S/env/ports.env <<'EOF'
+MANAGER_PORT=5106
+OPENCODE_PORT=5107
+PREVIEW_PORT=5108
+CLIPROXY_PORT=5117
+HEADROOM_PORT=18788
+CONTEXT7_PORT=5121
+FIRECRAWL_PORT=5122
+MARKITDOWN_PORT=5123
+EXA_PORT=5124
+EOF
+set -a; . $S/env/ports.env; set +a
+```
+
+포트 값이 반영되는 곳:
+- 맥미니에서 가져온 파일(운영 스크립트, MCP 스크립트, `opencode.jsonc`, Headroom plist, 지침의 포트 목록)은 [4.6](#46-포트-적용)의 `set-ports.sh`가 이 파일 값으로 바꿉니다.
+- `staging.env`와 CLIProxy 패키지는 이 가이드의 명령이 위 변수로 만듭니다.
+- 이후 절의 명령도 모두 이 변수를 씁니다.
+
+설치를 마친 뒤에 포트를 바꾸려면 [12.7](#127-설치-후-포트-바꾸기)을 따릅니다.
 
 ---
 
@@ -163,6 +217,7 @@ gh auth status           # Token: gho_… / github_pat_… 마스킹 표시, win
 ```bash
 mkdir -p $S/{bin,env,home,run,tmp,downloads,data/db,data/xdg/cache} $W/repos
 chmod 700 $S $S/env $S/home $S/data
+ls $S/env/ports.env      # 1.1에서 만든 포트 파일
 ```
 
 ### 4.2 OCM 포크 (Manager)
@@ -202,7 +257,7 @@ git log --oneline -3      # 8a138733 merge: OC2 custom 2.4.1-ocm-pool.36 into ma
 
 **A. Release에서 내려받기 (권장)**
 
-맥미니에서 운영 중인 바이너리와 같은 파일입니다.
+맥미니에서 운영 중인 바이너리와 같은 파일입니다. 바이너리는 214MB(압축 86MB)라 Git 저장소에 넣지 않고 GitHub Release에 첨부했습니다. Release 파일은 개당 2GiB까지 올릴 수 있고, 저장소 용량이나 clone 크기에 포함되지 않으며 무료입니다.
 
 ```bash
 mkdir -p $S/downloads/oc2 && cd $S/downloads/oc2
@@ -284,7 +339,7 @@ ls .config/opencode/agents | wc -l      # 19 (sisyphus, prometheus, hephaestus, 
 | `home/…/.opencode/tooling/` | claude-design-mcp 소스, playwright·ui-automation wrapper, MCP npm `package.json`·lock |
 | `home/…/repos/assistant/.opencode/` | `bin/schedule-report.mjs`, `schedule-reports.json`(맥미니 ID, [10](#10-학습점검-스케줄-범위-3)에서 교체) |
 | `home/Library/LaunchAgents/` | Manager 백엔드·Headroom plist. Headroom은 새 venv 위치로 맞춰져 있음 |
-| `meta/` | `schedules.json`(Assistant 스케줄 정의), `headroom-requirements.txt`, `markitdown-requirements.txt`, `manifest.json`(원본 HOME·OC2 버전·해시) |
+| `meta/` | `schedules.json`(Assistant 스케줄 정의), `headroom-requirements.txt`, `markitdown-requirements.txt`, `manifest.json`(원본 HOME·OC2 버전·해시·맥미니 포트) |
 
 ```bash
 cd $S/port/deploy/new-mac
@@ -310,19 +365,39 @@ bash $S/port/deploy/new-mac/relocate.sh "$(jq -r .sourceHome $S/run/new-mac-meta
 - 같은 사용자명이면 "nothing to relocate"를 출력하고 끝납니다. 다시 실행해도 결과는 같습니다.
 - 워크스페이스 설정 저장소(`macbook` 브랜치)에서는 바뀐 파일이 수정으로 보입니다. 이 Mac 전용 브랜치의 정상적인 차이입니다.
 
+### 4.6 포트 적용
+
+맥미니에서 가져온 파일의 포트를 [1.1](#11-포트-정하기)의 값으로 바꿉니다.
+
+```bash
+bash $S/port/deploy/new-mac/set-ports.sh $S/env/ports.env
+```
+
+- 맥미니 포트는 번들 `manifest.json`의 `ports`에서 읽습니다. 바꾼 결과는 `$S/env/ports.applied.env`에 기록되어, 다음에 다시 실행할 때 기준이 됩니다.
+- 대상은 4.5와 같은 운영 파일입니다(운영 스크립트, MCP 스크립트·README, `opencode.jsonc`, Headroom plist, 지침의 포트 목록).
+  - 지침 파일은 전역 `AGENTS.md`, `assistant.md`, `learning-follow-through.md`, `webapp-testing` 스킬입니다. 에이전트가 이 목록을 보고 OC2 서비스 포트를 피하기 때문에 함께 바꿉니다.
+  - 학습 기록은 바꾸지 않습니다.
+- 포트 번호 앞뒤에 다른 숫자나 영문자가 붙어 있으면(해시, ID 등) 바꾸지 않습니다. 포트끼리 맞바꿔도(예: 5106↔5107) 섞이지 않습니다.
+- 값이 9개 모두 있고, 서로 다르며, 1024~65535 범위이고 `5003`·`5551`이 아니어야 합니다. 아니면 아무것도 바꾸지 않고 끝납니다.
+- 같은 값으로 다시 실행하면 바뀌는 파일이 없습니다.
+- 마지막에 이미 다른 프로세스가 대기 중인 포트가 있으면 `note:`로 알려 줍니다.
+
+전역 `AGENTS.md`의 "Dev Server Ports" 절에는 맥미니에만 있는 다른 서비스(예약 시스템, OpenClaw 등)의 포트도 적혀 있습니다. 이 Mac에서 실제로 쓰는 서비스에 맞게 직접 고쳐 두면 에이전트가 포트를 고를 때 정확해집니다.
+
 확인:
 
 ```bash
-grep -n 'apiKey\|baseURL' $W/.config/opencode/opencode.jsonc
+grep -n 'apiKey\|baseURL\|"url"' $W/.config/opencode/opencode.jsonc
+grep -n 'for port in' $S/bin/launchd-backend.sh $S/bin/status.sh
 ls $W/.config/opencode $W/repos/assistant/.opencode/agents
 ```
 
 ```jsonc
 // providers.openai.settings
-"baseURL": "http://127.0.0.1:18788/v1",                       // Headroom → CLIProxy
+"baseURL": "http://127.0.0.1:<HEADROOM_PORT>/v1",             // Headroom → CLIProxy
 "apiKey": "{file:<HOME>/apps/ocm-v2-staging/cliproxy/package/keys/upstream.key}"
 // providers.anthropic.settings
-"baseURL": "http://127.0.0.1:5106/api/claude-inference/v1",   // Manager 게이트 → Headroom → CLIProxy
+"baseURL": "http://127.0.0.1:<MANAGER_PORT>/api/claude-inference/v1",   // Manager 게이트 → Headroom → CLIProxy
 "apiKey": "{file:<HOME>/apps/ocm-v2-staging/cliproxy/package/keys/ingress.key}"
 ```
 
@@ -350,13 +425,13 @@ OCM 포크의 `prepareClaudeProxyPackage`를 사용합니다. 이 함수가 디�
 ```bash
 mkdir -p $S/cliproxy
 cd $S/port
-DEST=$S/cliproxy/package BIN=$S/downloads/cliproxy/cli-proxy-api \
+DEST=$S/cliproxy/package BIN=$S/downloads/cliproxy/cli-proxy-api PORT=$CLIPROXY_PORT \
 SHA=b578f4c19b23cd94f95ff9ccb78dd1f1f2944b87d1737a90a6c09a18685d7f68 \
 bun -e '
 import { prepareClaudeProxyPackage } from "./backend/src/services/claude-proxy-package.ts";
 console.log(await prepareClaudeProxyPackage({
   destination: process.env.DEST, binary: process.env.BIN,
-  binarySha256: process.env.SHA, port: 5117 }));'
+  binarySha256: process.env.SHA, port: Number(process.env.PORT) }));'
 ls -la $S/cliproxy/package $S/cliproxy/package/keys
 ```
 
@@ -372,7 +447,7 @@ json.dump(c, open(p, "w"), indent=2)
 EOF
 ```
 
-나머지 설정은 맥미니와 같습니다. `0.0.0.0:5117`에서 대기하고, `management.allow-remote: false`와 `disable-control-panel: true`로 원격 관리를 막습니다. 라우팅은 `round-robin`, `session-affinity: false`, `request-retry: 0`, `max-retry-credentials: 1`이고 Claude `server-side-fallback`은 꺼져 있습니다.
+나머지 설정은 맥미니와 같습니다. `0.0.0.0:$CLIPROXY_PORT`에서 대기하고, `management.allow-remote: false`와 `disable-control-panel: true`로 원격 관리를 막습니다. 라우팅은 `round-robin`, `session-affinity: false`, `request-retry: 0`, `max-retry-credentials: 1`이고 Claude `server-side-fallback`은 꺼져 있습니다.
 
 ### 5.3 launchd 등록·확인
 
@@ -380,9 +455,9 @@ EOF
 cp $S/cliproxy/package/com.aion.ocm.claude-proxy.plist $U/Library/LaunchAgents/
 launchctl bootstrap gui/$(id -u) $U/Library/LaunchAgents/com.aion.ocm.claude-proxy.plist
 launchctl kickstart gui/$(id -u)/com.aion.ocm.claude-proxy
-lsof -nP -iTCP:5117 -sTCP:LISTEN
+lsof -nP -iTCP:$CLIPROXY_PORT -sTCP:LISTEN
 curl -s -D - -o /dev/null -H "Authorization: Bearer $(cat $S/cliproxy/package/keys/management.key)" \
-  http://127.0.0.1:5117/v8/management/credentials | grep -i '^x-cpa-version'   # 8.1.3
+  http://127.0.0.1:$CLIPROXY_PORT/v8/management/credentials | grep -i '^x-cpa-version'   # 8.1.3
 ```
 
 계정은 Manager를 띄운 다음 UI에서 추가합니다([8.3](#83-cliproxy-계정-로그인)).
@@ -403,10 +478,10 @@ ls "$(plutil -extract EnvironmentVariables.ORT_DYLIB_PATH raw $P)"
 mkdir -p $S/run/headroom/tmp
 plutil -lint $P
 launchctl bootstrap gui/$(id -u) $P
-sleep 5; curl -s http://127.0.0.1:18788/health; echo
+sleep 5; curl -s http://127.0.0.1:$HEADROOM_PORT/health; echo
 ```
 
-plist의 핵심 인자는 맥미니와 같습니다: `proxy --host 127.0.0.1 --port 18788 --stateless --no-telemetry --no-subscription-tracking --retry-max-attempts 1 --connect-timeout-seconds 3 --lossless`. `ANTHROPIC_TARGET_API_URL`와 `OPENAI_TARGET_API_URL`은 모두 `http://127.0.0.1:5117`(CLIProxy)입니다. Headroom이 쓰는 Hugging Face 모델(약 260MB)은 처음 기동할 때 `$HOME/.cache/huggingface`에 내려받습니다.
+plist의 핵심 인자는 맥미니와 같습니다: `proxy --host 127.0.0.1 --port <HEADROOM_PORT> --stateless --no-telemetry --no-subscription-tracking --retry-max-attempts 1 --connect-timeout-seconds 3 --lossless`. `ANTHROPIC_TARGET_API_URL`와 `OPENAI_TARGET_API_URL`은 모두 `http://127.0.0.1:<CLIPROXY_PORT>`(CLIProxy)입니다. 포트 값은 4.6에서 이미 이 Mac 기준으로 바뀌었습니다. Headroom이 쓰는 Hugging Face 모델(약 260MB)은 처음 기동할 때 `$HOME/.cache/huggingface`에 내려받습니다.
 
 ---
 
@@ -444,7 +519,7 @@ python3 $U/apps/mcp-shared/bin/write-plists.py     # $HOME/Library/LaunchAgents/
 for n in context7 firecrawl markitdown exa; do
   launchctl bootstrap gui/$(id -u) $U/Library/LaunchAgents/io.wineoflove.mcp.$n.plist
 done
-sleep 3; for p in 5121 5122 5123 5124; do lsof -nP -iTCP:$p -sTCP:LISTEN | tail -1; done
+sleep 3; for p in $CONTEXT7_PORT $FIRECRAWL_PORT $MARKITDOWN_PORT $EXA_PORT; do lsof -nP -iTCP:$p -sTCP:LISTEN | tail -1; done
 node $U/apps/mcp-shared/bin/smoke.mjs        # 도구 목록·동시 접속·Host 거부
 node $U/apps/mcp-shared/bin/call-smoke.mjs   # 실제 도구 호출 (Exa·Firecrawl 크레딧을 소량 사용)
 ```
@@ -481,7 +556,7 @@ $U/.codegraph/current/bin/codegraph version      # 1.5.0
 ### 7.5 ref, websearch
 
 - `ref`: 원격 `https://ref.theseeker.io/mcp`이며 인증이 필요 없습니다.
-- `websearch`: 7.1의 Exa 프록시(`:5124`)입니다.
+- `websearch`: 7.1의 Exa 프록시(`:$EXA_PORT`)입니다.
 
 ### 7.6 LSP와 UI 자동화 도구 (선택)
 
@@ -514,16 +589,16 @@ cat > $S/env/staging.env <<EOF
 NODE_ENV=production
 LOG_LEVEL=info
 HOST=0.0.0.0
-PORT=5106
-CORS_ORIGIN=http://$IP:5106
-AUTH_TRUSTED_ORIGINS=http://$IP:5106,http://localhost:5106,http://127.0.0.1:5106
+PORT=$MANAGER_PORT
+CORS_ORIGIN=http://$IP:$MANAGER_PORT
+AUTH_TRUSTED_ORIGINS=http://$IP:$MANAGER_PORT,http://localhost:$MANAGER_PORT,http://127.0.0.1:$MANAGER_PORT
 AUTH_SECURE_COOKIES=false
 AUTH_SECRET=$(openssl rand -hex 32)
 ADMIN_EMAIL=$ADMIN_EMAIL
 ADMIN_PASSWORD=$ADMIN_PASSWORD
-OPENCODE_SERVER_PORT=5107
+OPENCODE_SERVER_PORT=$OPENCODE_PORT
 OPENCODE_HOST=127.0.0.1
-PREVIEW_PORT=5108
+PREVIEW_PORT=$PREVIEW_PORT
 DATABASE_PATH=$S/data/db/opencode-manager.db
 WORKSPACE_PATH=$W
 XDG_CACHE_HOME=$S/data/xdg/cache
@@ -533,12 +608,12 @@ OPENCODE_DISABLE_CLAUDE_CODE=1
 OCM_LEARNINGS_ENTRIES_PATH=$W/.opencode/learnings/entries
 OPENCODE_BIN=$S/opencode/2.4.1-ocm-pool.36/opencode
 OPENCODE_SERVICE_CHANNEL=ocm-pool
-OCM_CLAUDE_PROXY_URL=http://127.0.0.1:5117
+OCM_CLAUDE_PROXY_URL=http://127.0.0.1:$CLIPROXY_PORT
 OCM_CLAUDE_PROXY_MANAGEMENT_KEY_FILE=$S/cliproxy/package/keys/management.key
 OCM_CLAUDE_INFERENCE_KEY_FILE=$S/cliproxy/package/keys/ingress.key
 OCM_CLAUDE_PROXY_API_KEY_FILE=$S/cliproxy/package/keys/upstream.key
 OCM_CLAUDE_PROXY_GATE_DIRECTORY=$S/cliproxy/package/gate
-OCM_CLAUDE_INFERENCE_UPSTREAM_URL=http://127.0.0.1:18788
+OCM_CLAUDE_INFERENCE_UPSTREAM_URL=http://127.0.0.1:$HEADROOM_PORT
 OCM_MAINTENANCE_MARKER=$S/run/maintenance.closed
 EOF
 unset ADMIN_PASSWORD
@@ -550,27 +625,27 @@ chmod 600 $S/env/staging.env
 
 ### 8.2 백엔드 launchd 등록
 
-번들에서 `bin/launchd-backend.sh`와 `$HOME/Library/LaunchAgents/io.wineoflove.ocm2.backend.plist`가 이미 풀려 있습니다. plist는 `HOME=$S/home`, `ENVFILE=$S/env/staging.env`, `WorkingDirectory=$S/port`로 `bin/launchd-backend.sh`를 실행합니다. 이 스크립트는 5106·5107·5108 포트를 다른 프로세스가 쓰고 있으면 기동을 거부하고, `bun run backend/dist/index.js`를 실행합니다.
+번들에서 `bin/launchd-backend.sh`와 `$HOME/Library/LaunchAgents/io.wineoflove.ocm2.backend.plist`가 이미 풀려 있습니다. plist는 `HOME=$S/home`, `ENVFILE=$S/env/staging.env`, `WorkingDirectory=$S/port`로 `bin/launchd-backend.sh`를 실행합니다. 이 스크립트는 Manager·OC2·preview 포트(4.6에서 이 Mac 값으로 바뀜)를 다른 프로세스가 쓰고 있으면 기동을 거부하고, `bun run backend/dist/index.js`를 실행합니다.
 
 ```bash
 chmod 700 $S/bin/*.sh
 plutil -lint $U/Library/LaunchAgents/io.wineoflove.ocm2.backend.plist
 launchctl bootstrap gui/$(id -u) $U/Library/LaunchAgents/io.wineoflove.ocm2.backend.plist
 $S/bin/restart.sh && $S/bin/status.sh
-curl -s http://127.0.0.1:5106/api/health | jq '{status, database, opencode, opencodeVersion, opencodeVersionSupported}'
+curl -s http://127.0.0.1:$MANAGER_PORT/api/health | jq '{status, database, opencode, opencodeVersion, opencodeVersionSupported}'
 # opencodeVersion: "2.4.1-ocm-pool.36", opencodeVersionSupported: true
 tail -50 $S/run/backend.log
 ```
 
 ### 8.3 CLIProxy 계정 로그인
 
-1. 브라우저에서 `http://<새맥IP>:5106`에 접속해 관리자 계정으로 로그인합니다.
+1. 브라우저에서 `http://<새맥IP>:<MANAGER_PORT>`에 접속해 관리자 계정으로 로그인합니다.
 2. **설정 → Providers → 프록시 계정**에서 Claude와 OpenAI 계정을 추가합니다. OAuth 페이지에서 로그인한 뒤 리디렉션 URL을 붙여 넣습니다.
 3. 계정 수를 확인합니다.
 
    ```bash
    curl -s -H "Authorization: Bearer $(cat $S/cliproxy/package/keys/management.key)" \
-     http://127.0.0.1:5117/v8/management/credentials | jq '.files | length'
+     http://127.0.0.1:$CLIPROXY_PORT/v8/management/credentials | jq '.files | length'
    ```
 
 > 맥미니의 `auths/`는 복사하지 마세요. 같은 refresh token을 두 프록시가 함께 쓰면 토큰이 회전될 때 한쪽이 로그아웃될 수 있습니다. 이 Mac에서 따로 로그인하는 방식이 안전합니다.
@@ -580,7 +655,7 @@ tail -50 $S/run/backend.log
 Assistant에서 새 세션을 열고 `openai/gpt-6.1-sol`과 `anthropic/claude-opus-5-5`에 각각 짧은 메시지를 보내 응답이 오는지 확인합니다. 응답이 없으면 계층별로 나눠서 확인합니다.
 
 ```bash
-curl -s http://127.0.0.1:18788/v1/models -H "Authorization: Bearer $(cat $S/cliproxy/package/keys/upstream.key)" | jq -r '.data[].id' | head
+curl -s http://127.0.0.1:$HEADROOM_PORT/v1/models -H "Authorization: Bearer $(cat $S/cliproxy/package/keys/upstream.key)" | jq -r '.data[].id' | head
 tail -30 $S/run/headroom/headroom.log; tail -30 $S/cliproxy/package/logs/stderr.log; tail -30 $S/run/backend.log
 ```
 
@@ -676,17 +751,17 @@ git dir과 작업 트리 경로(`--git-dir=<HOME>/apps/ocm-workspace-config.git 
 
 ```bash
 $S/bin/status.sh
-for p in 5106 5107 5108 5117 18788 5121 5122 5123 5124; do printf '%s ' $p; lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null && echo LISTEN || echo '-'; done
+for p in $MANAGER_PORT $OPENCODE_PORT $PREVIEW_PORT $CLIPROXY_PORT $HEADROOM_PORT $CONTEXT7_PORT $FIRECRAWL_PORT $MARKITDOWN_PORT $EXA_PORT; do printf '%s ' $p; lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null && echo LISTEN || echo '-'; done
 launchctl list | grep -E 'ocm2|claude-proxy|mcp\.'
-curl -s http://127.0.0.1:5106/api/health | jq -r '.opencodeVersion'
-curl -s http://127.0.0.1:18788/health; echo
+curl -s http://127.0.0.1:$MANAGER_PORT/api/health | jq -r '.opencodeVersion'
+curl -s http://127.0.0.1:$HEADROOM_PORT/health; echo
 git -C $S/port remote -v; git -C $W/repos/oc2-custom remote -v
 git --git-dir=$G branch --show-current
 grep -rlI "$(jq -r .sourceHome $S/run/new-mac-meta/manifest.json)" $S/bin $U/apps/mcp-shared/bin $W/.config/opencode $U/Library/LaunchAgents 2>/dev/null   # 사용자명이 다르면 출력이 없어야 함
 ```
 
 - [ ] Manager `/api/health`가 `healthy`이고 `opencodeVersion`이 `2.4.1-ocm-pool.36`이다
-- [ ] 5106, 5107, 5108, 5117, 18788, 5121~5124 포트가 모두 대기 중이다
+- [ ] `ports.env`의 포트 9개가 모두 대기 중이다
 - [ ] 프록시 계정이 등록되어 있고, OpenAI·Anthropic 모델이 모두 응답한다
 - [ ] MCP 8개가 connected이고 스킬 43개(전역 38 + Manager 생성 5)가 보인다
 - [ ] `port`(origin·upstream), `oc2-custom`(origin·upstream), 워크스페이스 설정(`macbook` 브랜치)이 연결되어 있다
@@ -739,7 +814,7 @@ upstream 변경을 포크에 반영할 때는 `git fetch upstream` 후 별도 �
 
 7. 전환은 외부 1회성 작업으로 진행합니다.
    - idle 대기
-   - 백엔드 정지와 5106·5107 해제 확인
+   - 백엔드 정지와 Manager·OC2 포트 해제 확인
    - native DB(`$W/.opencode/state/opencode/opencode-ocm-pool.db`와 `-wal`/`-shm`), Manager DB, `staging.env`를 SHA-256 검증과 함께 백업
    - `OPENCODE_BIN` 교체
    - 기동 후 `/api/health`의 `opencodeVersion` 확인
@@ -778,7 +853,9 @@ plist를 바꾼 뒤 `launchctl bootout`/`bootstrap`으로 재기동하고 `/heal
 ### 12.5 워크스페이스 설정·스킬
 
 - 이 Mac의 변경을 백업합니다. 10.4 스케줄이 하거나 수동으로 합니다: `git --git-dir=$G --work-tree=$W add <파일>` → `commit` → `push origin macbook`. `add .`, `add -A`, `add -u`는 쓰지 않습니다.
-- 맥미니 변경을 가져옵니다: `git --git-dir=$G fetch origin` 후 `git --git-dir=$G --work-tree=$W diff macbook origin/macmini -- .config/opencode repos/assistant`로 확인하고, 필요한 파일만 `checkout origin/macmini -- <경로>`로 가져옵니다. 사용자명이 다르면 가져온 파일에 `relocate.sh <맥미니 HOME> <파일…>`을 다시 적용합니다.
+- 맥미니 변경을 가져옵니다: `git --git-dir=$G fetch origin` 후 `git --git-dir=$G --work-tree=$W diff macbook origin/macmini -- .config/opencode repos/assistant`로 확인하고, 필요한 파일만 `checkout origin/macmini -- <경로>`로 가져옵니다. 가져온 파일은 맥미니 기준이므로 두 스크립트를 다시 적용합니다.
+  - 사용자명이 다르면: `bash $S/port/deploy/new-mac/relocate.sh <맥미니 HOME> <파일…>`
+  - 포트가 다르면: `bash $S/port/deploy/new-mac/set-ports.sh --source $S/env/ports.env <파일…>`. `--source`는 지정한 파일만 맥미니 포트에서 이 Mac 포트로 바꿉니다.
 - MCP 패키지는 `npm install --prefix $T/npm-mcp/<이름> --save-exact <패키지>@<버전>` 후 `launchctl kickstart -k gui/$(id -u)/io.wineoflove.mcp.<이름>`으로 갱신합니다.
 
 ### 12.6 맥미니 번들 갱신
@@ -797,7 +874,24 @@ git push origin HEAD:main
 cd $S && git -C $S/port worktree remove $S/run/bundle-refresh
 ```
 
-`make-bundle.sh`는 실행 중인 서비스를 건드리지 않고 파일을 읽기만 합니다. 묶을 파일에서 비밀값이 발견되면 중단합니다. **이 저장소는 공개 저장소입니다.** 번들에 새 파일을 추가할 때는 비밀값이나 개인 정보가 들어가지 않는지 먼저 확인하세요.
+`make-bundle.sh`는 실행 중인 서비스를 건드리지 않고 파일을 읽기만 합니다. 묶을 파일에서 비밀값이 발견되면 중단합니다. 맥미니의 실제 포트는 `staging.env`, `opencode.jsonc`, Headroom plist에서 읽어 `manifest.json`의 `ports`에 기록하므로, 맥미니 포트가 바뀌어도 새 Mac의 `set-ports.sh`가 올바른 기준으로 변환합니다. **이 저장소는 공개 저장소입니다.** 번들에 새 파일을 추가할 때는 비밀값이나 개인 정보가 들어가지 않는지 먼저 확인하세요.
+
+### 12.7 설치 후 포트 바꾸기
+
+이미 운영 중인 Mac에서 포트를 바꿀 때도 같은 스크립트를 씁니다. 서비스를 다시 띄워야 하므로 **활성 세션이 0일 때** 진행합니다.
+
+1. `$S/env/ports.env`에서 값을 고치고 `set -a; . $S/env/ports.env; set +a`로 다시 불러옵니다.
+2. 파일에 적용합니다: `bash $S/port/deploy/new-mac/set-ports.sh $S/env/ports.env`. 직전에 적용한 값(`ports.applied.env`)을 기준으로, 바뀐 포트만 변환합니다.
+3. 스크립트 밖에서 관리하는 곳을 고칩니다.
+   - Manager·OC2·preview·CLIProxy·Headroom 포트: `$S/env/staging.env`의 `PORT`, `CORS_ORIGIN`, `AUTH_TRUSTED_ORIGINS`, `OPENCODE_SERVER_PORT`, `PREVIEW_PORT`, `OCM_CLAUDE_PROXY_URL`, `OCM_CLAUDE_INFERENCE_UPSTREAM_URL`
+   - CLIProxy 포트: `$S/cliproxy/package/config.yaml`의 `server.port`
+   - MCP 포트: `python3 $U/apps/mcp-shared/bin/write-plists.py`로 plist를 다시 생성
+4. 바뀐 서비스만 다시 띄웁니다. 한 대씩 확인하며 진행합니다.
+   - MCP: `launchctl bootout gui/$(id -u)/io.wineoflove.mcp.<이름>` → `launchctl bootstrap gui/$(id -u) $U/Library/LaunchAgents/io.wineoflove.mcp.<이름>.plist`
+   - CLIProxy: `launchctl kickstart -k gui/$(id -u)/com.aion.ocm.claude-proxy`
+   - Headroom: plist를 바꿨으므로 `bootout` 후 `bootstrap`
+   - Manager: `$S/bin/restart.sh`
+5. [11](#11-최종-점검)의 점검을 다시 실행합니다. 브라우저 접속 주소와, Cloudflare Tunnel을 쓴다면 그 설정의 포트도 바꿉니다.
 
 ---
 
@@ -805,11 +899,11 @@ cd $S && git -C $S/port worktree remove $S/run/bundle-refresh
 
 | 증상 | 확인할 곳 |
 | --- | --- |
-| 백엔드가 계속 재시작됨 | `$S/run/backend.log`. "port … held by pid"이면 다른 프로세스가 5106·5107·5108을 쓰고 있습니다. 그 프로세스를 직접 확인하고, 이름 패턴으로 일괄 종료하지 마세요 |
-| `opencodeVersionSupported: false` 또는 5107이 대기하지 않음 | `OPENCODE_BIN` 경로·실행 권한·quarantine 속성, `opencode --version` |
+| 백엔드가 계속 재시작됨 | `$S/run/backend.log`. "port … held by pid"이면 다른 프로세스가 Manager·OC2·preview 포트를 쓰고 있습니다. 다른 포트로 바꾸려면 4.6을 다시 적용합니다. 그 프로세스를 직접 확인하고, 이름 패턴으로 일괄 종료하지 마세요 |
+| `opencodeVersionSupported: false` 또는 OC2 포트가 대기하지 않음 | `OPENCODE_BIN` 경로·실행 권한·quarantine 속성, `opencode --version` |
 | `relocate.sh`가 exit 1 | 출력된 파일에 남은 맥미니 경로를 직접 확인. 다른 계정 경로(`/Users/<이름>x`)나 문장 끝에 마침표가 붙은 경로는 일부러 바꾸지 않습니다 |
-| Anthropic 모델만 실패 | `OCM_CLAUDE_INFERENCE_*` 키 경로, Headroom 18788 상태, CLIProxy Claude 계정 |
-| OpenAI 모델만 실패 | `opencode.jsonc`의 `upstream.key` 경로, Headroom → 5117, Codex 계정 |
+| Anthropic 모델만 실패 | `OCM_CLAUDE_INFERENCE_*` 키 경로, Headroom 포트 상태, CLIProxy Claude 계정 |
+| OpenAI 모델만 실패 | `opencode.jsonc`의 `upstream.key` 경로, Headroom → CLIProxy 포트, Codex 계정 |
 | MCP가 disconnected | `$HOME/apps/mcp-shared/logs/<이름>.log`, 키 파일 권한(600), `node $HOME/apps/mcp-shared/bin/smoke.mjs` |
 | codegraph만 disconnected | `$HOME/.codegraph/current/bin/codegraph version`, `opencode.jsonc`의 codegraph `command` 경로 |
 | Playwright MCP 실패 | 토큰 파일 권한(0600, 심볼릭 링크 불가), Chrome 확장 설치 프로필과 `--profile-dir-name` |

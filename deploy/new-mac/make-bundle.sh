@@ -131,11 +131,44 @@ print(f"secret scan: {len(values)} known values checked, clean")
 EOF
 
 NATIVE=$(grep '^OPENCODE_BIN=' "$S/env/staging.env" | cut -d= -f2-)
-{
-  printf '{\n  "createdAt": "%s",\n  "sourceHome": "%s",\n  "sourceUser": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$U" "$USER_NAME"
-  printf '  "opencodeVersion": "%s",\n' "$("$NATIVE" --version 2>/dev/null | awk '{print $NF}')"
-  printf '  "opencodeSha256": "%s"\n}\n' "$(shasum -a 256 "$NATIVE" | cut -d' ' -f1)"
-} > "$STAGE/meta/manifest.json"
+U="$U" S="$S" W="$W" USER_NAME="$USER_NAME" STAGE="$STAGE" \
+OC_VERSION="$("$NATIVE" --version 2>/dev/null | awk '{print $NF}')" \
+OC_SHA="$(shasum -a 256 "$NATIVE" | cut -d' ' -f1)" /usr/bin/python3 - <<'EOF'
+import json, os, plistlib, re, datetime
+from urllib.parse import urlparse
+U, S, W = os.environ["U"], os.environ["S"], os.environ["W"]
+env = dict(l.split("=", 1) for l in open(f"{S}/env/staging.env").read().splitlines() if "=" in l)
+cfg = json.load(open(f"{W}/.config/opencode/opencode.jsonc"))
+mcp = cfg["mcp"]["servers"]
+headroom = plistlib.load(open(f"{U}/Library/LaunchAgents/io.wineoflove.ocm2.headroom.plist", "rb"))
+args = headroom["ProgramArguments"]
+port = lambda url: urlparse(url).port
+ports = {
+    "MANAGER_PORT": int(env["PORT"]),
+    "OPENCODE_PORT": int(env["OPENCODE_SERVER_PORT"]),
+    "PREVIEW_PORT": int(env["PREVIEW_PORT"]),
+    "CLIPROXY_PORT": port(env["OCM_CLAUDE_PROXY_URL"]),
+    "HEADROOM_PORT": int(args[args.index("--port") + 1]),
+    "CONTEXT7_PORT": port(mcp["context7"]["url"]),
+    "FIRECRAWL_PORT": port(mcp["firecrawl"]["url"]),
+    "MARKITDOWN_PORT": port(mcp["markitdown"]["url"]),
+    "EXA_PORT": port(mcp["websearch"]["url"]),
+}
+assert port(env["OCM_CLAUDE_INFERENCE_UPSTREAM_URL"]) == ports["HEADROOM_PORT"], "Headroom port mismatch"
+assert all(isinstance(v, int) for v in ports.values()), ports
+manifest = {
+    "createdAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "sourceHome": U,
+    "sourceUser": os.environ["USER_NAME"],
+    "opencodeVersion": os.environ["OC_VERSION"],
+    "opencodeSha256": os.environ["OC_SHA"],
+    "ports": ports,
+}
+json.dump(manifest, open(os.path.join(os.environ["STAGE"], "meta/manifest.json"), "w"), indent=2)
+EOF
+diff <(sed -n 's/^\([A-Z0-9_]*\)=.*/\1/p' "$OUT_DIR/ports.env") \
+     <(/usr/bin/python3 -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))["ports"]))' "$STAGE/meta/manifest.json") \
+  || { echo "ports.env names differ from the manifest ports" >&2; exit 1; }
 
 /usr/bin/tar -C "$STAGE" --uid 0 --gid 0 --uname root --gname wheel -czf "$OUT_DIR/oc2-macmini-bundle.tgz" home meta
 (cd "$OUT_DIR" && shasum -a 256 oc2-macmini-bundle.tgz > SHA256SUMS)
