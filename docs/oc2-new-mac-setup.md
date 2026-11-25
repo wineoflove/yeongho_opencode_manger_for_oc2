@@ -34,7 +34,7 @@ OC2 ─▶ MCP  context7 :CONTEXT7 · firecrawl :FIRECRAWL · markitdown :MARKIT
 | OC2 native | `2.4.1-ocm-pool.36` | `wineoflove/yeongho_opencode2` `main`, Release `v2.4.1-ocm-pool.36`, upstream `anomalyco/opencode` `v2.4.1` |
 | OCM (Manager) | 포크 `main` | `wineoflove/yeongho_opencode_manger_for_oc2`, upstream `chriswritescode-dev/opencode-manager` |
 | 맥미니 운영 파일 번들 | `deploy/new-mac/oc2-macmini-bundle.tgz` | 이 저장소 (비밀값 제외) |
-| 워크스페이스 설정·스킬·학습 저장소 | `macmini` 브랜치 | `wineoflove/ocm-workspace-config` (비공개) |
+| 워크스페이스 설정·스킬·학습 저장소 | 처음 설치 때 `macmini` 브랜치 → 이후 이 Mac 전용 `<기기명>-<계정명>` 브랜치 | `wineoflove/ocm-workspace-config` (비공개) |
 | CLIProxyAPI | `8.1.3` | `router-for-me/CLIProxyAPI` GitHub Releases |
 | Headroom | `headroom-ai 0.45.0` (Python 3.12) | PyPI |
 | Bun | 런타임 `1.4.0`, native 빌드 `1.4.4` | npm `bun` / `oven-sh/bun` Releases |
@@ -77,7 +77,9 @@ $HOME/.codegraph/                   codegraph 실행 파일
 
 맥미니에서 가져온 지침·스크립트·plist·스케줄 프롬프트에는 맥미니 HOME(`/Users/yeonghokim`)이 절대경로로 들어 있습니다. [4.5](#45-맥미니-번들-풀기와-경로-변환)의 `relocate.sh`가 이 값을 새 Mac의 HOME으로 한 번에 바꿉니다. 같은 사용자명이면 아무것도 바꾸지 않습니다.
 
-아래 명령은 모두 **새 Mac의 일반 터미널(zsh)** 기준입니다. 새 터미널을 열면 먼저 이 변수를 다시 설정하세요. 마지막 줄은 [1.1](#11-포트-정하기)에서 만든 포트 파일을 불러옵니다.
+아래 명령은 모두 **새 Mac의 일반 터미널(zsh)** 기준입니다. 새 터미널을 열면 먼저 이 변수를 다시 설정하세요.
+- `CONFIG_BRANCH`는 이 Mac 전용 설정 브랜치 이름입니다([1.2](#12-설정-브랜치-이름)).
+- 마지막 줄은 [1.1](#11-포트-정하기)에서 만든 포트 파일을 불러옵니다.
 
 ```bash
 U=$HOME
@@ -85,6 +87,8 @@ S=$U/apps/ocm-v2-staging
 W=$S/data/workspace
 T=$W/.opencode/tooling
 G=$U/apps/ocm-workspace-config.git
+CONFIG_BRANCH=$(cat $S/env/config-branch 2>/dev/null || printf '%s-%s' "$(scutil --get LocalHostName)" "$(id -un)" \
+  | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')
 set -a; . $S/env/ports.env; set +a
 ```
 
@@ -139,6 +143,26 @@ set -a; . $S/env/ports.env; set +a
 
 설치를 마친 뒤에 포트를 바꾸려면 [12.7](#127-설치-후-포트-바꾸기)을 따릅니다.
 
+### 1.2 설정 브랜치 이름
+
+워크스페이스 설정 저장소(`ocm-workspace-config`)는 기기마다 브랜치를 따로 씁니다. 이 Mac의 브랜치 이름은 **기기명-계정명**입니다.
+
+- 기기명: 시스템 설정 → 일반 → 공유의 로컬 호스트 이름(`scutil --get LocalHostName`)
+- 계정명: macOS 사용자명(`id -un`)
+- 소문자로 바꾸고 영문·숫자 외의 문자는 `-`로 바꿉니다. 예: 로컬 호스트 이름 `Yeonghos-MacBook-Pro` + 계정 `yeongho` → `yeonghos-macbook-pro-yeongho`
+
+```bash
+echo "$CONFIG_BRANCH"      # 1절 공통 변수에서 계산된 이름
+```
+
+이름은 [4.4](#44-워크스페이스-설정스킬학습-저장소-복원)에서 `$S/env/config-branch`에 기록합니다. 그다음부터는 이 파일 값을 씁니다. 나중에 기기 이름을 바꿔도 브랜치 이름은 바뀌지 않습니다.
+
+| 브랜치 | 용도 |
+| --- | --- |
+| `macmini` | 맥미니 백업. 새 Mac은 **처음 설치할 때 한 번만** 복사해 오고, 이후에는 변경 사항을 참고할 때만 읽습니다 |
+| `main` | 기존 Linux 서버용. 건드리지 않습니다 |
+| `<기기명>-<계정명>` | 이 Mac 전용. 설치 직후 첫 커밋을 올리고, 이후 백업도 이 브랜치에만 push합니다 |
+
 ---
 
 ## 2. 사전 준비
@@ -183,7 +207,7 @@ unzip -q bun-darwin-aarch64.zip
 GitHub → Settings → Developer settings → Personal access tokens에서 발급합니다.
 
 - **Fine-grained token (권장)**
-  - 이름: `oc2-<기기명>` (예: `oc2-macbook`)
+  - 이름: `oc2-<기기명>-<계정명>` (설정 브랜치와 같은 이름을 쓰면 어느 기기 토큰인지 알기 쉽습니다)
   - 만료일: 원하는 기간
   - Resource owner: `wineoflove`
   - Repository access: Only select repositories → `ocm-workspace-config`, `yeongho_opencode_manger_for_oc2`, `yeongho_opencode2`, 그리고 이 Mac에서 작업할 저장소
@@ -298,17 +322,31 @@ B 방식으로 빌드한 바이너리는 A와 해시가 비트 단위로 같지 
 
 `ocm-workspace-config`는 git dir를 작업 트리 **밖**에 둡니다. `data/workspace` 안에 `.git`을 만들면 OpenCode의 프로젝트 식별이 바뀌어 세션 생성이 깨지므로, `git init`이나 `git clone`을 워크스페이스에 직접 실행하지 않습니다.
 
+처음 설치할 때는 맥미니의 `macmini` 브랜치를 복사해 오고, 곧바로 이 Mac 전용 브랜치(`$CONFIG_BRANCH`)로 전환합니다.
+
 ```bash
-git clone --no-checkout -b macmini https://github.com/wineoflove/ocm-workspace-config.git $S/run/wc-tmp
-mv $S/run/wc-tmp/.git $G && rmdir $S/run/wc-tmp
-git --git-dir=$G config core.worktree $W
-# 이 Mac 전용 백업 브랜치 (맥미니의 macmini, Linux의 main과 섞이지 않게)
-git --git-dir=$G --work-tree=$W checkout -b macbook
-git --git-dir=$G --work-tree=$W checkout HEAD -- .
-git --git-dir=$G --work-tree=$W status --short | head
+echo "$CONFIG_BRANCH"
+if git ls-remote --exit-code https://github.com/wineoflove/ocm-workspace-config.git "refs/heads/$CONFIG_BRANCH" >/dev/null; then
+  echo "원격에 $CONFIG_BRANCH 브랜치가 이미 있습니다. 아래 설명을 확인하세요." >&2
+else
+  git clone --no-checkout -b macmini https://github.com/wineoflove/ocm-workspace-config.git $S/run/wc-tmp
+  mv $S/run/wc-tmp/.git $G && rmdir $S/run/wc-tmp
+  git --git-dir=$G config core.worktree $W
+  git --git-dir=$G --work-tree=$W checkout -b "$CONFIG_BRANCH"
+  git --git-dir=$G --work-tree=$W checkout HEAD -- .
+  git --git-dir=$G branch -D macmini        # 로컬 macmini를 지워 실수로 push하지 않게. origin/macmini는 남김
+  git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom" "$(git --git-dir=$G rev-parse origin/macmini)"
+  printf '%s\n' "$CONFIG_BRANCH" > $S/env/config-branch
+  git --git-dir=$G branch -vv
+fi
 ```
 
-`macbook`은 예시 이름입니다. 다른 이름을 쓰면 이후 단계에서도 같은 이름으로 바꿔 주세요.
+- 원격에 같은 이름의 브랜치가 이미 있으면, 같은 Mac·계정을 다시 설치하는 경우입니다. 그때는 `macmini` 대신 그 브랜치를 복원합니다.
+  - 위 명령의 `-b macmini`를 `-b "$CONFIG_BRANCH"`로 바꿉니다.
+  - `checkout -b`, `branch -D`, `forkedFrom` 줄은 빼고, `config-branch` 파일만 씁니다.
+  - 4.4의 정리 단계와 4.7 첫 커밋은 건너뜁니다. 그 브랜치에는 이미 반영되어 있습니다.
+- 다른 기기와 이름이 겹치면 `$S/env/config-branch`에 다른 이름을 직접 쓰고 다시 실행합니다.
+- `forkedFrom`에는 복사해 온 맥미니 커밋이 기록됩니다. 나중에 맥미니 변경을 가져올 때([12.5](#125-워크스페이스-설정스킬)) 기준으로 씁니다.
 
 학습 저장소는 맥미니가 매일 05:00에 `macmini` 브랜치로 백업한 내용입니다. 더 최신 기록이 필요하면 맥미니에서 설정 백업 스케줄을 수동으로 한 번 실행한 뒤 clone합니다.
 
@@ -363,7 +401,7 @@ bash $S/port/deploy/new-mac/relocate.sh "$(jq -r .sourceHome $S/run/new-mac-meta
 - 경로 뒤에 사용자명이 이어지는 경우(예: `/Users/yeonghokimx`)는 다른 계정으로 보고 건드리지 않습니다.
 - 끝까지 바뀌지 않은 곳이 있으면 목록을 출력하고 exit 1로 끝납니다. 그 파일만 직접 확인합니다.
 - 같은 사용자명이면 "nothing to relocate"를 출력하고 끝납니다. 다시 실행해도 결과는 같습니다.
-- 워크스페이스 설정 저장소(`macbook` 브랜치)에서는 바뀐 파일이 수정으로 보입니다. 이 Mac 전용 브랜치의 정상적인 차이입니다.
+- 워크스페이스 설정 저장소에서는 바뀐 파일이 수정으로 보입니다. 이 Mac 전용 차이이며, 4.7에서 첫 커밋으로 올립니다.
 
 ### 4.6 포트 적용
 
@@ -402,6 +440,63 @@ ls $W/.config/opencode $W/repos/assistant/.opencode/agents
 ```
 
 전역 모델은 `openai/gpt-6.1-sol`입니다. MCP 8개(`ref`, `context7`, `markitdown`, `playwright`, `firecrawl`, `codegraph`, `claude-design`, `websearch`)와 TypeScript LSP도 같은 파일에 정의되어 있습니다. 키 값은 파일에 직접 쓰지 않고 `{file:…}`로만 참조합니다.
+
+### 4.7 전용 브랜치 첫 커밋
+
+4.4~4.6을 거친 상태(OC1 잔재 정리, 경로 변환, 포트 적용, 번들 파일 추가)를 이 Mac 전용 브랜치의 첫 커밋으로 만들고 원격에 올립니다. 이 커밋이 이 Mac의 기준이 되어, 이후에는 "이 Mac 전용 차이"와 "새로 바뀐 내용"을 구분할 수 있습니다.
+
+먼저 Manager가 생성하는 파일이 추적되지 않도록 제외 규칙을 추가합니다. `service-ocm-pool.json`에는 OC2 서버 비밀번호가 들어가므로 반드시 제외합니다.
+
+```bash
+cd $W
+for rule in '/.config/opencode/service-ocm-pool.json' '/.config/opencode/plugins/ocm-*.js'; do
+  grep -qxF "$rule" .gitignore || printf '%s\n' "$rule" >> .gitignore
+done
+```
+
+바뀐 파일 목록을 확인합니다.
+
+```bash
+GW=(git --git-dir=$G --work-tree=$W)
+"${GW[@]}" status --short | sed -n '1,80p'
+```
+
+예상되는 내용은 다음과 같습니다. 이 외의 파일이 있으면 무엇인지 확인한 다음 진행합니다.
+
+| 상태 | 파일 |
+| --- | --- |
+| ` D` 삭제 | `skills-archive/…`, `skills/opencode-account-recovery`, `opencode.json`, `tui.json`, `agents/goal-runner.md`, `anthropic-pool-admin.mjs`, `plugins/ocm-*.js`, `goal-runner-session-scope.test.mjs` |
+| ` M` 수정 | `.gitignore`. 사용자명이나 포트가 다르면 경로·포트가 바뀐 지침·설정 파일 |
+| `??` 새 파일 | 번들에서 온 `.config/opencode/opencode.jsonc`, `repos/assistant/.opencode/bin/schedule-report.mjs`, `repos/assistant/.opencode/schedule-reports.json` |
+
+확인한 파일만 경로를 지정해 stage합니다. 경로 없이 쓰는 `add .`, `add -A`, `add -u`는 쓰지 않습니다. 추적 중인 파일의 수정·삭제는 `add --update -- <파일…>`로 넣습니다. `.opencode/tooling/lsp` 처럼 상위 폴더가 제외 규칙에 걸린 추적 파일도 이 방식이면 stage할 수 있습니다. 비밀값으로 보이는 이름이 섞이면 stage를 취소하고 멈춥니다.
+
+```bash
+{ "${GW[@]}" ls-files -z --deleted; "${GW[@]}" ls-files -z --modified; } \
+  | sort -zu | xargs -0 -r "${GW[@]}" add --update --
+"${GW[@]}" add -- .config/opencode/opencode.jsonc \
+  repos/assistant/.opencode/bin/schedule-report.mjs repos/assistant/.opencode/schedule-reports.json
+if "${GW[@]}" diff --cached --name-only | grep -Ei 'service-ocm-pool|secret|token|credential|auth\.json|\.key$|\.pem$|\.env|\.db$|\.sqlite'; then
+  echo "비밀값으로 보이는 파일이 stage되었습니다. stage를 취소합니다." >&2
+  "${GW[@]}" reset -q
+else
+  "${GW[@]}" diff --cached --stat | tail -3
+fi
+```
+
+커밋하고 원격에 올립니다.
+
+```bash
+"${GW[@]}" commit -m "chore(config): $CONFIG_BRANCH baseline from macmini $(git --git-dir=$G config branch.$CONFIG_BRANCH.forkedFrom | cut -c1-8)"
+"${GW[@]}" push -u origin "$CONFIG_BRANCH"
+[ "$(git --git-dir=$G ls-remote origin "refs/heads/$CONFIG_BRANCH" | cut -f1)" = "$(git --git-dir=$G rev-parse HEAD)" ] \
+  && echo "원격 반영 확인: $CONFIG_BRANCH" || echo "원격 SHA가 다릅니다. 확인하세요." >&2
+"${GW[@]}" status --short | head       # 비어 있어야 함
+```
+
+- 이후 이 Mac의 설정 변경은 이 브랜치에만 백업합니다. 백업은 [10.4](#104-선택-설정-백업-스케줄) 스케줄이나 수동으로 합니다.
+- `macmini` 브랜치는 맥미니 변경 사항을 참고할 때만 읽습니다([12.5](#125-워크스페이스-설정스킬)).
+- Manager를 기동하면 `plugins/ocm-*.js`와 `service-ocm-pool.json`이 다시 생기지만, 위 제외 규칙 때문에 추적되지 않습니다.
 
 ---
 
@@ -732,16 +827,35 @@ Assistant 세션에 다음 요청을 보냅니다(`<S>`는 이 Mac의 `$S` 값).
 
 ### 10.3 두 대를 함께 운영할 때
 
-- 학습 저장소(`$W/.opencode/learnings`)와 `assistant.md`는 Mac마다 따로 갱신됩니다. 학습 리뷰가 양쪽에서 돌면 기록과 지침이 서로 달라질 수 있습니다. 한쪽만 기준으로 삼으려면 다른 쪽의 학습 스케줄을 끄거나, 가끔 `macmini` 브랜치를 이 Mac의 브랜치로 병합하세요. 이 병합은 사람이 직접 판단합니다.
-- 설정 백업은 Mac마다 **다른 브랜치**에 push합니다. 맥미니는 `macmini`, 이 Mac은 `macbook`을 쓰며, `main`은 기존 Linux 서버용이라 건드리지 않습니다.
+- 학습 저장소(`$W/.opencode/learnings`)와 `assistant.md`는 Mac마다 따로 갱신됩니다. 학습 리뷰가 양쪽에서 돌면 기록과 지침이 서로 달라질 수 있습니다. 한쪽만 기준으로 삼으려면 다른 쪽의 학습 스케줄을 끄거나, [12.5](#125-워크스페이스-설정스킬) 방식으로 맥미니 변경을 가끔 가져오세요. 무엇을 가져올지는 사람이 직접 판단합니다.
+- 설정 백업은 Mac마다 **다른 브랜치**에 push합니다. 맥미니는 `macmini`, 이 Mac은 `$CONFIG_BRANCH`(기기명-계정명)를 쓰며, `main`은 기존 Linux 서버용이라 건드리지 않습니다.
 - GitHub 토큰, CLIProxy 키·로그인, API 키는 기기마다 따로입니다. 한 대를 정리할 때는 그 기기의 토큰과 키만 폐기합니다.
 
 ### 10.4 (선택) 설정 백업 스케줄
 
-`workspace-config-backup` 프롬프트는 `macmini` 브랜치를 쓰도록 되어 있습니다. 등록하기 전에 프롬프트에서 다음을 바꿉니다.
+`workspace-config-backup` 프롬프트는 `macmini` 브랜치를 쓰도록 되어 있습니다. 등록하기 전에 스케줄 정의 파일의 이 프롬프트만 이 Mac 브랜치용으로 바꿉니다.
 
-- `macmini 브랜치` → `macbook 브랜치`, `refs/heads/macmini` → `refs/heads/macbook`, `push -u origin macmini` → `push -u origin macbook`
-- `맥미니의 워크스페이스 설정` → `이 Mac의 워크스페이스 설정`
+```bash
+CONFIG_BRANCH="$CONFIG_BRANCH" F=$S/run/new-mac-meta/schedules.json python3 - <<'EOF'
+import json, os, re
+path, branch = os.environ["F"], os.environ["CONFIG_BRANCH"]
+jobs = json.load(open(path))
+job = next(j for j in jobs if j["name"] == "workspace-config-backup")
+prompt = job["prompt"].replace("맥미니의 워크스페이스 설정", "이 Mac의 워크스페이스 설정")
+token = r"(?<![A-Za-z0-9_-])macmini(?![A-Za-z0-9_-])"   # 한글 조사(macmini와 등)가 붙어도 치환
+prompt = re.sub(token, branch, prompt)
+assert not re.search(token, prompt), "macmini가 남았습니다. 직접 확인하세요."
+prompt = prompt.replace("기존 Linux 서버의 main 브랜치는 변경하지 않습니다.",
+                        "기존 Linux 서버의 main 브랜치와 다른 기기의 브랜치(macmini 등)는 변경하지 않습니다.")
+assert "macmini 등" in prompt and f"push -u origin {branch}" in prompt \
+    and f"refs/heads/{branch}" in prompt, "prompt changed shape; edit by hand"
+job["prompt"], job["description"] = prompt, f"{branch} 브랜치로 워크스페이스 설정 백업"
+json.dump(jobs, open(path, "w"), ensure_ascii=False, indent=2)
+print(f"workspace-config-backup → {branch}")
+EOF
+```
+
+바뀐 프롬프트는 `refs/heads/$CONFIG_BRANCH`를 확인하고 `push -u origin $CONFIG_BRANCH`로 push합니다. 4.7에서 원격 브랜치를 이미 만들었으므로, 첫 실행부터 "원격 브랜치가 로컬 브랜치의 조상인지" 검사를 정상적으로 통과합니다.
 
 git dir과 작업 트리 경로(`--git-dir=<HOME>/apps/ocm-workspace-config.git --work-tree=…`)는 4.5에서 이미 이 Mac 기준으로 바뀌었습니다. push에 쓰는 `GH_TOKEN`은 Manager에서 받으므로 8.5에 등록한 이 Mac의 토큰이 사용됩니다.
 
@@ -756,7 +870,7 @@ launchctl list | grep -E 'ocm2|claude-proxy|mcp\.'
 curl -s http://127.0.0.1:$MANAGER_PORT/api/health | jq -r '.opencodeVersion'
 curl -s http://127.0.0.1:$HEADROOM_PORT/health; echo
 git -C $S/port remote -v; git -C $W/repos/oc2-custom remote -v
-git --git-dir=$G branch --show-current
+git --git-dir=$G branch --show-current; git --git-dir=$G status -sb | head -1     # ## <기기명>-<계정명>...origin/<같은 이름>
 grep -rlI "$(jq -r .sourceHome $S/run/new-mac-meta/manifest.json)" $S/bin $U/apps/mcp-shared/bin $W/.config/opencode $U/Library/LaunchAgents 2>/dev/null   # 사용자명이 다르면 출력이 없어야 함
 ```
 
@@ -764,7 +878,7 @@ grep -rlI "$(jq -r .sourceHome $S/run/new-mac-meta/manifest.json)" $S/bin $U/app
 - [ ] `ports.env`의 포트 9개가 모두 대기 중이다
 - [ ] 프록시 계정이 등록되어 있고, OpenAI·Anthropic 모델이 모두 응답한다
 - [ ] MCP 8개가 connected이고 스킬 43개(전역 38 + Manager 생성 5)가 보인다
-- [ ] `port`(origin·upstream), `oc2-custom`(origin·upstream), 워크스페이스 설정(`macbook` 브랜치)이 연결되어 있다
+- [ ] `port`(origin·upstream), `oc2-custom`(origin·upstream)이 연결되어 있고, 워크스페이스 설정이 이 Mac 전용 브랜치(`$CONFIG_BRANCH`)에 있으며 원격과 같다
 - [ ] 이 Mac 전용 GitHub 토큰이 터미널(`gh auth status`)과 Manager Git 자격 증명에 등록되어 있다
 - [ ] 학습 일일·주간 스케줄이 등록되어 있고, 한 번 수동 실행해 보고서 게시까지 확인했다
 
@@ -852,10 +966,40 @@ plist를 바꾼 뒤 `launchctl bootout`/`bootstrap`으로 재기동하고 `/heal
 
 ### 12.5 워크스페이스 설정·스킬
 
-- 이 Mac의 변경을 백업합니다. 10.4 스케줄이 하거나 수동으로 합니다: `git --git-dir=$G --work-tree=$W add <파일>` → `commit` → `push origin macbook`. `add .`, `add -A`, `add -u`는 쓰지 않습니다.
-- 맥미니 변경을 가져옵니다: `git --git-dir=$G fetch origin` 후 `git --git-dir=$G --work-tree=$W diff macbook origin/macmini -- .config/opencode repos/assistant`로 확인하고, 필요한 파일만 `checkout origin/macmini -- <경로>`로 가져옵니다. 가져온 파일은 맥미니 기준이므로 두 스크립트를 다시 적용합니다.
-  - 사용자명이 다르면: `bash $S/port/deploy/new-mac/relocate.sh <맥미니 HOME> <파일…>`
-  - 포트가 다르면: `bash $S/port/deploy/new-mac/set-ports.sh --source $S/env/ports.env <파일…>`. `--source`는 지정한 파일만 맥미니 포트에서 이 Mac 포트로 바꿉니다.
+이 Mac은 전용 브랜치(`$CONFIG_BRANCH`)만 씁니다. `macmini` 브랜치는 맥미니 변경을 참고할 때 읽기만 합니다.
+
+**이 Mac의 변경 백업**: 10.4 스케줄이 하거나 수동으로 합니다. `git --git-dir=$G --work-tree=$W add -- <파일…>`(추적 중인 파일은 `add --update -- <파일…>`) → `commit` → `push origin "$CONFIG_BRANCH"`. 경로 없이 쓰는 `add .`, `add -A`, `add -u`는 쓰지 않습니다.
+
+**맥미니 변경 가져오기**: 맥미니 브랜치를 통째로 merge하지 않습니다. 경로와 포트가 달라 매번 충돌하기 때문입니다. 마지막으로 가져온 맥미니 커밋(`forkedFrom`) 이후에 바뀐 것만 골라 가져옵니다.
+
+```bash
+GW=(git --git-dir=$G --work-tree=$W)
+BASE=$(git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom")
+git --git-dir=$G fetch origin
+git --git-dir=$G log --oneline "$BASE"..origin/macmini | head -20
+git --git-dir=$G diff --stat "$BASE" origin/macmini | tail -5
+```
+
+1. **학습 기록**(`.opencode/learnings/entries`, `reviews`, `applications`): 파일명이 고유하고 추가만 되므로, 새로 생긴 파일을 그대로 가져옵니다.
+
+   ```bash
+   git --git-dir=$G diff --name-only -z --diff-filter=A "$BASE" origin/macmini -- .opencode/learnings \
+     | xargs -0 -r "${GW[@]}" checkout origin/macmini --
+   ```
+
+2. **지침·설정 파일**(`.config/opencode`, `repos/assistant`): `git --git-dir=$G diff "$BASE" origin/macmini -- <경로>`로 내용을 보고, 필요한 파일만 `"${GW[@]}" checkout origin/macmini -- <파일…>`로 가져옵니다. 가져온 파일은 맥미니 기준이므로 두 스크립트를 다시 적용합니다.
+   - 사용자명이 다르면: `bash $S/port/deploy/new-mac/relocate.sh <맥미니 HOME> <파일…>`
+   - 포트가 다르면: `bash $S/port/deploy/new-mac/set-ports.sh --source $S/env/ports.env <파일…>`. `--source`는 지정한 파일만 맥미니 포트에서 이 Mac 포트로 바꿉니다.
+   - 이 Mac에서 직접 고친 파일이면 덮어쓰기 전에 `"${GW[@]}" diff <파일>`로 이 Mac의 변경을 확인합니다.
+3. 가져온 파일만 경로를 지정해 add합니다. `checkout`으로 가져온 파일은 이미 stage되어 있고, 스크립트로 다시 바꾼 파일은 `add --update -- <파일…>`로 넣습니다. 그다음 커밋하고 push한 뒤 기준을 갱신합니다.
+
+   ```bash
+   "${GW[@]}" commit -m "chore(config): sync from macmini $(git --git-dir=$G rev-parse --short origin/macmini)"
+   "${GW[@]}" push origin "$CONFIG_BRANCH"
+   git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom" "$(git --git-dir=$G rev-parse origin/macmini)"
+   ```
+
+일부 파일만 가져와도 기준은 그 시점의 `origin/macmini`로 갱신합니다. 가져오지 않기로 한 변경은 다음 비교에 다시 나타나지 않습니다.
 - MCP 패키지는 `npm install --prefix $T/npm-mcp/<이름> --save-exact <패키지>@<버전>` 후 `launchctl kickstart -k gui/$(id -u)/io.wineoflove.mcp.<이름>`으로 갱신합니다.
 
 ### 12.6 맥미니 번들 갱신
