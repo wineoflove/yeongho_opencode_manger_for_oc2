@@ -1,13 +1,34 @@
+import { execFileSync } from 'node:child_process'
 import { realpath } from 'node:fs/promises'
+import { userInfo } from 'node:os'
 import { basename, dirname, isAbsolute, join } from 'node:path'
 import { inside } from './application-files.mjs'
 
+// Manager runs with an isolated HOME, and Bun's userInfo() follows HOME, so read the
+// account's home from macOS directory services instead.
+export function accountHome() {
+  try {
+    const user = execFileSync('/usr/bin/id', ['-un'], { encoding: 'utf8', timeout: 5000 }).trim()
+    const record = execFileSync('/usr/bin/dscl', ['.', '-read', `/Users/${user}`, 'NFSHomeDirectory'], {
+      encoding: 'utf8',
+      timeout: 5000,
+    })
+    const home = /^NFSHomeDirectory:\s*(\S.*?)\s*$/m.exec(record)?.[1]
+    if (home && isAbsolute(home)) return home
+  } catch {
+    // Not macOS or no directory record: fall back below.
+  }
+  return userInfo().homedir
+}
+
+export const userBinDirectory = join(accountHome(), '.local/bin')
+
 const installed = {
-  bun: '/Users/yeonghokim/.local/bin/bun',
+  bun: join(userBinDirectory, 'bun'),
   node: '/opt/homebrew/bin/node',
-  pnpm: '/Users/yeonghokim/.local/bin/pnpm',
+  pnpm: join(userBinDirectory, 'pnpm'),
   python3: '/usr/bin/python3',
-  ruff: '/Users/yeonghokim/.local/bin/ruff',
+  ruff: join(userBinDirectory, 'ruff'),
 }
 const localTools = ['tsc', 'vitest', 'eslint', 'prettier']
 const rejected = () => {

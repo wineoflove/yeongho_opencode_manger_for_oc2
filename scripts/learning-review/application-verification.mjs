@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { realpath } from 'node:fs/promises'
-import { resolveVerificationCommand } from './verification-command.mjs'
+import { resolveVerificationCommand, userBinDirectory } from './verification-command.mjs'
 import { z } from '../../shared/src/zod.ts'
 import {
   absolutePath,
@@ -91,7 +91,7 @@ export async function verifyCommand(config, value) {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        PATH: '/Users/yeonghokim/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+        PATH: `${userBinDirectory}:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`,
       },
     })
     let output = ''

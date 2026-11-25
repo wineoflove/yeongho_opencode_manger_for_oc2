@@ -1,8 +1,9 @@
 import { test, expect } from 'bun:test'
+import { spawnSync } from 'node:child_process'
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { resolveVerificationCommand } from './verification-command.mjs'
+import { accountHome, resolveVerificationCommand } from './verification-command.mjs'
 
 test('pins installed tools and refuses basename impersonation and interpreter options', async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'verify-command-')))
@@ -29,8 +30,19 @@ test('pins installed tools and refuses basename impersonation and interpreter op
         },
         root,
       ),
-    ).toBe(await realpath('/Users/yeonghokim/.local/bin/bun'))
+    ).toBe(await realpath(join(accountHome(), '.local/bin/bun')))
   } finally {
     await rm(root, { recursive: true, force: true })
   }
+})
+
+test('resolves the account home independently of an isolated HOME', () => {
+  const probe = spawnSync(
+    process.execPath,
+    ['-e', `import('${new URL('./verification-command.mjs', import.meta.url).href}').then((m) => process.stdout.write(m.accountHome()))`],
+    { encoding: 'utf8', env: { ...process.env, HOME: tmpdir() } },
+  )
+  expect(probe.status).toBe(0)
+  expect(probe.stdout).toBe(accountHome())
+  expect(probe.stdout).not.toBe(tmpdir())
 })
