@@ -200,21 +200,42 @@ unzip -q bun-darwin-aarch64.zip
 
 ## 3. GitHub 토큰 (새 Mac 전용)
 
-맥미니 토큰을 복사하지 않고 **이 Mac만 쓰는 토큰을 새로 발급**합니다. 기기마다 토큰이 따로 있으면 한 대를 정리할 때 그 토큰만 폐기하면 됩니다.
+맥미니 토큰을 복사하지 않고 **이 Mac만 쓰는 토큰을 새로 발급**합니다. 기기마다 토큰이 따로 있으면 한 대를 정리할 때 그 토큰만 폐기하면 됩니다. 토큰은 **Personal access token (classic)**으로 발급합니다.
+
+### 3.0 GitHub 계정과 저장소 접근
+
+이 Mac에서 쓰는 GitHub 계정이 `wineoflove`가 아닐 수 있습니다. 그런 경우 그 계정이 `wineoflove` 소유의 비공개 저장소에 **collaborator**로 초대되어 있어야 합니다.
+
+| 저장소 | 공개 여부 | 필요한 권한 |
+| --- | --- | --- |
+| `wineoflove/ocm-workspace-config` | 비공개 | clone·push(전용 브랜치). **collaborator 필요** |
+| `wineoflove/yeongho_opencode_manger_for_oc2` | 공개 | clone은 누구나 가능. push·번들 갱신은 collaborator 필요 |
+| `wineoflove/yeongho_opencode2` | 공개 | clone·Release 다운로드는 누구나 가능. push·Release 생성은 collaborator 필요 |
+| 이 Mac에서 작업할 다른 비공개 저장소 | 비공개 | collaborator 필요 |
+
+1. `wineoflove` 계정에서 각 저장소의 **Settings → Collaborators → Add people**로 이 Mac의 계정을 초대합니다. 개인 계정 소유 저장소의 collaborator는 항상 읽기·쓰기 권한을 받습니다.
+2. 이 Mac의 계정에서 초대를 수락합니다(메일 또는 `https://github.com/notifications`).
+3. 이 Mac에서도 `wineoflove` 계정을 그대로 쓴다면 이 절은 건너뜁니다.
 
 ### 3.1 발급
 
-GitHub → Settings → Developer settings → Personal access tokens에서 발급합니다.
+이 Mac에서 쓰는 GitHub 계정으로 로그인해서 **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**을 선택합니다.
 
-- **Fine-grained token (권장)**
-  - 이름: `oc2-<기기명>-<계정명>` (설정 브랜치와 같은 이름을 쓰면 어느 기기 토큰인지 알기 쉽습니다)
-  - 만료일: 원하는 기간
-  - Resource owner: `wineoflove`
-  - Repository access: Only select repositories → `ocm-workspace-config`, `yeongho_opencode_manger_for_oc2`, `yeongho_opencode2`, 그리고 이 Mac에서 작업할 저장소
-  - Repository permissions: Contents **Read and write**, Pull requests **Read and write**, Issues **Read and write**, Workflows **Read and write**(upstream 병합 때 `.github/workflows` 변경 push에 필요). Metadata는 자동으로 Read가 됩니다.
-- **Classic token (대안)**: scope `repo`, `workflow`, `read:org`
+- 이름(Note): `oc2-<기기명>-<계정명>`. 설정 브랜치와 같은 이름을 쓰면 어느 기기 토큰인지 알기 쉽습니다.
+- 만료일(Expiration): 기한을 정합니다. 예: 90일. 만료 전에 GitHub가 메일로 알려 줍니다.
+- Scope:
+  - `repo`: 비공개 저장소 clone·push, 이슈·PR
+  - `workflow`: upstream 병합 때 `.github/workflows` 변경을 push하려면 필요
+  - `read:org`: `gh auth login`의 최소 요구 scope
 
-토큰 값은 발급 화면에서만 볼 수 있습니다. 비밀번호 관리자에 보관하고, 채팅·문서·Git에는 붙여 넣지 않습니다.
+> **Fine-grained token을 쓰지 않는 이유**: GitHub 공식 문서의 fine-grained 토큰 제한 목록에 "outside collaborator 또는 repository collaborator인 저장소에는 기여할 수 없음"이 있습니다. 그래서 다른 계정 소유의 비공개 저장소(`ocm-workspace-config` 등)에 collaborator로 접근하려면 classic 토큰이 필요합니다. 출처: [Managing your personal access tokens — Fine-grained personal access tokens limitations](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#fine-grained-personal-access-tokens-limitations)
+
+Classic 토큰은 그 계정이 접근할 수 있는 **모든 저장소**에 같은 권한으로 접근합니다. 다음을 지킵니다.
+- 위 scope 외에는 추가하지 않습니다(`delete_repo`, `admin:*` 등).
+- 만료일을 둡니다.
+- 기기를 정리할 때 그 기기의 토큰을 바로 폐기합니다(Settings → Developer settings → Tokens (classic) → Delete).
+
+토큰 값(`ghp_`로 시작)은 발급 화면에서만 볼 수 있습니다. 비밀번호 관리자에 보관하고, 채팅·문서·Git에는 붙여 넣지 않습니다.
 
 ### 3.2 터미널(gh·git)에 등록
 
@@ -225,12 +246,13 @@ read -rs "GHT?GitHub 토큰: "; echo
 printf '%s' "$GHT" | gh auth login --hostname github.com --git-protocol https --with-token
 unset GHT
 gh auth setup-git        # git clone·push가 gh 인증을 사용
-gh auth status           # Token: gho_… / github_pat_… 마스킹 표시, wineoflove 계정 확인
+gh auth status           # 이 Mac의 계정, Token: ghp_**** 마스킹, scopes에 repo·workflow·read:org 확인
+gh api repos/wineoflove/ocm-workspace-config -q '.full_name + " push=" + (.permissions.push|tostring)'   # push=true 여야 함
 ```
 
 ### 3.3 Manager에 등록
 
-에이전트 세션의 `gh`·`git push`와 설정 백업 스케줄은 Manager에 등록된 자격 증명을 씁니다(`ocm-gh-env` 플러그인과 내부 `/git-credentials/gh-env`). Manager를 띄운 다음 [8.5](#85-manager에-github-토큰-등록)에서 **같은 새 토큰**을 등록합니다.
+에이전트 세션의 `gh`·`git push`와 설정 백업 스케줄은 Manager에 등록된 자격 증명을 씁니다(`ocm-gh-env` 플러그인과 내부 `/git-credentials/gh-env`). Manager를 띄운 다음 [8.5](#85-manager에-github-토큰-등록)에서 **같은 classic 토큰**을 등록합니다.
 
 ---
 
@@ -756,11 +778,11 @@ tail -30 $S/run/headroom/headroom.log; tail -30 $S/cliproxy/package/logs/stderr.
 
 ### 8.5 Manager에 GitHub 토큰 등록
 
-[3](#3-github-토큰-새-mac-전용)에서 발급한 **이 Mac 전용 토큰**을 등록합니다.
+[3](#3-github-토큰-새-mac-전용)에서 발급한 **이 Mac 전용 classic 토큰**을 등록합니다.
 
 1. **설정 → Git 설정 → Git 자격 증명 추가**
 2. 이름 `github-<기기명>`, Host `github.com`, 유형 PAT, 토큰을 입력하고 기본 자격 증명으로 지정합니다.
-3. Assistant 세션에서 `gh auth status`를 실행해 `wineoflove` 계정으로 인증되는지 확인합니다.
+3. Assistant 세션에서 `gh auth status`를 실행해 이 Mac의 계정으로 인증되는지 확인합니다. 그다음 `gh api repos/wineoflove/ocm-workspace-config -q .permissions.push`가 `true`인지 확인합니다.
 
 에이전트 세션과 설정 백업 스케줄(10.4)은 이 토큰을 `GH_TOKEN`으로 받아 씁니다. 토큰이 만료되면 3.1에서 다시 발급해 3.2와 이 단계를 반복합니다.
 
@@ -1051,7 +1073,7 @@ cd $S && git -C $S/port worktree remove $S/run/bundle-refresh
 | MCP가 disconnected | `$HOME/apps/mcp-shared/logs/<이름>.log`, 키 파일 권한(600), `node $HOME/apps/mcp-shared/bin/smoke.mjs` |
 | codegraph만 disconnected | `$HOME/.codegraph/current/bin/codegraph version`, `opencode.jsonc`의 codegraph `command` 경로 |
 | Playwright MCP 실패 | 토큰 파일 권한(0600, 심볼릭 링크 불가), Chrome 확장 설치 프로필과 `--profile-dir-name` |
-| `gh`·`git push` 인증 실패 | 터미널은 `gh auth status`, 에이전트 세션은 Manager Git 자격 증명(8.5). 토큰 만료나 저장소 접근 범위(fine-grained)를 확인 |
+| `gh`·`git push` 인증 실패, 비공개 저장소가 `Repository not found` | 터미널은 `gh auth status`, 에이전트 세션은 Manager Git 자격 증명(8.5). 다음을 확인합니다. classic 토큰인지(`ghp_`), scope `repo`가 있는지, 만료되지 않았는지, 이 계정이 그 저장소의 collaborator 초대를 수락했는지(3.0). fine-grained 토큰(`github_pat_`)은 collaborator 저장소에 접근할 수 없습니다 |
 | 스케줄이 `JOB_NOT_CONFIGURED` / `SELF_RUN_NOT_FOUND` | `schedule-reports.json`의 job ID·보고 세션 ID가 새 값인지 확인 |
 | 학습 리뷰 게시 실패 | `review-config.json`의 `feedbackSession`이 존재하는 세션인지 확인 |
 | 세션 생성이 FOREIGN KEY 오류로 실패 | `data/workspace` 안에 `.git`이 생겼는지 확인. 워크스페이스 설정 git dir은 반드시 밖(`$HOME/apps/ocm-workspace-config.git`)에 둡니다 |
