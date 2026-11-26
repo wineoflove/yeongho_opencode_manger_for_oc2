@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -8,6 +8,7 @@ import { allMigrations } from '../../src/db/migrations'
 import { SettingsService } from '../../src/services/settings'
 import { CredentialProvider } from '../../src/services/credential-provider'
 import { AskpassHandler, resolveAskpassScriptsDir } from '../../src/ipc/askpassHandler'
+import type { IPCServer } from '../../src/ipc/ipcServer'
 import { createRepo, setRepoGitCredentialId } from '../../src/db/queries'
 import type { GitCredential } from '@opencode-manager/shared'
 
@@ -62,6 +63,34 @@ describe('AskpassHandler', () => {
     })
     provider = new CredentialProvider(db)
     handler = new AskpassHandler(undefined, provider)
+  })
+
+  it('appends one empty Git credential helper for each host with a managed token', () => {
+    settingsService.updateSettings({
+      gitCredentials: [
+        createGitHubPatCredential(),
+        { ...createGitHubPatCredential(), host: 'https://github.com/' },
+        { ...createGitHubPatCredential(), host: 'gitlab.com' },
+        { ...createGitHubPatCredential(), host: 'example.com', token: '' },
+      ],
+    })
+    const server = { registerHandler: vi.fn(), getEnv: () => ({}) } as unknown as IPCServer
+
+    vi.stubEnv('GIT_CONFIG_COUNT', '2')
+    try {
+      const activeHandler = new AskpassHandler(server, provider)
+      expect(activeHandler.getEnv()).toMatchObject({
+        GIT_CONFIG_COUNT: '4',
+        GIT_CONFIG_KEY_2: 'credential.https://github.com/.helper',
+        GIT_CONFIG_VALUE_2: '',
+        GIT_CONFIG_KEY_3: 'credential.https://gitlab.com/.helper',
+        GIT_CONFIG_VALUE_3: '',
+      })
+      expect(activeHandler.getEnv()).not.toHaveProperty('GIT_CONFIG_KEY_0')
+      expect(handler.getEnv()).not.toHaveProperty('GIT_CONFIG_COUNT')
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('returns username on Username prompt for configured host', async () => {

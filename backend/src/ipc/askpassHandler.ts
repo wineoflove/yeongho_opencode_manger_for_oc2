@@ -3,6 +3,7 @@ import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import type { IPCServer, IPCHandler } from './ipcServer'
 import { CredentialProvider } from '../services/credential-provider'
+import { normalizeHost } from '../utils/git-auth'
 import { logger } from '../utils/logger'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -104,9 +105,30 @@ export class AskpassHandler implements IPCHandler {
   }
 
   getEnv(): Record<string, string> {
-    return {
+    const env: Record<string, string> = {
       ...this.env,
       ...(this.ipcServer?.getEnv() || {}),
     }
+    if (!this.ipcServer) return env
+
+    const inheritedConfigCount = Number(process.env.GIT_CONFIG_COUNT ?? '0')
+    if (!Number.isSafeInteger(inheritedConfigCount) || inheritedConfigCount < 0) return env
+
+    const managedHosts = new Set<string>()
+    for (const credential of this.credentialProvider.getGitCredentials()) {
+      if ((credential.type && credential.type !== 'pat') || !credential.host || !credential.token) continue
+      const host = normalizeHost(credential.host)
+      if (host) managedHosts.add(host)
+    }
+
+    let index = inheritedConfigCount
+    for (const host of managedHosts) {
+      env[`GIT_CONFIG_KEY_${index}`] = `credential.${host}.helper`
+      env[`GIT_CONFIG_VALUE_${index}`] = ''
+      index++
+    }
+    if (index !== inheritedConfigCount) env.GIT_CONFIG_COUNT = String(index)
+
+    return env
   }
 }
