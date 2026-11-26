@@ -112,17 +112,11 @@ set -a; . $S/env/ports.env; set +a
 - 1024~65535 사이에서 9개가 모두 달라야 합니다.
 - `5003`, `5551`은 Manager 코드의 기본 포트라 쓰지 않습니다.
 
-후보 포트가 비어 있는지 먼저 확인합니다. 출력이 없으면 비어 있는 것입니다.
-
-```bash
-for p in 5106 5107 5108 5117 18788 5121 5122 5123 5124; do lsof -nP -iTCP:$p -sTCP:LISTEN | sed -n 2p; done
-```
-
-정한 값으로 포트 파일을 만듭니다. 같은 내용의 기본 파일이 저장소의 `deploy/new-mac/ports.env`에도 있습니다.
+먼저 맥미니 값으로 포트 파일을 만듭니다. 같은 내용의 기본 파일이 저장소의 `deploy/new-mac/ports.env`에도 있습니다.
 
 ```bash
 mkdir -p $S/env && chmod 700 $S/env
-cat > $S/env/ports.env <<'EOF'
+[ -e $S/env/ports.env ] || cat > $S/env/ports.env <<'EOF'
 MANAGER_PORT=5106
 OPENCODE_PORT=5107
 PREVIEW_PORT=5108
@@ -133,8 +127,33 @@ FIRECRAWL_PORT=5122
 MARKITDOWN_PORT=5123
 EXA_PORT=5124
 EOF
+```
+
+각 포트를 이미 쓰는 프로세스가 있는지 서비스 이름과 함께 확인합니다. 저장소는 4.2에서 clone하므로, 지금은 스크립트를 내려받아 실행합니다.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wineoflove/yeongho_opencode_manger_for_oc2/main/deploy/new-mac/check-ports.sh \
+  -o $S/env/check-ports.sh
+bash $S/env/check-ports.sh $S/env/ports.env
+```
+
+```text
+SERVICE         VARIABLE         PORT   LISTENER
+Manager         MANAGER_PORT     5106   free
+…
+Headroom        HEADROOM_PORT    18788  python3.1 (pid 812)      ← 이미 사용 중
+```
+
+`free`가 아닌 포트는 다른 값으로 바꾸고 다시 확인합니다. 예를 들어 Headroom 포트 18788을 다른 프로그램이 쓰고 있으면 18789로 바꿉니다.
+
+```bash
+sed -i '' 's/^HEADROOM_PORT=.*/HEADROOM_PORT=18789/' $S/env/ports.env
+bash $S/env/check-ports.sh $S/env/ports.env
 set -a; . $S/env/ports.env; set +a
 ```
+
+- 다른 사용자나 root가 띄운 프로세스는 `sudo` 없이 이름이 보이지 않습니다. 그런 포트는 `in use by another user's process`로 표시되니 그 포트는 피합니다.
+- 설치를 마친 뒤 다시 실행하면 OC2 자신의 서비스가 표시됩니다. 그때는 그 포트의 서비스가 맞는지만 봅니다.
 
 포트 값이 반영되는 곳:
 - 맥미니에서 가져온 파일(운영 스크립트, MCP 스크립트, `opencode.jsonc`, Headroom plist, 지침의 포트 목록)은 [4.6](#46-포트-적용)의 `set-ports.sh`가 이 파일 값으로 바꿉니다.
@@ -163,15 +182,48 @@ echo "$CONFIG_BRANCH"      # 1절 공통 변수에서 계산된 이름
 | `main` | 기존 Linux 서버용. 건드리지 않습니다 |
 | `<기기명>-<계정명>` | 이 Mac 전용. 설치 직후 첫 커밋을 올리고, 이후 백업도 이 브랜치에만 push합니다 |
 
+### 1.3 표시와 중단 후 재개
+
+가이드의 명령 블록 앞에는 다음 표시를 붙였습니다.
+
+| 표시 | 뜻 | 할 일 |
+| --- | --- | --- |
+| **[확인]** | 파일을 지우거나 덮어쓰거나, launchd에 서비스를 등록하는 블록 | 바로 앞의 미리보기·대상 목록을 확인한 뒤 실행합니다. 에이전트에게 맡겼다면 이 블록 직전에 멈추고 확인을 받게 합니다 |
+| **[직접]** | 토큰·키·비밀번호 입력이나 GUI 조작처럼 사람이 해야 하는 단계 | 안내된 명령이나 화면 조작을 직접 하고, 이어지는 **완료 확인**의 결과를 봅니다. 비밀값은 채팅에 붙여 넣지 않습니다 |
+
+설치는 중간에 멈췄다가 이어서 해도 됩니다. 새 터미널에서 [1](#1-경로-규칙과-공통-변수)의 공통 변수를 다시 설정한 뒤, 아래 표의 완료 확인으로 어디까지 됐는지 보고 그다음 절부터 진행합니다. **[확인]** 블록은 다시 실행하기 전에 이미 적용됐는지부터 확인합니다.
+
+| 절 | 완료 확인 | 완료 상태 |
+| --- | --- | --- |
+| 1.1 | `cat $S/env/ports.env` | 포트 9개 |
+| 2 | `bun --version; pnpm --version; gh --version` | 버전 출력 |
+| 3.2 | `gh api user --jq .login` | 이 Mac의 GitHub 계정 |
+| 4.2 | `ls $S/port/backend/dist/index.js $S/port/frontend/dist/index.html` | 두 파일 있음 |
+| 4.3 | `$S/opencode/2.4.1-ocm-pool.36/opencode --version` | `2.4.1-ocm-pool.36` |
+| 4.4 | `cat $S/env/config-branch; git --git-dir=$G branch --show-current` | 같은 이름 |
+| 4.5 | `ls $S/run/new-mac-meta/manifest.json` | 파일 있음 |
+| 4.6 | `cat $S/env/ports.applied.env` | `ports.env`와 같은 값 |
+| 4.7 | `git --git-dir=$G status -sb \| head -1` | `## <브랜치>...origin/<브랜치>` |
+| 5 | `launchctl print gui/$(id -u)/com.aion.ocm.claude-proxy \| grep -m1 'state ='` | `running` |
+| 6 | `curl -s http://127.0.0.1:$HEADROOM_PORT/health` | `"status":"healthy"` |
+| 7.1 | `bash $S/port/deploy/new-mac/check-ports.sh $S/env/ports.env` | MCP 포트 4개가 node·python |
+| 8.1 | `test -s $S/env/staging.env && echo ok` | `ok` |
+| 8.2 | `curl -s http://127.0.0.1:$MANAGER_PORT/api/health \| jq -r .status` | `healthy` |
+
 ---
 
 ## 2. 사전 준비
 
+**[직접]** Xcode Command Line Tools는 설치 창이 뜨고, Homebrew는 macOS 비밀번호(sudo)를 묻습니다.
+
 ```bash
-# Xcode Command Line Tools, Homebrew
 xcode-select --install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
 
+완료 확인: `xcode-select -p`가 경로를 출력하고, `/opt/homebrew/bin/brew --version`이 버전을 출력합니다.
+
+```bash
 brew install git gh jq node uv sqlite
 
 # 런타임 bun / pnpm (맥미니와 같은 위치·버전)
@@ -213,13 +265,16 @@ unzip -q bun-darwin-aarch64.zip
 | `wineoflove/yeongho_opencode2` | 공개 | clone·Release 다운로드는 누구나 가능. push·Release 생성은 collaborator 필요 |
 | 이 Mac에서 작업할 다른 비공개 저장소 | 비공개 | collaborator 필요 |
 
+**[직접]**
 1. `wineoflove` 계정에서 각 저장소의 **Settings → Collaborators → Add people**로 이 Mac의 계정을 초대합니다. 개인 계정 소유 저장소의 collaborator는 항상 읽기·쓰기 권한을 받습니다.
 2. 이 Mac의 계정에서 초대를 수락합니다(메일 또는 `https://github.com/notifications`).
 3. 이 Mac에서도 `wineoflove` 계정을 그대로 쓴다면 이 절은 건너뜁니다.
 
+완료 확인은 3.2에서 토큰을 등록한 뒤 `permissions.push`로 합니다.
+
 ### 3.1 발급
 
-이 Mac에서 쓰는 GitHub 계정으로 로그인해서 **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**을 선택합니다.
+**[직접]** GitHub 웹에서 발급합니다. 이 Mac에서 쓰는 GitHub 계정으로 로그인해서 **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**을 선택합니다.
 
 - 이름(Note): `oc2-<기기명>-<계정명>`. 설정 브랜치와 같은 이름을 쓰면 어느 기기 토큰인지 알기 쉽습니다.
 - 만료일(Expiration): 기한을 정합니다. 예: 90일. 만료 전에 GitHub가 메일로 알려 줍니다.
@@ -240,16 +295,24 @@ Classic 토큰은 그 계정이 접근할 수 있는 **모든 저장소**에 같
 
 ### 3.2 터미널(gh·git)에 등록
 
-macOS 키체인에 저장되며 화면에는 출력되지 않습니다.
+**[직접]** 토큰은 입력만 받고 화면에 출력하지 않습니다. macOS 키체인에 저장됩니다.
 
 ```bash
 read -rs "GHT?GitHub 토큰: "; echo
 printf '%s' "$GHT" | gh auth login --hostname github.com --git-protocol https --with-token
 unset GHT
 gh auth setup-git        # git clone·push가 gh 인증을 사용
-gh auth status           # 이 Mac의 계정, Token: ghp_**** 마스킹, scopes에 repo·workflow·read:org가 포함되었는지 확인(더 있어도 됨)
-gh api repos/wineoflove/ocm-workspace-config -q '.full_name + " push=" + (.permissions.push|tostring)'   # push=true 여야 함
 ```
+
+완료 확인:
+
+```bash
+gh api user --jq .login                                                   # 이 Mac에서 쓰는 GitHub 계정
+gh api repos/wineoflove/ocm-workspace-config --jq .permissions.push      # true
+gh auth status 2>&1 | grep -i scopes                                      # repo, workflow, read:org 포함(더 있어도 됨)
+```
+
+`permissions.push`가 `false`이거나 `Not Found`이면 3.0의 collaborator 초대·수락과 3.1의 scope를 확인합니다. 여기서 확인한 계정 이름은 8.5에서 Assistant의 결과와 비교합니다.
 
 ### 3.3 Manager에 등록
 
@@ -345,37 +408,66 @@ B 방식으로 빌드한 바이너리는 A와 해시가 비트 단위로 같지 
 
 `ocm-workspace-config`는 git dir를 작업 트리 **밖**에 둡니다. `data/workspace` 안에 `.git`을 만들면 OpenCode의 프로젝트 식별이 바뀌어 세션 생성이 깨지므로, `git init`이나 `git clone`을 워크스페이스에 직접 실행하지 않습니다.
 
-처음 설치할 때는 맥미니의 `macmini` 브랜치를 복사해 오고, 곧바로 이 Mac 전용 브랜치(`$CONFIG_BRANCH`)로 전환합니다.
+먼저 이 Mac의 브랜치(`$CONFIG_BRANCH`)가 원격에 이미 있는지 확인합니다. `git ls-remote --exit-code`의 종료 코드로 갈 길을 정합니다.
 
 ```bash
 echo "$CONFIG_BRANCH"
-if git ls-remote --exit-code https://github.com/wineoflove/ocm-workspace-config.git "refs/heads/$CONFIG_BRANCH" >/dev/null; then
-  echo "원격에 $CONFIG_BRANCH 브랜치가 이미 있습니다. 아래 설명을 확인하세요." >&2
+GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code https://github.com/wineoflove/ocm-workspace-config.git \
+  "refs/heads/$CONFIG_BRANCH" >/dev/null
+case $? in
+  0) echo "원격에 $CONFIG_BRANCH가 있습니다 → 4.4-B 재설치" ;;
+  2) echo "원격에 $CONFIG_BRANCH가 없습니다 → 4.4-A 신규 설치" ;;
+  *) echo "확인 실패(인증·네트워크 오류). 3.2의 완료 확인과 인터넷 연결을 점검한 뒤 다시 실행하세요." >&2 ;;
+esac
+```
+
+| 종료 코드 | 뜻 | 다음 |
+| --- | --- | --- |
+| `0` | 원격에 이 Mac 브랜치가 있음. 같은 Mac·계정을 다시 설치하는 경우 | [4.4-B](#44-b-재설치) |
+| `2` | 저장소에는 접근했고 이 브랜치만 없음 | [4.4-A](#44-a-신규-설치) |
+| 그 외(예: `128`) | 인증 실패, 권한 없음, 네트워크 오류 | 신규 설치로 넘어가지 않습니다. 3.2 완료 확인부터 다시 봅니다 |
+
+다른 기기와 이름이 겹친 경우(`0`인데 이 Mac 브랜치가 아님)에는 `$S/env/config-branch`에 다른 이름을 직접 쓰고, 새 터미널에서 공통 변수를 다시 설정한 뒤 위 확인부터 다시 합니다.
+
+학습 저장소는 맥미니가 매일 05:00에 `macmini` 브랜치로 백업한 내용입니다. 더 최신 기록이 필요하면 맥미니에서 설정 백업 스케줄을 수동으로 한 번 실행한 뒤 진행합니다.
+
+#### 4.4-A 신규 설치
+
+맥미니의 `macmini` 브랜치를 한 번 복사해 오고, 곧바로 이 Mac 전용 브랜치로 전환합니다.
+
+**[확인]** `$G`(git dir)와 워크스페이스의 설정 파일을 새로 만듭니다. 이전 시도의 잔여물이 있으면 멈춥니다.
+
+```bash
+if [ -e "$G" ] || [ -e "$S/run/wc-tmp" ]; then
+  echo "이미 있습니다: $G 또는 $S/run/wc-tmp. 이전 시도의 잔여물인지 확인한 뒤 옮기거나 지우고 다시 실행하세요." >&2
 else
-  git clone --no-checkout -b macmini https://github.com/wineoflove/ocm-workspace-config.git $S/run/wc-tmp
-  mv $S/run/wc-tmp/.git $G && rmdir $S/run/wc-tmp
-  git --git-dir=$G config core.worktree $W
-  git --git-dir=$G --work-tree=$W checkout -b "$CONFIG_BRANCH"
-  git --git-dir=$G --work-tree=$W checkout HEAD -- .
-  git --git-dir=$G branch -D macmini        # 로컬 macmini를 지워 실수로 push하지 않게. origin/macmini는 남김
-  git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom" "$(git --git-dir=$G rev-parse origin/macmini)"
-  printf '%s\n' "$CONFIG_BRANCH" > $S/env/config-branch
+  git clone --no-checkout -b macmini https://github.com/wineoflove/ocm-workspace-config.git $S/run/wc-tmp &&
+  mv $S/run/wc-tmp/.git $G && rmdir $S/run/wc-tmp &&
+  git --git-dir=$G config core.worktree $W &&
+  git --git-dir=$G --work-tree=$W checkout -b "$CONFIG_BRANCH" &&
+  git --git-dir=$G --work-tree=$W checkout HEAD -- . &&
+  git --git-dir=$G branch -D macmini &&                # 로컬 macmini를 지워 실수로 push하지 않게. origin/macmini는 남김
+  git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom" "$(git --git-dir=$G rev-parse origin/macmini)" &&
+  printf '%s\n' "$CONFIG_BRANCH" > $S/env/config-branch &&
   git --git-dir=$G branch -vv
 fi
 ```
 
-- 원격에 같은 이름의 브랜치가 이미 있으면, 같은 Mac·계정을 다시 설치하는 경우입니다. 그때는 `macmini` 대신 그 브랜치를 복원합니다.
-  - 위 명령의 `-b macmini`를 `-b "$CONFIG_BRANCH"`로 바꿉니다.
-  - `checkout -b`, `branch -D`, `forkedFrom` 줄은 빼고, `config-branch` 파일만 씁니다.
-  - 4.4의 정리 단계와 4.7 첫 커밋은 건너뜁니다. 그 브랜치에는 이미 반영되어 있습니다.
-- 다른 기기와 이름이 겹치면 `$S/env/config-branch`에 다른 이름을 직접 쓰고 다시 실행합니다.
-- `forkedFrom`에는 복사해 온 맥미니 커밋이 기록됩니다. 나중에 맥미니 변경을 가져올 때([12.5](#125-워크스페이스-설정스킬)) 기준으로 씁니다.
+`forkedFrom`에는 복사해 온 맥미니 커밋이 기록됩니다. 나중에 맥미니 변경을 가져올 때([12.5](#125-워크스페이스-설정스킬)) 기준으로 씁니다.
 
-학습 저장소는 맥미니가 매일 05:00에 `macmini` 브랜치로 백업한 내용입니다. 더 최신 기록이 필요하면 맥미니에서 설정 백업 스케줄을 수동으로 한 번 실행한 뒤 clone합니다.
-
-다음 파일들은 지웁니다.
+다음 파일들을 지웁니다.
 - 맥미니에서는 지웠지만 백업 브랜치에 아직 남아 있는 OC1 시절 파일. 특히 `opencode.json`은 OC1 형식이라 반드시 지웁니다.
 - Manager가 기동할 때 다시 만드는 플러그인(`plugins/ocm-*.js`)
+
+**[확인]** 지울 대상만 먼저 출력합니다. 목록을 확인한 다음 두 번째 블록을 실행합니다.
+
+```bash
+cd $W
+ls -d .config/opencode/skills-archive .config/opencode/skills/opencode-account-recovery \
+      .config/opencode/opencode.json .config/opencode/tui.json .config/opencode/agents/goal-runner.md \
+      .config/opencode/anthropic-pool-admin.mjs .config/opencode/plugins/ocm-*.js \
+      repos/assistant/.opencode/tests/goal-runner-session-scope.test.mjs 2>/dev/null
+```
 
 ```bash
 cd $W
@@ -387,6 +479,69 @@ rm -f .config/opencode/opencode.json .config/opencode/tui.json \
 ls .config/opencode/skills | wc -l      # 38
 ls .config/opencode/agents | wc -l      # 19 (sisyphus, prometheus, hephaestus, oracle, … junior-*)
 ```
+
+이어서 4.5, 4.6, 4.7을 진행합니다.
+
+#### 4.4-B 재설치
+
+원격의 이 Mac 브랜치에는 이미 정리·경로 변환·포트 적용이 된 설정이 있습니다. 그 브랜치를 그대로 복원하고, 번들에서는 **없는 파일만** 채웁니다. 4.4-A의 정리, 4.5~4.7은 하지 않습니다.
+
+**[확인]** `$G`와 워크스페이스 설정 파일을 원격 브랜치 내용으로 만듭니다.
+
+```bash
+if [ -e "$G" ] || [ -e "$S/run/wc-tmp" ]; then
+  echo "이미 있습니다: $G 또는 $S/run/wc-tmp. 이전 시도의 잔여물인지 확인한 뒤 진행하세요." >&2
+else
+  git clone --no-checkout -b "$CONFIG_BRANCH" https://github.com/wineoflove/ocm-workspace-config.git $S/run/wc-tmp &&
+  mv $S/run/wc-tmp/.git $G && rmdir $S/run/wc-tmp &&
+  git --git-dir=$G config core.worktree $W &&
+  git --git-dir=$G --work-tree=$W checkout HEAD -- . &&
+  printf '%s\n' "$CONFIG_BRANCH" > $S/env/config-branch &&
+  git --git-dir=$G branch -vv
+fi
+```
+
+맥미니 기준점(`forkedFrom`)을 브랜치의 커밋 기록에서 복원합니다. 커밋 메시지의 `Macmini-Base:` 줄이나 `… from macmini <SHA>` 제목을 읽고, 둘 다 없으면 갈라진 지점(merge-base)을 씁니다.
+
+```bash
+BASE=$(git --git-dir=$G log --format=%B "$CONFIG_BRANCH" \
+  | sed -nE 's/^Macmini-Base: ([0-9a-f]{40})$/\1/p; s/.* from macmini ([0-9a-f]{7,40})$/\1/p' | head -1)
+BASE=$(git --git-dir=$G rev-parse --verify -q "${BASE:-none}^{commit}" \
+  || git --git-dir=$G merge-base "$CONFIG_BRANCH" origin/macmini)
+git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom" "$BASE"
+git --git-dir=$G log --oneline -1 "$BASE"
+```
+
+번들은 없는 파일만 채웁니다. 워크스페이스의 파일(`opencode.jsonc`, `schedule-reports.json` 등)은 브랜치에 있는 이 Mac 값을 그대로 씁니다.
+
+```bash
+B=$S/run/new-mac-bundle; rm -rf $B; mkdir -p $B
+(cd $S/port/deploy/new-mac && shasum -a 256 -c SHA256SUMS) && tar -xzf $S/port/deploy/new-mac/oc2-macmini-bundle.tgz -C $B
+rsync -ani --ignore-existing "$B/home/" "$U/" | awk '$1 ~ /^>f/ {print "새 파일: " $2}'
+```
+
+**[확인]** 위 목록(새로 채울 파일)을 확인한 다음 적용합니다. 새로 채운 파일에만 경로 변환과 포트를 적용합니다.
+
+```bash
+B=$S/run/new-mac-bundle
+if [ ! -f "$B/meta/manifest.json" ] || [ ! -d "$B/home" ]; then
+  echo "$B에 풀린 번들이 없습니다. 바로 위 블록부터 다시 실행하세요." >&2
+else
+  rsync -ai --ignore-existing "$B/home/" "$U/" | awk -v home="$U" '$1 ~ /^>f/ {print home "/" $2}' > $S/run/new-mac-added.txt
+  rm -rf $S/run/new-mac-meta && cp -R $B/meta $S/run/new-mac-meta
+  bash $S/port/deploy/new-mac/relocate.sh "$(jq -r .sourceHome $S/run/new-mac-meta/manifest.json)" \
+    $S/run/new-mac-meta/schedules.json
+  tr '\n' '\0' < $S/run/new-mac-added.txt | xargs -0 -r bash $S/port/deploy/new-mac/set-ports.sh --source $S/env/ports.env
+  (umask 077; cp $S/env/ports.env $S/env/ports.applied.env)
+  git --git-dir=$G --work-tree=$W status --short | head -20
+fi
+```
+
+- `relocate.sh`는 브랜치 파일에서 바꿀 경로를 찾지 못하면 그대로 둡니다. 새로 채운 파일만 바뀝니다.
+- `git status`에 바뀐 파일이 나오면 이 Mac의 사용자명이나 포트가 브랜치를 만들 때와 달라진 것입니다. 내용을 확인하고 4.7과 같은 방식으로 커밋해 push합니다.
+- 스케줄과 보고 세션 ID는 새 Manager DB에 맞춰 [10](#10-학습점검-스케줄-범위-3)에서 다시 연결합니다. 브랜치의 `schedule-reports.json`에 있는 예전 ID는 그때 바뀝니다.
+
+그다음은 [5](#5-cliproxy-범위-2)부터 진행합니다.
 
 ### 4.5 맥미니 번들 풀기와 경로 변환
 
@@ -402,14 +557,27 @@ ls .config/opencode/agents | wc -l      # 19 (sisyphus, prometheus, hephaestus, 
 | `home/Library/LaunchAgents/` | Manager 백엔드·Headroom plist. Headroom은 새 venv 위치로 맞춰져 있음 |
 | `meta/` | `schedules.json`(Assistant 스케줄 정의), `headroom-requirements.txt`, `markitdown-requirements.txt`, `manifest.json`(원본 HOME·OC2 버전·해시·맥미니 포트) |
 
+번들을 풀고, 적용하기 전에 새로 생길 파일과 덮어쓸 파일을 미리 봅니다.
+
 ```bash
-cd $S/port/deploy/new-mac
-shasum -a 256 -c SHA256SUMS
-X=$(mktemp -d)
-tar -xzf oc2-macmini-bundle.tgz -C $X
-cat $X/meta/manifest.json
-rsync -a $X/home/ "$U/"                      # HOME 아래 같은 상대 위치에 놓임
-rm -rf $S/run/new-mac-meta && cp -R $X/meta $S/run/new-mac-meta && rm -rf $X
+B=$S/run/new-mac-bundle; rm -rf $B; mkdir -p $B
+(cd $S/port/deploy/new-mac && shasum -a 256 -c SHA256SUMS) && tar -xzf $S/port/deploy/new-mac/oc2-macmini-bundle.tgz -C $B
+jq . $B/meta/manifest.json
+rsync -ani "$B/home/" "$U/" | awk '$1 ~ /^>f/ { if ($1 ~ /^>f\+/) add++; else { chg++; print "덮어씀: " $2 } }
+  END { printf "새 파일 %d개, 덮어쓸 파일 %d개\n", add, chg }'
+```
+
+**[확인]** 신규 설치라면 `덮어쓸 파일 0개`가 정상입니다. 덮어쓸 파일이 있으면 이전 시도의 잔여물인지, 이 Mac에서 직접 고친 파일인지 확인합니다. 아래 명령은 덮어쓰는 파일의 원본을 `<파일>.before-bundle`로 남깁니다.
+
+```bash
+B=$S/run/new-mac-bundle
+if [ ! -f "$B/meta/manifest.json" ] || [ ! -d "$B/home" ]; then
+  echo "$B에 풀린 번들이 없습니다. 바로 위 블록부터 다시 실행하세요." >&2
+else
+  rsync -a --backup --suffix=.before-bundle "$B/home/" "$U/"      # HOME 아래 같은 상대 위치에 놓임
+  rm -rf $S/run/new-mac-meta && cp -R $B/meta $S/run/new-mac-meta
+  find "$U/apps" "$U/Library/LaunchAgents" -name '*.before-bundle' 2>/dev/null   # 남은 원본. 확인 후 지웁니다
+fi
 ```
 
 맥미니 HOME을 이 Mac의 HOME으로 바꿉니다.
@@ -510,13 +678,15 @@ fi
 커밋하고 원격에 올립니다.
 
 ```bash
-"${GW[@]}" commit -m "chore(config): $CONFIG_BRANCH baseline from macmini $(git --git-dir=$G config branch.$CONFIG_BRANCH.forkedFrom | cut -c1-8)"
+BASE=$(git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom")
+"${GW[@]}" commit -m "chore(config): $CONFIG_BRANCH baseline from macmini ${BASE:0:8}" -m "Macmini-Base: $BASE"
 "${GW[@]}" push -u origin "$CONFIG_BRANCH"
 [ "$(git --git-dir=$G ls-remote origin "refs/heads/$CONFIG_BRANCH" | cut -f1)" = "$(git --git-dir=$G rev-parse HEAD)" ] \
   && echo "원격 반영 확인: $CONFIG_BRANCH" || echo "원격 SHA가 다릅니다. 확인하세요." >&2
 "${GW[@]}" status --short | head       # 비어 있어야 함
 ```
 
+- 커밋 메시지의 `Macmini-Base:` 줄은 재설치할 때([4.4-B](#44-b-재설치)) 맥미니 기준점을 복원하는 데 씁니다.
 - 이후 이 Mac의 설정 변경은 이 브랜치에만 백업합니다. 백업은 [10.4](#104-선택-설정-백업-스케줄) 스케줄이나 수동으로 합니다.
 - `macmini` 브랜치는 맥미니 변경 사항을 참고할 때만 읽습니다([12.5](#125-워크스페이스-설정스킬)).
 - Manager를 기동하면 `plugins/ocm-*.js`와 `service-ocm-pool.json`이 다시 생기지만, 위 제외 규칙 때문에 추적되지 않습니다.
@@ -539,6 +709,8 @@ xattr -d com.apple.quarantine cli-proxy-api 2>/dev/null || true
 ### 5.2 실행 패키지 생성
 
 OCM 포크의 `prepareClaudeProxyPackage`를 사용합니다. 이 함수가 디렉터리, 무작위 키 3개(`ingress`/`upstream`/`management`), 게이트, `config.yaml`, launchd plist를 만듭니다. 맥미니도 같은 함수로 만들었습니다. 키는 이 Mac에서 새로 생성되며 맥미니 키와 다릅니다.
+
+패키지 폴더가 이미 있으면 함수가 `EEXIST`로 멈춥니다. 재개할 때 이미 만들어져 있다면 이 블록은 건너뜁니다.
 
 ```bash
 mkdir -p $S/cliproxy
@@ -569,6 +741,8 @@ EOF
 
 ### 5.3 launchd 등록·확인
 
+**[확인]** launchd에 CLIProxy를 등록합니다. 이미 등록돼 있으면 `bootstrap`이 오류(`Bootstrap failed: 5`)를 내니, 그때는 `launchctl print gui/$(id -u)/com.aion.ocm.claude-proxy`로 상태만 확인합니다.
+
 ```bash
 cp $S/cliproxy/package/com.aion.ocm.claude-proxy.plist $U/Library/LaunchAgents/
 launchctl bootstrap gui/$(id -u) $U/Library/LaunchAgents/com.aion.ocm.claude-proxy.plist
@@ -595,7 +769,7 @@ plutil -extract ProgramArguments.0 raw $P                     # $H/.venv/bin/pyt
 ls "$(plutil -extract EnvironmentVariables.ORT_DYLIB_PATH raw $P)"
 mkdir -p $S/run/headroom/tmp
 plutil -lint $P
-launchctl bootstrap gui/$(id -u) $P
+launchctl bootstrap gui/$(id -u) $P      # [확인] launchd 등록
 sleep 5; curl -s http://127.0.0.1:$HEADROOM_PORT/health; echo
 ```
 
@@ -615,7 +789,7 @@ uv venv --python 3.10 $T/markitdown/.venv
 uv pip install --python $T/markitdown/.venv/bin/python -r $S/run/new-mac-meta/markitdown-requirements.txt
 ```
 
-API 키는 이 Mac에서 직접 입력합니다. 기기별로 키를 새로 발급하면 폐기를 기기 단위로 할 수 있어 권장합니다. 기존 키를 다시 써도 동작은 같습니다.
+**[직접]** API 키는 이 Mac에서 직접 입력합니다. 기기별로 키를 새로 발급하면 폐기를 기기 단위로 할 수 있어 권장합니다. 기존 키를 다시 써도 동작은 같습니다.
 
 ```bash
 install -d -m 700 $U/.local/share/opencode-manager/secrets $U/.local/share/ocm-migration-20260930/private
@@ -627,9 +801,18 @@ jq -n --arg k "$FK" '{mcpServers:{firecrawl:{env:{FIRECRAWL_API_KEY:$k}}}}' \
 chmod 600 $U/.local/share/opencode-manager/secrets/exa-api-key $U/.local/share/ocm-migration-20260930/private/mcporter.json
 ```
 
+완료 확인(값은 출력하지 않고 권한·크기만 봅니다):
+
+```bash
+stat -f '%Lp %z %N' $U/.local/share/opencode-manager/secrets/exa-api-key $U/.local/share/ocm-migration-20260930/private/mcporter.json   # 600, 크기 0보다 큼
+jq -e '.mcpServers.firecrawl.env.FIRECRAWL_API_KEY | length > 0' $U/.local/share/ocm-migration-20260930/private/mcporter.json >/dev/null && echo "firecrawl key ok"
+```
+
+실제 키가 유효한지는 아래 `call-smoke.mjs`로 확인합니다.
+
 `firecrawl.sh`는 맥미니와 같은 위치(`ocm-migration-20260930/private/mcporter.json`)에서 키를 읽습니다. 경로 이름은 맥미니 이력 때문이며, 내용은 Firecrawl 키 하나면 충분합니다.
 
-launchd에 등록합니다.
+**[확인]** plist 4개를 만들고 launchd에 등록합니다. `write-plists.py`는 같은 이름의 plist를 덮어씁니다.
 
 ```bash
 mkdir -p $U/apps/mcp-shared/logs
@@ -644,6 +827,7 @@ node $U/apps/mcp-shared/bin/call-smoke.mjs   # 실제 도구 호출 (Exa·Firecr
 
 ### 7.2 Playwright MCP (Chrome 확장 방식)
 
+**[직접]**
 1. Chrome을 설치하고, 사용할 프로필에 **Playwright MCP Bridge** 확장을 설치합니다.
 2. 확장에 표시되는 토큰을 저장합니다.
 
@@ -653,7 +837,34 @@ node $U/apps/mcp-shared/bin/call-smoke.mjs   # 실제 도구 호출 (Exa·Firecr
    chmod 600 $U/.local/share/opencode-manager/secrets/playwright-extension-token
    ```
 
-3. `$T/playwright-mcp` wrapper는 맥미니의 `Profile 3`를 가리킵니다. 확장을 설치한 프로필 이름이 다르면(`chrome://version`의 프로필 경로 마지막 부분) `--profile-dir-name` 값을 그 이름으로 바꿉니다. 연결되지 않으면 `--user-data-dir` 값도 확인합니다.
+3. wrapper를 확장을 설치한 Chrome 프로필로 맞춥니다. `$T/playwright-mcp`는 맥미니 값(`--user-data-dir`은 맥미니 전용 폴더, `--profile-dir-name`은 `Profile 3`)을 가리키고 있습니다.
+   - 확장을 설치한 프로필에서 `chrome://version`을 열고 **프로필 경로**를 복사합니다.
+   - 경로의 마지막 부분이 프로필 이름(`--profile-dir-name`)이고, 그 앞부분이 사용자 데이터 폴더(`--user-data-dir`)입니다.
+
+   예: 프로필 경로가 `/Users/<계정>/Library/Application Support/Google/Chrome/Default`이면 다음과 같이 맞춥니다.
+
+   | 옵션 | 값 |
+   | --- | --- |
+   | `--user-data-dir` | `/Users/<계정>/Library/Application Support/Google/Chrome` |
+   | `--profile-dir-name` | `Default` |
+
+   ```bash
+   PROFILE_PATH="$HOME/Library/Application Support/Google/Chrome/Default"   # chrome://version의 프로필 경로를 그대로 붙여 넣기
+   PROFILE_PATH="$PROFILE_PATH" F=$T/playwright-mcp python3 - <<'EOF'
+   import os, re, shlex
+   path, profile = os.environ["F"], os.environ["PROFILE_PATH"].rstrip("/")
+   data_dir, name = os.path.dirname(profile), os.path.basename(profile)
+   text = open(path).read()
+   text, n1 = re.subn(r"--user-data-dir '[^']*'", "--user-data-dir " + shlex.quote(data_dir), text)
+   text, n2 = re.subn(r"--profile-dir-name '[^']*'", "--profile-dir-name " + shlex.quote(name), text)
+   assert n1 == 1 and n2 == 1, "wrapper 형식이 달라 직접 고쳐야 합니다"
+   open(path, "w").write(text)
+   print(f"user-data-dir={data_dir} profile={name}")
+   EOF
+   grep -n 'user-data-dir\|profile-dir-name' $T/playwright-mcp
+   ```
+
+완료 확인: 토큰 파일이 `600`인지 `stat -f '%Lp %N' $U/.local/share/opencode-manager/secrets/playwright-extension-token`으로 봅니다. 연결은 Manager를 띄운 뒤 Assistant에게 "Playwright MCP로 `about:blank`를 열고 snapshot을 찍어 줘"라고 요청해 확인합니다. 지정한 프로필의 Chrome 창에 새 탭이 열려야 합니다.
 
 ### 7.3 codegraph
 
@@ -671,6 +882,8 @@ $U/.codegraph/current/bin/codegraph version      # 1.5.0
 
 소스는 번들로 복원됩니다(`$T/claude-design-mcp`). Node 22 이상과 **Claude Code CLI 로그인**이 필요합니다. 일반 셸에서 `claude`를 설치하고 로그인해 두세요. MCP 명령은 `HOME=<사용자 HOME>`으로 실행되므로 Manager의 HOME이 아니라 사용자 HOME의 로그인을 사용합니다. Claude Desktop 앱(`/Applications/Claude.app`)에 번들된 CLI도 자동으로 찾습니다.
 
+**[직접]** 일반 터미널에서 `claude auth login`으로 로그인합니다. 완료 확인: `claude auth status`가 로그인 상태를 보여 줍니다. MCP 연결은 Manager를 띄운 뒤 Assistant에서 claude-design의 `status` 도구로 확인합니다.
+
 ### 7.5 ref, websearch
 
 - `ref`: 원격 `https://ref.theseeker.io/mcp`이며 인증이 필요 없습니다.
@@ -678,17 +891,54 @@ $U/.codegraph/current/bin/codegraph version      # 1.5.0
 
 ### 7.6 LSP와 UI 자동화 도구 (선택)
 
-```bash
-# TypeScript LSP (워크스페이스 백업에 package.json·lock 포함)
-(cd $T/lsp && pnpm install --frozen-lockfile)
-ln -sf $T/lsp/node_modules/typescript-language-server/lib/cli.mjs $U/.local/bin/typescript-language-server
+**TypeScript LSP**
 
-# UI 자동화 (ui-automation 스킬이 사용): agent-browser 0.43.0, agent-desktop 1.3.1, cua-driver
-npm ci --prefix $T/ui-automation
-for t in agent-browser agent-desktop cua-driver; do ln -sf $T/ui-automation/bin/$t $U/.local/bin/$t; done
+```bash
+(cd $T/lsp && pnpm install --frozen-lockfile)        # 워크스페이스 백업에 package.json·lock 포함
+ln -sf $T/lsp/node_modules/typescript-language-server/lib/cli.mjs $U/.local/bin/typescript-language-server
 ```
 
-`cua-driver`를 쓰려면 `/Applications/CuaDriver.app`(맥미니는 0.55.0)을 공식 배포본으로 설치하고, 시스템 설정에서 손쉬운 사용과 화면 기록 권한을 허용합니다.
+설치 직후 테스트: 버전을 출력하고, 실제로 서버를 띄워 LSP `initialize` 요청에 응답하는지 확인합니다.
+
+```bash
+typescript-language-server --version                                     # 6.0.1
+TSSERVER=$T/lsp/node_modules/typescript/lib/tsserver.js \
+  node $S/port/deploy/new-mac/lsp-check.mjs "$(command -v typescript-language-server)" $S/port
+# initialize ok: 23 capabilities (hover=true, definition=true)
+```
+
+**UI 자동화** (`ui-automation` 스킬이 사용): agent-browser 0.43.0, agent-desktop 1.3.1, cua-driver
+
+```bash
+npm ci --prefix $T/ui-automation
+for t in agent-browser agent-desktop cua-driver; do ln -sf $T/ui-automation/bin/$t $U/.local/bin/$t; done
+agent-browser --version; agent-desktop --version                          # 0.43.0 / 1.3.1
+```
+
+`cua-driver`는 `/Applications/CuaDriver.app`(맥미니는 0.55.0)을 공식 배포본으로 설치한 뒤 권한을 줍니다.
+
+1. **[직접]** `cua-driver permissions grant`를 실행합니다. 시스템 설정의 **손쉬운 사용**과 **화면 기록** 스위치를 하나씩 안내하고, 마지막에 테스트 스크린샷으로 확인합니다.
+2. 권한 상태를 확인합니다.
+
+   ```bash
+   cua-driver permissions status --json | jq '{accessibility, screen_recording}'    # 둘 다 true
+   ```
+
+3. 실제 창에서 UI 요소 읽기와 PNG 캡처가 되는지 확인합니다. Finder 창을 하나 열어 둔 상태에서 실행합니다(`open ~`). 캡처한 화면에는 개인 정보가 있을 수 있으므로 확인 후 바로 지웁니다.
+
+   ```bash
+   SES=setup-check
+   read PID WID <<< "$(cua-driver call list_windows '{"app":"Finder","on_screen_only":true,"session":"'$SES'"}' \
+     | jq -r '[.windows[] | select(.layer == 0)] | max_by(.bounds.width * .bounds.height) | "\(.pid) \(.window_id)"')"
+   cua-driver call get_window_state "{\"pid\":$PID,\"window_id\":$WID,\"max_elements\":30,\"session\":\"$SES\"}" \
+     --screenshot-out-file $S/tmp/cua-check.png | jq '{element_count, degraded_reason, screenshot_error}'
+   file $S/tmp/cua-check.png                  # PNG image data
+   cua-driver call end_session "{\"session\":\"$SES\"}" >/dev/null; rm -f $S/tmp/cua-check.png
+   ```
+
+   - 정상: `element_count`가 0보다 크고, `degraded_reason`·`screenshot_error`가 `null`이며, PNG 파일이 만들어집니다.
+   - `degraded_reason`이 `screen_locked…`: 화면이 잠겼거나 화면 보호기가 켜진 상태입니다. 잠금을 풀고 다시 실행합니다.
+   - `screenshot_error.reason`이 `direct_capture_consent_required…`: macOS가 직접 캡처 허용을 아직 묻지 않은 상태입니다. 뜨는 허용 창을 승인하고 다시 실행합니다.
 
 ---
 
@@ -696,12 +946,18 @@ for t in agent-browser agent-desktop cua-driver; do ln -sf $T/ui-automation/bin/
 
 ### 8.1 환경 파일
 
-비밀값(관리자 비밀번호, `AUTH_SECRET`)은 입력만 받고 화면에 출력하지 않습니다. `<새맥IP>`는 이 Mac의 LAN IP로 바꿉니다.
+**[직접]** 관리자 이메일과 비밀번호를 입력합니다. 비밀값(관리자 비밀번호, `AUTH_SECRET`)은 입력만 받고 화면에 출력하지 않습니다. LAN IP는 기본 경로의 네트워크 인터페이스에서 자동으로 찾습니다. 찾지 못하면 멈추니, 그때는 `IP=192.168.x.x`처럼 직접 지정하고 다시 실행합니다.
+
+**[확인]** 이미 `staging.env`가 있으면 만들지 않고 멈춥니다. 다시 만들면 `AUTH_SECRET`이 바뀌어 모든 로그인 세션이 끊깁니다. 관리자 비밀번호만 바꾸려면 [8.6](#86-관리자-비밀번호-재설정)을 따릅니다.
 
 ```bash
+IP=${IP:-$(ipconfig getifaddr "$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')" 2>/dev/null)}
+echo "LAN IP: ${IP:-찾지 못함}"
+if [ -z "$IP" ]; then echo "LAN IP를 찾지 못했습니다. IP=<이 Mac의 IP>로 지정한 뒤 다시 실행하세요." >&2
+elif [ -e $S/env/staging.env ]; then echo "$S/env/staging.env가 이미 있습니다. 8.6을 확인하세요." >&2
+else
 read -r  "ADMIN_EMAIL?관리자 이메일: "
 read -rs "ADMIN_PASSWORD?관리자 비밀번호: "; echo
-IP=<새맥IP>
 umask 077
 cat > $S/env/staging.env <<EOF
 NODE_ENV=production
@@ -712,8 +968,6 @@ CORS_ORIGIN=http://$IP:$MANAGER_PORT
 AUTH_TRUSTED_ORIGINS=http://$IP:$MANAGER_PORT,http://localhost:$MANAGER_PORT,http://127.0.0.1:$MANAGER_PORT
 AUTH_SECURE_COOKIES=false
 AUTH_SECRET=$(openssl rand -hex 32)
-ADMIN_EMAIL=$ADMIN_EMAIL
-ADMIN_PASSWORD=$ADMIN_PASSWORD
 OPENCODE_SERVER_PORT=$OPENCODE_PORT
 OPENCODE_HOST=127.0.0.1
 PREVIEW_PORT=$PREVIEW_PORT
@@ -734,16 +988,29 @@ OCM_CLAUDE_PROXY_GATE_DIRECTORY=$S/cliproxy/package/gate
 OCM_CLAUDE_INFERENCE_UPSTREAM_URL=http://127.0.0.1:$HEADROOM_PORT
 OCM_MAINTENANCE_MARKER=$S/run/maintenance.closed
 EOF
+ADMIN_EMAIL="$ADMIN_EMAIL" ADMIN_PASSWORD="$ADMIN_PASSWORD" python3 - >> $S/env/staging.env <<'PY'
+import os, shlex
+for key in ("ADMIN_EMAIL", "ADMIN_PASSWORD"):
+    print(f"{key}={shlex.quote(os.environ[key])}")
+PY
 unset ADMIN_PASSWORD
 chmod 600 $S/env/staging.env
+fi
 ```
 
+완료 확인(비밀값은 출력하지 않음): `grep -c '^ADMIN_PASSWORD=' $S/env/staging.env`가 `1`, `bash -n $S/env/staging.env && echo ok`가 `ok`.
+
+- `ADMIN_EMAIL`과 `ADMIN_PASSWORD`는 셸 따옴표로 감싸 저장합니다. `launchd-backend.sh`가 이 파일을 셸로 읽기 때문에, 공백이나 `$` 같은 특수문자가 든 비밀번호를 따옴표 없이 쓰면 기동이 실패하거나 다른 값으로 읽힙니다.
+- 관리자 계정은 Manager가 **처음 기동할 때 한 번만** 이 값으로 만듭니다. 그 뒤에 `ADMIN_PASSWORD`만 바꾸면 비밀번호는 바뀌지 않습니다. 비밀번호를 바꾸려면 8.6을 따릅니다.
+
 - `OCM_MAINTENANCE_MARKER`: 이 파일이 **있으면** Manager가 새 작업 접수를 막습니다(외부 업그레이드용). 평소에는 파일을 만들지 않습니다.
-- Cloudflare Tunnel로 외부 도메인을 쓸 때만 `AUTH_TRUSTED_ORIGINS`에 그 도메인을 추가합니다. 맥미니의 `opencode2.wineoflove.com`을 그대로 재사용하지 마세요.
+- Cloudflare Tunnel로 외부 도메인을 쓸 때만 `AUTH_TRUSTED_ORIGINS`에 그 도메인을 추가합니다([8.7](#87-외부-도메인-로그인-cloudflare-tunnel)). 맥미니의 `opencode2.wineoflove.com`을 그대로 재사용하지 마세요.
 
 ### 8.2 백엔드 launchd 등록
 
 번들에서 `bin/launchd-backend.sh`와 `$HOME/Library/LaunchAgents/io.wineoflove.ocm2.backend.plist`가 이미 풀려 있습니다. plist는 `HOME=$S/home`, `ENVFILE=$S/env/staging.env`, `WorkingDirectory=$S/port`로 `bin/launchd-backend.sh`를 실행합니다. 이 스크립트는 Manager·OC2·preview 포트(4.6에서 이 Mac 값으로 바뀜)를 다른 프로세스가 쓰고 있으면 기동을 거부하고, `bun run backend/dist/index.js`를 실행합니다.
+
+**[확인]** Manager 백엔드를 launchd에 등록하고 기동합니다.
 
 ```bash
 chmod 700 $S/bin/*.sh
@@ -757,9 +1024,10 @@ tail -50 $S/run/backend.log
 
 ### 8.3 CLIProxy 계정 로그인
 
-1. 브라우저에서 `http://<새맥IP>:<MANAGER_PORT>`에 접속해 관리자 계정으로 로그인합니다.
+**[직접]**
+1. 브라우저에서 `http://<새맥IP>:<MANAGER_PORT>`에 접속해 관리자 계정으로 로그인합니다. 로그인되지 않으면 [8.6](#86-관리자-비밀번호-재설정)을 봅니다.
 2. **설정 → Providers → 프록시 계정**에서 Claude와 OpenAI 계정을 추가합니다. OAuth 페이지에서 로그인한 뒤 리디렉션 URL을 붙여 넣습니다.
-3. 계정 수를 확인합니다.
+3. 완료 확인: 계정 수가 추가한 계정 수와 같아야 합니다.
 
    ```bash
    curl -s -H "Authorization: Bearer $(cat $S/cliproxy/package/keys/management.key)" \
@@ -781,11 +1049,113 @@ tail -30 $S/run/headroom/headroom.log; tail -30 $S/cliproxy/package/logs/stderr.
 
 [3](#3-github-토큰-새-mac-전용)에서 발급한 **이 Mac 전용 classic 토큰**을 등록합니다.
 
+**[직접]**
 1. **설정 → Git 설정 → Git 자격 증명 추가**
-2. 이름 `github-<기기명>`, Host `github.com`, 유형 PAT, 토큰을 입력하고 기본 자격 증명으로 지정합니다.
-3. Assistant 세션에서 `gh auth status`를 실행해 이 Mac의 계정으로 인증되는지 확인합니다. 그다음 `gh api repos/wineoflove/ocm-workspace-config -q .permissions.push`가 `true`인지 확인합니다.
+2. 이름 `github-<기기명>-<계정명>`, Host `github.com`, 유형 PAT, 토큰을 입력하고 기본 자격 증명으로 지정합니다.
+
+완료 확인: Assistant 세션에서 3.2와 같은 검사를 실행합니다. 에이전트에게 "아래 명령을 실행하고 결과를 그대로 보여 줘"라고 요청해도 됩니다.
+
+```bash
+gh api user --jq .login                                                   # 3.2의 터미널 결과와 같은 계정
+gh api repos/wineoflove/ocm-workspace-config --jq .permissions.push      # true
+```
+
+계정이 다르거나 `false`·`Not Found`이면 Manager에 등록한 토큰이 3.2와 다른 것입니다. Git 자격 증명의 토큰과 기본 지정을 다시 확인합니다.
 
 에이전트 세션과 설정 백업 스케줄(10.4)은 이 토큰을 `GH_TOKEN`으로 받아 씁니다. 토큰이 만료되면 3.1에서 다시 발급해 3.2와 이 단계를 반복합니다.
+
+### 8.6 관리자 비밀번호 재설정
+
+관리자 계정이 이미 있으면 `staging.env`의 `ADMIN_PASSWORD`를 바꿔도 비밀번호가 바뀌지 않습니다. `ADMIN_PASSWORD_RESET=true`를 **한 번만** 켜고 재시작하면, Manager가 기동할 때 관리자 비밀번호를 `ADMIN_PASSWORD` 값으로 바꿉니다.
+
+- 재설정할 때 그 관리자 계정의 **모든 로그인 세션이 종료**되고, 그 세션들의 푸시 알림 구독도 지워집니다. 모든 브라우저와 기기에서 다시 로그인해야 합니다.
+- 플래그를 켜 둔 채로 두면 재시작할 때마다 다시 재설정되고 세션이 끊깁니다. 로그인을 확인한 뒤 반드시 플래그를 지웁니다.
+- 백엔드 재시작은 실행 중인 세션을 중단하므로, 활성 세션이 없을 때 진행합니다.
+
+**[직접] [확인]** 새 비밀번호를 입력하고 플래그를 켠 뒤 재시작합니다.
+
+```bash
+read -rs "NEWPW?새 관리자 비밀번호: "; echo
+NEWPW="$NEWPW" ENVF=$S/env/staging.env python3 - <<'EOF'
+import os, shlex
+path = os.environ["ENVF"]
+lines = [l for l in open(path).read().splitlines() if not l.startswith(("ADMIN_PASSWORD=", "ADMIN_PASSWORD_RESET="))]
+lines += [f"ADMIN_PASSWORD={shlex.quote(os.environ['NEWPW'])}", "ADMIN_PASSWORD_RESET=true"]
+open(path, "w").write("\n".join(lines) + "\n")
+EOF
+unset NEWPW; chmod 600 $S/env/staging.env
+$S/bin/restart.sh
+grep -E 'Admin password reset from environment|No credential account found' $S/run/backend.log | tail -1
+```
+
+- `Admin password reset from environment for <이메일>`이 보이면 재설정된 것입니다.
+- `No credential account found`이면 그 이메일 계정에 비밀번호 로그인이 없습니다. `ADMIN_EMAIL`이 실제 관리자 이메일과 같은지 확인합니다.
+- 아무것도 없으면 `ADMIN_EMAIL`의 계정이 아직 없는 것입니다. 이 경우 첫 기동에서 계정이 새로 만들어집니다(`Admin user created from environment`).
+
+**[직접]** `http://127.0.0.1:<MANAGER_PORT>`에서 새 비밀번호로 로그인되는지 확인합니다. 그다음 플래그를 지우고 다시 재시작합니다.
+
+```bash
+ENVF=$S/env/staging.env python3 -c 'import os
+p = os.environ["ENVF"]
+lines = [l for l in open(p).read().splitlines() if not l.startswith("ADMIN_PASSWORD_RESET=")]
+open(p, "w").write("\n".join(lines) + "\n")'
+grep -c '^ADMIN_PASSWORD_RESET=' $S/env/staging.env      # 0
+$S/bin/restart.sh
+```
+
+### 8.7 외부 도메인 로그인 (Cloudflare Tunnel)
+
+외부 주소에서 로그인하려면 그 주소를 `AUTH_TRUSTED_ORIGINS`에 **정확히** 넣어야 합니다. 목록에 없는 주소에서 로그인하면 Manager가 `403 Invalid origin`으로 거부합니다.
+
+- 형식: `https://` + 도메인. 기본 포트가 아니면 `:포트`까지 붙입니다. 끝에 `/`나 경로를 붙이지 않습니다. `www` 유무와 `http`/`https`도 브라우저 주소창과 같아야 합니다.
+- 목록의 **첫 항목**이 인증 기준 주소(baseURL)로 쓰입니다. 맥미니처럼 외부 주소를 맨 앞에 둡니다.
+- `AUTH_SECURE_COOKIES=false`는 그대로 둡니다. `true`로 바꾸면 쿠키에 Secure가 붙어, `http://`인 로컬·LAN 주소에서는 로그인이 유지되지 않습니다. 외부 `https://` 주소는 `false`여도 로그인됩니다(맥미니와 같은 구성).
+
+예(외부 주소 `https://ocm.example.com`, LAN IP `192.168.0.10`, Manager 포트 5106):
+
+```text
+AUTH_TRUSTED_ORIGINS=https://ocm.example.com,http://192.168.0.10:5106,http://localhost:5106,http://127.0.0.1:5106
+```
+
+**[확인]** `staging.env`의 줄을 바꾸고 재시작합니다(활성 세션이 없을 때).
+
+```bash
+DOMAIN=https://ocm.example.com      # 외부 주소로 바꾸기
+IP=${IP:-$(ipconfig getifaddr "$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')" 2>/dev/null)}
+if [ -z "$IP" ]; then echo "LAN IP를 찾지 못했습니다. IP=<이 Mac의 IP>로 지정한 뒤 다시 실행하세요." >&2; else
+LINE="AUTH_TRUSTED_ORIGINS=$DOMAIN,http://$IP:$MANAGER_PORT,http://localhost:$MANAGER_PORT,http://127.0.0.1:$MANAGER_PORT"
+LINE="$LINE" ENVF=$S/env/staging.env python3 -c 'import os
+p = os.environ["ENVF"]
+lines = [os.environ["LINE"] if l.startswith("AUTH_TRUSTED_ORIGINS=") else l for l in open(p).read().splitlines()]
+open(p, "w").write("\n".join(lines) + "\n")'
+grep '^AUTH_TRUSTED_ORIGINS=' $S/env/staging.env
+$S/bin/restart.sh
+fi
+```
+
+주소마다 Manager가 허용하는지 확인합니다. 없는 계정으로 로그인을 시도해 응답 코드만 봅니다. 실제 계정에는 영향이 없습니다.
+
+```bash
+for o in "$DOMAIN" "http://$IP:$MANAGER_PORT" "http://127.0.0.1:$MANAGER_PORT"; do
+  printf '%-40s ' "$o"
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST "http://127.0.0.1:$MANAGER_PORT/api/auth/sign-in/email" \
+    -H "Origin: $o" -H 'Content-Type: application/json' \
+    -d '{"email":"origin-check@example.invalid","password":"not-a-real-password"}'
+done
+```
+
+| 응답 | 뜻 |
+| --- | --- |
+| `401` | 허용된 주소입니다(없는 계정이라 로그인만 실패) |
+| `403` | 목록에 없는 주소입니다(`INVALID_ORIGIN`). 철자·`https`·포트·끝의 `/`를 확인합니다 |
+| `429` | 짧은 시간에 로그인을 여러 번 시도해 걸린 제한입니다. 1분쯤 기다렸다가 다시 확인합니다 |
+
+**[직접]** 그다음 주소마다 실제로 로그인합니다. 로그인한 뒤 새로고침해도 로그인 상태가 유지되어야 합니다.
+1. 이 Mac에서 `http://127.0.0.1:<MANAGER_PORT>`
+2. 같은 네트워크의 다른 기기에서 `http://<새맥IP>:<MANAGER_PORT>`
+3. 외부에서 `https://<도메인>`
+
+외부 주소에서 페이지가 아예 열리지 않거나 `502`가 나오면 Manager가 아니라 터널 문제입니다. cloudflared 설정의 서비스 주소가 `http://localhost:<MANAGER_PORT>`인지 확인합니다(`cloudflare-tunnel-routing` 스킬 참고).
 
 ---
 
@@ -823,28 +1193,40 @@ Manager DB는 새로 만들어졌으므로 **스케줄 ID와 보고 세션 ID가
 | 9 | 개발환경·MCP·스킬 주간 버전 점검 | `0 6 * * 1` | 선택 |
 | 2 | workspace-config-backup | `0 5 * * *` | 선택. 브랜치를 바꿔야 함([10.4](#104-선택-설정-백업-스케줄)) |
 
+먼저 선택 작업 중 무엇을 등록할지 정합니다. 이후 단계(보고 세션 만들기, ID 연결, `schedule-reports.json`)는 **등록하는 작업에만** 적용합니다.
+
 ### 10.1 보고 세션 만들기
 
-Assistant 디렉터리(`$W/repos/assistant`)에 보고용 세션을 만들고 ID를 기록합니다. UI에서 새 세션을 만들어도 되고, Assistant에게 `ocm` request `POST /sessions`로 만들어 달라고 해도 됩니다.
+Assistant 디렉터리(`$W/repos/assistant`)에 보고용 세션을 만들고 ID를 기록합니다. UI에서 새 세션을 만들어도 되고, Assistant에게 `ocm` request `POST /sessions`로 만들어 달라고 해도 됩니다. 등록하지 않는 선택 작업의 보고 세션은 만들지 않습니다.
 
-| 용도 | 예시 제목 | 들어갈 곳 |
-| --- | --- | --- |
-| 학습 일일·주간 리뷰 보고 | `학습 리뷰 보고` | `review-config.json`의 `feedbackSession`, `schedule-reports.json`의 학습 작업 2개 |
-| 핵심 6종 일일 버전 점검 | `일일 버전 점검 보고` | `schedule-reports.json` |
-| 주간 버전 점검 | `주간 버전 점검 보고` | `schedule-reports.json` |
-| 설정 백업 (선택) | `설정 백업 보고` | `schedule-reports.json` |
+| 용도 | 예시 제목 | 필요 여부 | 들어갈 곳 |
+| --- | --- | --- | --- |
+| 학습 일일·주간 리뷰 보고 | `학습 리뷰 보고` | 필수 | `review-config.json`의 `feedbackSession`, `schedule-reports.json`의 학습 작업 2개 |
+| 핵심 6종 일일 버전 점검 | `일일 버전 점검 보고` | 그 작업을 등록할 때만 | `schedule-reports.json` |
+| 주간 버전 점검 | `주간 버전 점검 보고` | 그 작업을 등록할 때만 | `schedule-reports.json` |
+| 설정 백업 | `설정 백업 보고` | 그 작업을 등록할 때만 | `schedule-reports.json` |
 
 ### 10.2 스케줄 등록
 
 Assistant 세션에 다음 요청을 보냅니다(`<S>`는 이 Mac의 `$S` 값).
 
-> `<S>/run/new-mac-meta/schedules.json`에 있는 스케줄을 repo 0(Assistant)에 등록해 줘. `schedule-management` 스킬을 쓰고 각 항목의 `name`, `description`, `enabled`, `scheduleMode`, `cronExpression`, `timezone`, `agentSlug`, `model`, `workspaceMode`, `permissionConfig`(JSON 문자열을 객체로 파싱), `prompt`를 그대로 사용해. 학습 일일·주간 리뷰는 필수이고, 버전 점검 2개도 등록해. `workspace-config-backup`은 10.4를 적용한 뒤 등록해. 등록 후 맥미니 ID → 새 ID 대응표를 만들고, 각 프롬프트의 `--job <맥미니 ID>`와 `schedule-reports/job-<맥미니 ID>`를 새 ID로 PATCH해 줘. 새로 만든 보고 세션 ID로 `repos/assistant/.opencode/schedule-reports.json`의 `jobs`를 새 ID 기준으로 다시 쓰고, `.opencode/learnings/review-config.json`의 `feedbackSession`과 `cleanupJobIds`(학습 일일·주간의 새 ID)도 바꿔 줘. 마지막으로 등록된 스케줄을 `GET /repos/0/schedules`로 다시 읽어 대조해 줘.
+> `<S>/run/new-mac-meta/schedules.json`에서 다음 작업만 repo 0(Assistant)에 등록해 줘: `학습 일일 리뷰`, `학습 주간 리뷰`, 그리고 `<선택한 작업 이름들, 없으면 없음>`. 목록에 없는 작업은 등록하지 마. `schedule-management` 스킬을 쓰고 각 항목의 `name`, `description`, `enabled`, `scheduleMode`, `cronExpression`, `timezone`, `agentSlug`, `model`, `workspaceMode`, `permissionConfig`(JSON 문자열을 객체로 파싱), `prompt`를 그대로 사용해. `workspace-config-backup`을 등록한다면 10.4를 적용한 뒤 등록해. 등록한 작업만 맥미니 ID → 새 ID 대응표를 만들고, 그 프롬프트의 `--job <맥미니 ID>`와 `schedule-reports/job-<맥미니 ID>`를 새 ID로 PATCH해 줘. `repos/assistant/.opencode/schedule-reports.json`의 `jobs`는 등록한 작업만 새 ID와 내가 준 보고 세션 ID로 다시 쓰고, 등록하지 않은 작업 항목은 지워 줘. `.opencode/learnings/review-config.json`의 `feedbackSession`과 `cleanupJobIds`(학습 일일·주간의 새 ID)도 바꿔 줘. 마지막으로 `GET /repos/0/schedules`로 다시 읽어 등록 목록이 요청과 정확히 같은지 대조해 줘.
 
 등록이 끝나면 학습 일일 리뷰를 한 번 수동으로 실행해(`POST /repos/0/schedules/<새 ID>/run`) 다음을 확인합니다.
 
 - 실행이 `completed`로 끝나는지
 - 최종 응답에 `report_outcome`이 한 번 호출됐는지
 - 학습 리뷰 보고 세션에 보고서가 게시됐는지
+
+바뀐 두 설정 파일은 전용 브랜치에서 추적하는 파일입니다. 바로 커밋해 원격에 올립니다. 백업 스케줄을 켰다면 그 첫 실행이 대신 올리지만, 그 전까지는 로컬에만 남습니다.
+
+```bash
+GW=(git --git-dir=$G --work-tree=$W)
+"${GW[@]}" status --short -- repos/assistant/.opencode/schedule-reports.json .opencode/learnings/review-config.json
+"${GW[@]}" add --update -- repos/assistant/.opencode/schedule-reports.json .opencode/learnings/review-config.json
+"${GW[@]}" commit -m "chore(config): $CONFIG_BRANCH schedule and report session IDs"
+"${GW[@]}" push origin "$CONFIG_BRANCH"
+```
 
 첫 실행은 새 DB에 분석할 대화가 거의 없으므로 결과가 짧은 것이 정상입니다. 학습 반영 검증 스크립트(`scripts/learning-review/verification-command.mjs`)는 macOS 계정 정보에서 실제 HOME을 찾으므로 사용자명이 달라도 `~/.local/bin`의 `bun`·`pnpm`·`ruff`를 사용합니다.
 
@@ -882,30 +1264,59 @@ EOF
 
 git dir과 작업 트리 경로(`--git-dir=<HOME>/apps/ocm-workspace-config.git --work-tree=…`)는 4.5에서 이미 이 Mac 기준으로 바뀌었습니다. push에 쓰는 `GH_TOKEN`은 Manager에서 받으므로 8.5에 등록한 이 Mac의 토큰이 사용됩니다.
 
+이 프롬프트로 10.2에서 등록하고, 보고 세션을 `schedule-reports.json`에 연결한 뒤 그 파일 변경을 커밋합니다. 그다음 두 단계를 **따로** 확인합니다.
+
+1. **활성화**(등록 직후): Assistant에게 "`GET /repos/0/schedules/<새 ID>`로 `enabled`와 `nextRunAt`을 KST로 보여 줘"라고 요청합니다. `enabled: true`이고 `nextRunAt`이 다음 05:00(KST)이면 완료입니다.
+2. **첫 실행과 원격 반영**(첫 실행 뒤): 다음 05:00을 기다리거나 `POST /repos/0/schedules/<새 ID>/run`으로 한 번 실행합니다.
+   - 실행이 `completed`이고, `report_outcome`이 `succeeded`이며, 최종 응답 마지막 줄이 `WORKSPACE_BACKUP_RESULT_V1=verified`인지 봅니다.
+   - 터미널에서 원격과 로컬이 같은지, 백업 대상에 남은 변경이 없는지 확인합니다.
+
+   ```bash
+   git --git-dir=$G fetch -q origin
+   [ "$(git --git-dir=$G rev-parse HEAD)" = "$(git --git-dir=$G rev-parse "origin/$CONFIG_BRANCH")" ] \
+     && echo "로컬 = 원격" || echo "로컬과 원격이 다릅니다"
+   git --git-dir=$G --work-tree=$W status --short -- .config/opencode repos/assistant .opencode/learnings | head
+   ```
+
+1번만 확인한 상태에서는 "백업 활성화됨, 첫 실행 미확인"으로 기록합니다.
+
 ---
 
 ## 11. 최종 점검
 
+설치 상태(등록·설정이 되어 있음)와 실제 동작(그 상태로 돌아가는 것을 확인함)을 따로 체크합니다. 재부팅을 미뤘거나 첫 백업을 기다리는 중이면 해당 칸을 비워 두고 "미확인"으로 기록합니다.
+
 ```bash
 $S/bin/status.sh
-for p in $MANAGER_PORT $OPENCODE_PORT $PREVIEW_PORT $CLIPROXY_PORT $HEADROOM_PORT $CONTEXT7_PORT $FIRECRAWL_PORT $MARKITDOWN_PORT $EXA_PORT; do printf '%s ' $p; lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null && echo LISTEN || echo '-'; done
-launchctl list | grep -E 'ocm2|claude-proxy|mcp\.'
-curl -s http://127.0.0.1:$MANAGER_PORT/api/health | jq -r '.opencodeVersion'
-curl -s http://127.0.0.1:$HEADROOM_PORT/health; echo
+for l in io.wineoflove.ocm2.backend com.aion.ocm.claude-proxy io.wineoflove.ocm2.headroom \
+         io.wineoflove.mcp.context7 io.wineoflove.mcp.firecrawl io.wineoflove.mcp.markitdown io.wineoflove.mcp.exa; do
+  printf '%-30s ' $l
+  launchctl print gui/$(id -u)/$l 2>/dev/null | awk '/^\tstate = /{s=$3} /^\tpid = /{p=$3} END{print (s ? s : "미등록") (p ? " (pid " p ")" : "")}'
+done
+bash $S/port/deploy/new-mac/check-ports.sh $S/env/ports.env
+curl -s http://127.0.0.1:$MANAGER_PORT/api/health | jq -r '.status + " " + .opencodeVersion'
+curl -s http://127.0.0.1:$HEADROOM_PORT/health | jq -r '.status + " " + .version'
+jq -r '.mcp.servers | keys | length' $W/.config/opencode/opencode.jsonc                # 8
 git -C $S/port remote -v; git -C $W/repos/oc2-custom remote -v
-git --git-dir=$G branch --show-current; git --git-dir=$G status -sb | head -1     # ## <기기명>-<계정명>...origin/<같은 이름>
-grep -rlI "$(jq -r .sourceHome $S/run/new-mac-meta/manifest.json)" $S/bin $U/apps/mcp-shared/bin $W/.config/opencode $U/Library/LaunchAgents 2>/dev/null   # 사용자명이 다르면 출력이 없어야 함
+git --git-dir=$G fetch -q origin; git --git-dir=$G status -sb | head -1               # ## <브랜치>...origin/<브랜치> (ahead/behind 없음)
+git --git-dir=$G --work-tree=$W status --short | head                                  # 출력 없음
+grep -rlI "$(jq -r .sourceHome $S/run/new-mac-meta/manifest.json)" $S/bin $U/apps/mcp-shared/bin $W/.config/opencode $U/Library/LaunchAgents 2>/dev/null   # 사용자명이 다르면 출력 없음
 ```
 
-- [ ] Manager `/api/health`가 `healthy`이고 `opencodeVersion`이 `2.4.1-ocm-pool.36`이다
-- [ ] `ports.env`의 포트 9개가 모두 대기 중이다
-- [ ] 프록시 계정이 등록되어 있고, OpenAI·Anthropic 모델이 모두 응답한다
-- [ ] MCP 8개가 connected이고 스킬 43개(전역 38 + Manager 생성 5)가 보인다
-- [ ] `port`(origin·upstream), `oc2-custom`(origin·upstream)이 연결되어 있고, 워크스페이스 설정이 이 Mac 전용 브랜치(`$CONFIG_BRANCH`)에 있으며 원격과 같다
-- [ ] 이 Mac 전용 GitHub 토큰이 터미널(`gh auth status`)과 Manager Git 자격 증명에 등록되어 있다
-- [ ] 학습 일일·주간 스케줄이 등록되어 있고, 한 번 수동 실행해 보고서 게시까지 확인했다
-
-재부팅 후에도 launchd 서비스가 자동으로 뜨는지 한 번 확인하는 것을 권장합니다.
+| 항목 | 설치 상태 | 실제 동작 |
+| --- | --- | --- |
+| launchd 서비스 7개 | [ ] 모두 등록되어 `running` | [ ] 재부팅·로그인 후 다시 실행해도 모두 `running` |
+| 포트 9개 | [ ] `check-ports.sh`에서 모두 OC2 서비스가 대기 중 | — |
+| Manager | [ ] `/api/health`가 `healthy`, `2.4.1-ocm-pool.36` | [ ] 로컬·LAN(·외부) 주소에서 로그인되고 새로고침 후에도 유지(8.7) |
+| 추론 | [ ] 프록시 계정 등록(8.3) | [ ] Assistant에서 OpenAI·Anthropic 모델이 각각 응답(8.4) |
+| MCP | [ ] `opencode.jsonc`에 8개 등록 | [ ] Assistant에서 8개 모두 connected |
+| 스킬·에이전트 | [ ] 전역 38 + Manager 생성 5 파일 존재 | [ ] Assistant 스킬 목록에 43개, subagent 목록 표시 |
+| GitHub | [ ] 터미널(3.2)과 Manager(8.5)에 같은 토큰 등록 | [ ] 두 곳의 `gh api user --jq .login` 결과가 같고 `permissions.push`가 `true` |
+| 저장소 | [ ] `port`·`oc2-custom`의 origin·upstream 연결 | — |
+| 설정 브랜치 | [ ] 로컬 HEAD와 `origin/<브랜치>`가 같음 | [ ] 미커밋 변경 없음(`status --short` 출력 없음) |
+| 학습 스케줄 | [ ] 일일·주간 등록, `enabled`·`nextRunAt` 확인 | [ ] 수동 1회 실행 `completed`, 보고서 게시 |
+| 설정 백업(선택) | [ ] 등록, `enabled`·`nextRunAt` 확인(10.4-1) | [ ] 첫 실행 성공, 로컬 = 원격(10.4-2) |
+| UI 자동화(선택) | [ ] LSP·agent-browser·agent-desktop 버전 출력 | [ ] LSP `initialize ok`, cua-driver 권한 2개 true·UI 읽기·PNG 캡처(7.6) |
 
 ---
 
@@ -1017,7 +1428,8 @@ git --git-dir=$G diff --stat "$BASE" origin/macmini | tail -5
 3. 가져온 파일만 경로를 지정해 add합니다. `checkout`으로 가져온 파일은 이미 stage되어 있고, 스크립트로 다시 바꾼 파일은 `add --update -- <파일…>`로 넣습니다. 그다음 커밋하고 push한 뒤 기준을 갱신합니다.
 
    ```bash
-   "${GW[@]}" commit -m "chore(config): sync from macmini $(git --git-dir=$G rev-parse --short origin/macmini)"
+   "${GW[@]}" commit -m "chore(config): sync from macmini $(git --git-dir=$G rev-parse --short origin/macmini)" \
+     -m "Macmini-Base: $(git --git-dir=$G rev-parse origin/macmini)"
    "${GW[@]}" push origin "$CONFIG_BRANCH"
    git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom" "$(git --git-dir=$G rev-parse origin/macmini)"
    ```
@@ -1067,13 +1479,18 @@ cd $S && git -C $S/port worktree remove $S/run/bundle-refresh
 | 증상 | 확인할 곳 |
 | --- | --- |
 | 백엔드가 계속 재시작됨 | `$S/run/backend.log`. "port … held by pid"이면 다른 프로세스가 Manager·OC2·preview 포트를 쓰고 있습니다. 다른 포트로 바꾸려면 4.6을 다시 적용합니다. 그 프로세스를 직접 확인하고, 이름 패턴으로 일괄 종료하지 마세요 |
+| 관리자 비밀번호로 로그인되지 않음 | 계정이 이미 있으면 `ADMIN_PASSWORD`를 바꿔도 반영되지 않습니다. [8.6](#86-관리자-비밀번호-재설정)의 `ADMIN_PASSWORD_RESET=true`를 한 번 적용합니다. 비밀번호에 공백·특수문자가 있으면 `staging.env`에서 따옴표로 감싸졌는지 봅니다(`bash -n $S/env/staging.env`) |
+| 로그인 직후 다시 로그인 화면으로 돌아감 | `http://` 주소에서 `AUTH_SECURE_COOKIES=true`이면 쿠키가 저장되지 않습니다. `false`로 둡니다. `ADMIN_PASSWORD_RESET=true`를 켜 둔 채 재시작하면 매번 세션이 지워집니다(8.6) |
+| 외부 주소에서만 로그인 실패, `403 Invalid origin` | `AUTH_TRUSTED_ORIGINS`에 `https://`를 포함한 정확한 주소가 있는지 봅니다. 8.7의 `curl` 검사에서 `401`이 나와야 합니다 |
+| 4.4 확인에서 종료 코드 `128` | 인증·네트워크 오류입니다. 신규 설치로 진행하지 말고 3.2의 완료 확인(`gh api user`, `permissions.push`)부터 다시 봅니다 |
 | `opencodeVersionSupported: false` 또는 OC2 포트가 대기하지 않음 | `OPENCODE_BIN` 경로·실행 권한·quarantine 속성, `opencode --version` |
 | `relocate.sh`가 exit 1 | 출력된 파일에 남은 맥미니 경로를 직접 확인. 다른 계정 경로(`/Users/<이름>x`)나 문장 끝에 마침표가 붙은 경로는 일부러 바꾸지 않습니다 |
 | Anthropic 모델만 실패 | `OCM_CLAUDE_INFERENCE_*` 키 경로, Headroom 포트 상태, CLIProxy Claude 계정 |
 | OpenAI 모델만 실패 | `opencode.jsonc`의 `upstream.key` 경로, Headroom → CLIProxy 포트, Codex 계정 |
 | MCP가 disconnected | `$HOME/apps/mcp-shared/logs/<이름>.log`, 키 파일 권한(600), `node $HOME/apps/mcp-shared/bin/smoke.mjs` |
 | codegraph만 disconnected | `$HOME/.codegraph/current/bin/codegraph version`, `opencode.jsonc`의 codegraph `command` 경로 |
-| Playwright MCP 실패 | 토큰 파일 권한(0600, 심볼릭 링크 불가), Chrome 확장 설치 프로필과 `--profile-dir-name` |
+| Playwright MCP 실패 | 토큰 파일 권한(0600, 심볼릭 링크 불가), Chrome 확장 설치 프로필과 wrapper의 `--user-data-dir`·`--profile-dir-name`(7.2의 `chrome://version` 프로필 경로) |
+| cua-driver가 `screen_locked` 또는 `direct_capture_consent_required` | 화면 잠금을 풀거나, macOS의 직접 캡처 허용 창을 승인한 뒤 7.6의 확인을 다시 실행합니다 |
 | `gh`·`git push` 인증 실패, 비공개 저장소가 `Repository not found` | 터미널은 `gh auth status`, 에이전트 세션은 Manager Git 자격 증명(8.5). 다음을 확인합니다. classic 토큰인지(`ghp_`), scope `repo`가 있는지, 만료되지 않았는지, 이 계정이 그 저장소의 collaborator 초대를 수락했는지(3.0). fine-grained 토큰(`github_pat_`)은 collaborator 저장소에 접근할 수 없습니다 |
 | 스케줄이 `JOB_NOT_CONFIGURED` / `SELF_RUN_NOT_FOUND` | `schedule-reports.json`의 job ID·보고 세션 ID가 새 값인지 확인 |
 | 학습 리뷰 게시 실패 | `review-config.json`의 `feedbackSession`이 존재하는 세션인지 확인 |
