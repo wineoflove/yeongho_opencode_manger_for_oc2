@@ -10,7 +10,10 @@ import { createUseSettingsMock } from '@/test/test-utils'
 
 Element.prototype.scrollIntoView = vi.fn()
 
-vi.mock('@/hooks/useSettings')
+vi.mock('@/hooks/useSettings', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/hooks/useSettings')>(),
+  useSettings: vi.fn(),
+}))
 vi.mock('@/hooks/useServerHealth')
 
 vi.mock('@/hooks/usePromptTemplates', () => ({

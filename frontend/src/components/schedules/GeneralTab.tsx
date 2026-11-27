@@ -167,6 +167,7 @@ export function GeneralTab({
               onChange={onModelChange}
               directory={modelDirectory}
               placeholder={t('Workspace default')}
+              sessionDefault
               allowCustomValue
               showClear
             />

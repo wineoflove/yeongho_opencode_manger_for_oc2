@@ -5,6 +5,7 @@ import { ColorThemeIdSchema, MANAGER_COLOR_THEME_ID } from "../themes";
 import { SessionPermissionModeSchema } from "./session-permissions";
 import { GOAL_MAX_CONTINUATIONS_MIN, GOAL_MAX_CONTINUATIONS_MAX } from "./limits";
 import { SessionSandboxResourcesSchema } from "./session-sandbox";
+import { parseOpenCodeModelRef } from "../opencode/modelRef";
 
 export const CustomCommandSchema = z.object({
   name: z.string(),
@@ -242,6 +243,10 @@ export const UserPreferencesSchema = z.object({
   serverEnvVars: z.array(ServerEnvVarSchema).optional(),
   sandbox: SandboxPreferencesSchema.optional(),
   sessionDefaults: SessionDefaultsSchema.optional(),
+  sessionDefaultModel: z.string().max(512).refine(
+    (value) => !/\s/.test(value) && parseOpenCodeModelRef(value) !== undefined,
+    'Expected a provider/model reference',
+  ).nullable().optional(),
   devicePairing: DevicePairingPreferencesSchema.optional(),
   disabledDefaultServerEnvVars: z.array(z.string()).optional(),
   locale: z.enum(['ko', 'en']).optional(),
@@ -506,4 +511,3 @@ export const UpdateOpenCodeConfigPatchRequestSchema = z.object({
   source: OpenCodeConfigSourceNameSchema.optional(),
   expectedRevision: z.string().optional(),
 });
-

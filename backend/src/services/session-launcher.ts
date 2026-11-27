@@ -9,6 +9,7 @@ import type { OpenCodeClient } from './opencode/client'
 import { resolveOpenCodeModel, type ResolvedOpenCodeModel } from './opencode-models'
 import { resolveRepoProjectId } from './repo'
 import type { RepoWorkspaceService } from './repo-workspace'
+import { SettingsService } from './settings'
 
 type SessionCreateInput = NonNullable<Parameters<OpenCodeClient['api']['session']['create']>[0]>
 
@@ -110,10 +111,14 @@ async function resolveModelIn(
   client: OpenCodeClient,
   directory: string,
   requestedModel?: string,
+  sessionDefaultModel?: string | null,
 ): Promise<ResolvedOpenCodeModel> {
   let resolved: ResolvedOpenCodeModel
   try {
-    resolved = await resolveOpenCodeModel(client, directory, { preferredModel: requestedModel })
+    resolved = await resolveOpenCodeModel(client, directory, {
+      preferredModel: requestedModel,
+      ...(sessionDefaultModel ? { sessionDefaultModel } : {}),
+    })
   } catch (error) {
     throw new SessionLaunchError(getErrorMessage(error) || 'Failed to resolve OpenCode model', 502)
   }
@@ -128,6 +133,10 @@ async function resolveModelIn(
   return resolved
 }
 
+function sessionDefaultModel(db: Database, requestedModel?: string): string | null | undefined {
+  return requestedModel ? undefined : new SettingsService(db).getSettings().preferences.sessionDefaultModel
+}
+
 function repoSessionTarget(deps: SessionTargetDeps, repoId: number): ResolvedSessionTarget {
   const repo = requireReadyRepo(deps.db, repoId)
   const client = deps.openCodeClient
@@ -136,7 +145,8 @@ function repoSessionTarget(deps: SessionTargetDeps, repoId: number): ResolvedSes
     client,
     directory: repo.fullPath,
     repo,
-    resolveModel: (requestedModel) => resolveModelIn(client, repo.fullPath, requestedModel),
+    resolveModel: (requestedModel) =>
+      resolveModelIn(client, repo.fullPath, requestedModel, sessionDefaultModel(deps.db, requestedModel)),
     createWorkspace: async (options) => (await deps.repoWorkspaces.create(repo, options)).directory,
     removeWorkspace: (directory) => deps.repoWorkspaces.remove(repo, directory),
   }
@@ -157,7 +167,8 @@ function serverSessionTarget(
     client,
     directory,
     repo: null,
-    resolveModel: (requestedModel) => resolveModelIn(client, directory, requestedModel),
+    resolveModel: (requestedModel) =>
+      resolveModelIn(client, directory, requestedModel, sessionDefaultModel(deps.db, requestedModel)),
     createWorkspace: async (options) => {
       const projectID = await resolveRepoProjectId(client, directory)
       const worktree = await client.api.worktree.create({

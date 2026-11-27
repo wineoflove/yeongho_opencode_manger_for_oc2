@@ -41,6 +41,9 @@ const mocks = vi.hoisted(() => ({
   computeNextRunAtForJob: vi.fn(),
 
   resolveOpenCodeModel: vi.fn(),
+  getSettings: vi.fn<() => { preferences: { sessionDefaultModel: string | null } }>(
+    () => ({ preferences: { sessionDefaultModel: null } }),
+  ),
   onEvent: vi.fn(),
   onServerConnected: vi.fn(),
   loggerError: vi.fn(),
@@ -98,6 +101,12 @@ vi.mock('../../src/services/schedule-config', () => ({
 
 vi.mock('../../src/services/opencode-models', () => ({
   resolveOpenCodeModel: mocks.resolveOpenCodeModel,
+}))
+
+vi.mock('../../src/services/settings', () => ({
+  SettingsService: class {
+    getSettings = mocks.getSettings
+  },
 }))
 
 vi.mock('../../src/services/sse-aggregator', () => ({
@@ -507,6 +516,21 @@ describe('ScheduleService', () => {
 
     expect(mocks.resolveOpenCodeModel).toHaveBeenCalledWith(expect.anything(), repo.fullPath, {
       preferredModel: 'openai/retired',
+      signal: expect.any(AbortSignal),
+    })
+  })
+
+  it('passes the Manager default for a schedule without a model override', async () => {
+    mocks.getScheduleJobById.mockReturnValue({ ...job, model: null })
+    mocks.getSettings.mockReturnValueOnce({ preferences: { sessionDefaultModel: 'anthropic/sonnet' } })
+    const stub = createStubScheduleApi({ messages: [assistantMessage('Done.', { completed: true })] })
+    const service = makeService(stub.api)
+
+    await service.runJob(42, 7, 'manual')
+
+    expect(mocks.resolveOpenCodeModel).toHaveBeenCalledWith(expect.anything(), repo.fullPath, {
+      preferredModel: null,
+      sessionDefaultModel: 'anthropic/sonnet',
       signal: expect.any(AbortSignal),
     })
   })

@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useSettings } from '@/hooks/useSettings'
 import { useVersionCheck } from '@/hooks/useVersionCheck'
 import { MANAGER_COLOR_THEME_ID, OPENCODE_THEMES, isColorThemeId } from '@opencode-manager/shared/themes'
 import { Loader2 } from 'lucide-react'
 import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { ModelCombobox } from '@/components/model/ModelCombobox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { SessionAutomationSettings } from './SessionAutomationSettings'
@@ -12,9 +15,20 @@ import { setLocale, useLocale, type Locale } from '@/i18n/locale'
 import { t } from '@/i18n/translate'
 
 export function GeneralSettings() {
-  const { preferences, isLoading, updateSettings, isUpdating } = useSettings()
+  const { preferences, isLoading, updateSettings, updateSettingsAsync, isUpdating } = useSettings()
   const { data: versionInfo, isLoading: isVersionLoading } = useVersionCheck()
   const locale = useLocale()
+  const [modelSaveFailed, setModelSaveFailed] = useState(false)
+  const sessionDefaultModel = preferences?.sessionDefaultModel ?? ''
+
+  const changeDefaultModel = async (value: string) => {
+    setModelSaveFailed(false)
+    try {
+      await updateSettingsAsync({ sessionDefaultModel: value || null })
+    } catch {
+      setModelSaveFailed(true)
+    }
+  }
 
   const changeLocale = (value: string) => {
     const next: Locale = value === 'en' ? 'en' : 'ko'
@@ -127,6 +141,35 @@ export function GeneralSettings() {
             </SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="space-y-2">
+        <div className="space-y-0.5">
+          <Label htmlFor="sessionDefaultModel">{t('Default session model')}</Label>
+          <p className="text-sm text-muted-foreground">
+            {t('Used across projects when no other model is specified. If unavailable, Manager uses the existing OpenCode settings.')}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ModelCombobox
+            id="sessionDefaultModel"
+            value={sessionDefaultModel}
+            onChange={changeDefaultModel}
+            placeholder={t('OpenCode default')}
+            className="w-full sm:w-64"
+            allowCustomValue={false}
+            emptyMeansDefault={false}
+            disabled={isUpdating || !preferences}
+          />
+          {sessionDefaultModel && (
+            <Button variant="outline" size="sm" disabled={isUpdating} onClick={() => void changeDefaultModel('')}>
+              {t('Use OpenCode default')}
+            </Button>
+          )}
+        </div>
+        {modelSaveFailed && (
+          <p role="alert" className="text-sm text-destructive">{t('Could not save the default session model.')}</p>
+        )}
       </div>
 
       <div className="divide-y divide-border">

@@ -5,6 +5,7 @@ import { useOpenCodeServerId } from '@/contexts/OpenCodeServerContext'
 import { serverScopedKey } from '@/lib/serverScope'
 import { buildServerDirectoryKey } from '@opencode-manager/shared/schemas'
 import { useProviders } from './useProviders'
+import { useSettingsQuery } from './useSettings'
 import { isModelAvailable } from '@/lib/modelCatalog'
 import {
   addOpenCodeRecentModel,
@@ -25,6 +26,7 @@ import {
   normalizeModelVariant,
   parseOpenCodeModelRef,
   removeRecentModel,
+  selectAvailableSessionDefaultModel,
   selectEffectiveModelRef,
   selectInteractiveModel,
   selectPreferredVariant,
@@ -81,10 +83,12 @@ function useOpenCodeConfiguredModel(directory?: string, enabled = true) {
   })
 }
 
-export function useOpenCodeDefaultModel(directory?: string, enabled = true) {
+export function useOpenCodeDefaultModel(directory?: string, enabled = true, includeSessionDefault = false) {
   const serverId = useOpenCodeServerId()
   const providersQuery = useProviders(directory, { enabled })
   const configuredQuery = useOpenCodeConfiguredModel(directory, enabled)
+  const { data: settings, isLoading: settingsLoading } = useSettingsQuery('default', enabled && includeSessionDefault)
+  const sessionDefaultString = includeSessionDefault ? settings?.preferences.sessionDefaultModel : undefined
   const defaultQuery = useQuery({
     queryKey: serverScopedKey(['opencode', 'providers', 'default-model', directory], serverId),
     queryFn: () => getOpenCodeServerDefaultModel(directory, serverId),
@@ -101,18 +105,21 @@ export function useOpenCodeDefaultModel(directory?: string, enabled = true) {
     ) {
       return undefined
     }
+    const sessionDefault = sessionDefaultString
+      ? selectAvailableSessionDefaultModel(providersQuery.data.models, parseOpenCodeModelRef(sessionDefaultString))
+      : undefined
     const configured = configuredQuery.data ? parseOpenCodeModelRef(configuredQuery.data) : undefined
     const resolved = selectEffectiveModelRef({
       models: providersQuery.data.models,
       defaultModel: defaultQuery.data,
-      candidates: [configured],
+      candidates: [sessionDefault, configured],
     })
     return resolved ? formatOpenCodeModelRef(resolved) : null
-  }, [providersQuery.data, providersQuery.isPlaceholderData, configuredQuery.data, defaultQuery.data])
+  }, [providersQuery.data, providersQuery.isPlaceholderData, configuredQuery.data, defaultQuery.data, sessionDefaultString])
 
   return {
     data,
-    isLoading: providersQuery.isLoading || configuredQuery.isLoading || defaultQuery.isLoading,
+    isLoading: providersQuery.isLoading || configuredQuery.isLoading || defaultQuery.isLoading || settingsLoading,
   }
 }
 
@@ -170,6 +177,7 @@ interface ResolveSelectionInput extends PreferredSelectionContext {
   sessionPicks?: Record<string, ModelPick | undefined>
   session?: ModelSelectionSession
   recent: ModelSelection[]
+  sessionDefault?: ModelRef
 }
 
 function resolveSelection(input: ResolveSelectionInput): ModelPick | undefined {
@@ -200,14 +208,15 @@ function resolveSelection(input: ResolveSelectionInput): ModelPick | undefined {
     }
   }
 
+  const configured = input.sessionDefault ?? input.configured
   const model = selectInteractiveModel({
     models,
     current: input.newSessionPick,
     agentModel: input.agentModel,
-    configured: input.configured,
+    configured,
     recent: input.recent,
   })
-  return model ? preferredSelection(input, model) : undefined
+  return model ? preferredSelection({ ...input, configured }, model) : undefined
 }
 
 function selectionKey(value: ModelPick): string {
@@ -229,10 +238,20 @@ export function useModelSelection(
 
   const { data: modelState, isError: modelStateFailed } = useOpenCodeModelState()
   const { data: configModelString } = useOpenCodeConfiguredModel(directory)
+  const { data: settings, isLoading: settingsLoading } = useSettingsQuery()
+  const sessionDefaultString = settings?.preferences.sessionDefaultModel
+
+  const sessionDefault = useMemo(
+    () => catalog && sessionDefaultString
+      ? selectAvailableSessionDefaultModel(catalog.models, parseOpenCodeModelRef(sessionDefaultString))
+      : undefined,
+    [catalog, sessionDefaultString],
+  )
 
   const isModelReady = Boolean(
     catalog &&
       !catalogIsPlaceholder &&
+      !settingsLoading &&
       (modelState !== undefined || modelStateFailed) &&
       configModelString !== undefined,
   )
@@ -267,6 +286,7 @@ export function useModelSelection(
         sessionPicks: session?.id ? sessionPicks[session.id] : undefined,
         session,
         configured,
+        sessionDefault,
         recent: modelState?.recent ?? [],
         preferences: modelState?.variant,
       }) ?? null
@@ -282,6 +302,7 @@ export function useModelSelection(
     modelState?.variant,
     newSessionPicks,
     session,
+    sessionDefault,
     sessionPicks,
   ])
 
@@ -318,7 +339,7 @@ export function useModelSelection(
       {
         models: catalog.models,
         agentModel: activeAgent?.model,
-        configured,
+        configured: sessionDefault ?? configured,
         preferences: modelState?.variant,
       },
       target,

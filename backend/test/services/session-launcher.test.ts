@@ -6,6 +6,7 @@ import { migrate } from '../../src/db/migration-runner'
 import { allMigrations } from '../../src/db/migrations'
 import { createRepo } from '../../src/db/queries'
 import { SessionLauncher, SessionLaunchError } from '../../src/services/session-launcher'
+import { SettingsService } from '../../src/services/settings'
 
 const mocks = vi.hoisted(() => ({
   resolveOpenCodeModel: vi.fn(),
@@ -120,6 +121,28 @@ describe('SessionLauncher', () => {
       model: 'openai/gpt-5',
       title: 'T',
     })
+  })
+
+  it('reads the saved Manager default when the request does not specify a model', async () => {
+    const repoId = readyRepo()
+    const { client } = createClient()
+    const { service } = createRepoWorkspaces()
+    const settings = new SettingsService(db)
+    const launcher = new SessionLauncher(db, client, service)
+    settings.updateSettings({ sessionDefaultModel: 'anthropic/sonnet' })
+
+    await launcher.launch({ repoId, prompt: 'hello' })
+    expect(mocks.resolveOpenCodeModel).toHaveBeenLastCalledWith(client, REPO_DIR, {
+      preferredModel: undefined,
+      sessionDefaultModel: 'anthropic/sonnet',
+    })
+
+    await launcher.launch({ repoId, prompt: 'hello', model: 'openai/gpt-5' })
+    expect(mocks.resolveOpenCodeModel).toHaveBeenLastCalledWith(client, REPO_DIR, { preferredModel: 'openai/gpt-5' })
+
+    settings.updateSettings({ sessionDefaultModel: null })
+    await launcher.launch({ repoId, prompt: 'hello' })
+    expect(mocks.resolveOpenCodeModel).toHaveBeenLastCalledWith(client, REPO_DIR, { preferredModel: undefined })
   })
 
   it('forwards a permission ruleset to session creation when provided', async () => {

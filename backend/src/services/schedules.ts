@@ -70,6 +70,7 @@ import {
   computeNextRunAtForJob,
 } from './schedule-config'
 import { resolveOpenCodeModel } from './opencode-models'
+import { SettingsService } from './settings'
 import { buildFailedUsage, captureScheduleRunUsage } from './schedule-run-usage'
 import {
   buildRunDeadlineErrorText,
@@ -1178,9 +1179,13 @@ export class ScheduleService {
         ...job,
         agentSlug: await startupDeadline.race(this.resolveRunAgent(context.client, runDirectory, job.agentSlug)),
       }
+      const sessionDefaultModel = job.model
+        ? undefined
+        : new SettingsService(this.db).getSettings().preferences.sessionDefaultModel
       const model = await startupDeadline.race(
         resolveOpenCodeModel(context.client, runDirectory, {
           preferredModel: job.model,
+          ...(sessionDefaultModel ? { sessionDefaultModel } : {}),
           signal: AbortSignal.any([abort.signal, startupDeadline.signal]),
         }),
       )

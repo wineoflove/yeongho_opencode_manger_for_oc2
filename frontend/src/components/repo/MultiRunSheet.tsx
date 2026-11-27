@@ -291,7 +291,7 @@ function NewRunForm({ target, directory, defaultBaseRef, open, onLaunched }: New
   const [modelSearch, setModelSearch] = useState('')
   const deferredModelSearch = useDeferredValue(modelSearch)
 
-  const { sections: modelSections } = useModelSections(directory, { enabled: open })
+  const { sections: modelSections } = useModelSections(directory, { enabled: open, sessionDefault: true })
   const launch = useLaunchMultiRun(target)
 
   const visibleModelSections = useMemo(

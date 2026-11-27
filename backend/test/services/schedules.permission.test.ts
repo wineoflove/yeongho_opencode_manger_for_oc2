@@ -45,6 +45,14 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
+vi.mock('../../src/services/settings', () => ({
+  SettingsService: class {
+    getSettings() {
+      return { preferences: {} }
+    }
+  },
+}))
+
 vi.mock('../../src/db/queries', () => ({
   getRepoById: mocks.getRepoById,
 }))

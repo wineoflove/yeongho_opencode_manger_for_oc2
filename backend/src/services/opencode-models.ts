@@ -1,5 +1,5 @@
 import type { ModelInfo, ModelRef } from '@opencode-manager/shared/opencode'
-import { findModelInfo, formatOpenCodeModelRef, openCodeLocation, parseOpenCodeModelRef, selectConfiguredModelRef, selectEffectiveModelRef } from '@opencode-manager/shared/opencode'
+import { findModelInfo, formatOpenCodeModelRef, openCodeLocation, parseOpenCodeModelRef, selectAvailableSessionDefaultModel, selectConfiguredModelRef, selectEffectiveModelRef } from '@opencode-manager/shared/opencode'
 import type { OpenCodeClient } from './opencode/client'
 
 export interface ResolvedOpenCodeModel {
@@ -11,6 +11,7 @@ export interface ResolvedOpenCodeModel {
 
 export interface ResolveOpenCodeModelOptions {
   preferredModel?: string | null
+  sessionDefaultModel?: string | null
   signal?: AbortSignal
 }
 
@@ -48,11 +49,12 @@ function resolveFromLoadedModels(
   defaultModel: ModelInfo | null,
   configuredRef: ModelRef | undefined,
   preferredRef: ModelRef | undefined,
+  sessionDefaultRef: ModelRef | undefined,
 ): ResolvedOpenCodeModel | null {
   const resolved = selectEffectiveModelRef({
     models,
     defaultModel,
-    candidates: [preferredRef, configuredRef],
+    candidates: [preferredRef, selectAvailableSessionDefaultModel(models, sessionDefaultRef), configuredRef],
   })
 
   return resolved ? toResolvedModel(resolved) : null
@@ -137,6 +139,9 @@ export async function resolveOpenCodeModel(
   const location = openCodeLocation(directory)
   const preferred = normalizeModelCandidate(options?.preferredModel)
   const preferredRef = preferred ? parseOpenCodeModelRef(preferred) : undefined
+  const sessionDefaultRef = options?.sessionDefaultModel
+    ? parseOpenCodeModelRef(options.sessionDefaultModel)
+    : undefined
   const external = options?.signal
 
   const timeoutController = new AbortController()
@@ -152,7 +157,6 @@ export async function resolveOpenCodeModel(
     external?.throwIfAborted()
 
     const configuredRef = await readConfiguredRef(client, location, signal)
-    const targetRef = preferredRef ?? configuredRef
 
     for (;;) {
       external?.throwIfAborted()
@@ -192,7 +196,8 @@ export async function resolveOpenCodeModel(
         break
       }
 
-      const resolved = resolveFromLoadedModels(models, defaultModel, configuredRef, preferredRef)
+      const targetRef = preferredRef ?? selectAvailableSessionDefaultModel(models, sessionDefaultRef) ?? configuredRef
+      const resolved = resolveFromLoadedModels(models, defaultModel, configuredRef, preferredRef, sessionDefaultRef)
       if (resolved && isTargetLoaded(models, targetRef)) {
         return resolved
       }
@@ -202,7 +207,7 @@ export async function resolveOpenCodeModel(
 
     external?.throwIfAborted()
 
-    const resolved = resolveFromLoadedModels(models, defaultModel, configuredRef, preferredRef)
+    const resolved = resolveFromLoadedModels(models, defaultModel, configuredRef, preferredRef, sessionDefaultRef)
     if (resolved) {
       return resolved
     }

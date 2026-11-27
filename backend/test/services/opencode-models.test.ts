@@ -87,6 +87,29 @@ describe('resolveOpenCodeModel', () => {
     expect(result).toEqual({ providerID: 'openai', id: 'gpt-5', model: 'openai/gpt-5' })
   })
 
+  it('uses the Manager session default ahead of the OpenCode default', async () => {
+    const standard = model('openai', 'gpt-5')
+    const client = createClientStub({
+      models: [standard, model('anthropic', 'sonnet')],
+      defaultModel: standard,
+      configEntries: [configEntry('openai/gpt-5')],
+    })
+
+    const result = await resolveOpenCodeModel(client, DIR, { sessionDefaultModel: 'anthropic/sonnet' })
+    expect(result.model).toBe('anthropic/sonnet')
+  })
+
+  it.each(['anthropic/missing', 'anthropic/disabled'])('falls back when the Manager model %s is unavailable', async (sessionDefaultModel) => {
+    const standard = model('openai', 'gpt-5')
+    const client = createClientStub({
+      models: [standard, model('anthropic', 'disabled', false)],
+      configEntries: [configEntry('openai/gpt-5')],
+    })
+
+    const result = await resolveOpenCodeModel(client, DIR, { sessionDefaultModel })
+    expect(result.model).toBe('openai/gpt-5')
+  })
+
   it('preserves the variant of a preferred model reference', async () => {
     const client = createClientStub({ models: [model('openai', 'gpt-5')] })
 

@@ -6,6 +6,8 @@ import { useProviders } from './useProviders'
 import { locationAgentKey, useModelStore, type ModelSelection } from '@/stores/modelStore'
 import { OpenCodeServerProvider } from '@/contexts/OpenCodeServerContext'
 import * as providersApi from '@/api/providers'
+import { settingsApi } from '@/api/settings'
+import { DEFAULT_USER_PREFERENCES } from '@opencode-manager/shared/schemas'
 import type { Provider } from '@/api/providers'
 import type { ModelInfo } from '@opencode-manager/shared/opencode'
 
@@ -66,6 +68,19 @@ const provider = (id: string, name: string, modelIDs: string[]): Provider => ({
 
 const emptyState = () => ({ recent: [], favorite: [], variant: {} })
 
+vi.mock('@/api/settings', () => ({ settingsApi: { getSettings: vi.fn() } }))
+
+const mockGetSettings = vi.mocked(settingsApi.getSettings)
+
+function mockSessionDefault(sessionDefaultModel?: string | null) {
+  mockGetSettings.mockResolvedValue({
+    preferences: { ...DEFAULT_USER_PREFERENCES, sessionDefaultModel },
+    updatedAt: 0,
+  })
+}
+
+beforeEach(() => mockSessionDefault())
+
 describe('useModelSelection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -100,6 +115,54 @@ describe('useModelSelection', () => {
       providers: [anthropic, openai],
       models: [modelInfo('anthropic', 'claude-sonnet-4'), modelInfo('openai', 'gpt-4o')],
     }
+
+    it('uses the Manager default ahead of the OpenCode setting', async () => {
+      mockGetProviders.mockResolvedValue(catalog)
+      mockGetOpenCodeConfiguredModel.mockResolvedValue('openai/gpt-4o')
+      mockSessionDefault('anthropic/claude-sonnet-4')
+
+      const { result } = renderHookWithProviders()
+
+      await waitFor(() => expect(result.current.modelString).toBe('anthropic/claude-sonnet-4'))
+    })
+
+    it('uses the OpenCode setting when the Manager default is disabled', async () => {
+      mockGetProviders.mockResolvedValue({
+        ...catalog,
+        models: [{ ...catalog.models[0], enabled: false }, catalog.models[1]],
+      })
+      mockGetOpenCodeConfiguredModel.mockResolvedValue('openai/gpt-4o')
+      mockSessionDefault('anthropic/claude-sonnet-4')
+
+      const { result } = renderHookWithProviders()
+
+      await waitFor(() => expect(result.current.modelString).toBe('openai/gpt-4o'))
+    })
+
+    it('preserves an explicit session model when a Manager default is set', async () => {
+      mockGetProviders.mockResolvedValue(catalog)
+      mockSessionDefault('anthropic/claude-sonnet-4')
+      const queryClient = createTestQueryClient()
+      const { result } = renderHook(
+        () => useModelSelection('/test', { id: 'ses_saved', model: { providerID: 'openai', id: 'gpt-4o' } }),
+        { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider> },
+      )
+
+      await waitFor(() => expect(result.current.modelString).toBe('openai/gpt-4o'))
+    })
+
+    it('keeps an explicit agent model ahead of the Manager default', async () => {
+      mockGetProviders.mockResolvedValue(catalog)
+      mockSessionDefault('anthropic/claude-sonnet-4')
+      useModelStore.getState().setActiveAgent({
+        id: 'build',
+        model: { providerID: 'openai', id: 'gpt-4o' },
+      })
+
+      const { result } = renderHookWithProviders()
+
+      await waitFor(() => expect(result.current.modelString).toBe('openai/gpt-4o'))
+    })
 
     it('prefers the active agent model over the configured model', async () => {
       mockGetProviders.mockResolvedValue(catalog)

@@ -233,6 +233,19 @@ export function isSelectableCatalogModel(model: { enabled: boolean; status: stri
   return model.enabled && model.status !== 'deprecated'
 }
 
+export function selectAvailableSessionDefaultModel(
+  models: ModelInfo[],
+  configured: ModelRef | undefined,
+): ModelRef | undefined {
+  if (!configured) return undefined
+  const model = findModelInfo(models, refSelection(configured))
+  if (!model || !isSelectableCatalogModel(model)) return undefined
+  if (configured.variant && !model.variants.some((variant) => variant.id === configured.variant)) {
+    return { providerID: configured.providerID, id: configured.id }
+  }
+  return configured
+}
+
 interface SelectEffectiveModelRefOptions {
   models: ModelInfo[]
   defaultModel?: ModelRef | null

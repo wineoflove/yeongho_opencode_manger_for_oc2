@@ -158,6 +158,11 @@ export const settings: Record<string, string> = {
   'Forward git credentials into the microVM so sandboxed git and gh commands can authenticate. A prompt-injected agent can exfiltrate any credential you forward.':
     '샌드박스의 git 및 gh 명령이 인증할 수 있도록 microVM에 Git 자격 증명을 전달합니다. 프롬프트 주입 공격을 받은 에이전트는 전달된 자격 증명을 유출할 수 있습니다.',
   'General Preferences': '일반 환경설정',
+  'Default session model': '세션 기본 모델',
+  'Used across projects when no other model is specified. If unavailable, Manager uses the existing OpenCode settings.':
+    '모델을 따로 지정하지 않으면 모든 프로젝트에서 사용합니다. 선택한 모델을 사용할 수 없으면 기존 OpenCode 설정을 따릅니다.',
+  'Use OpenCode default': 'OpenCode 기본값 사용',
+  'Could not save the default session model.': '세션 기본 모델을 저장하지 못했습니다.',
   'General Settings': '일반 설정',
   'Git Configuration': 'Git 설정',
   'Git configuration saved': 'Git 설정이 저장되었습니다',

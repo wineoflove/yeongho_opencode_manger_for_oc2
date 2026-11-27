@@ -1519,6 +1519,33 @@ describe('Settings Routes - OpenCode Upgrade', () => {
     })
   })
 
+  describe('PATCH / - session default model', () => {
+    it.each(['openai/gpt-5', 'openrouter/anthropic/sonnet', null])('persists %s without requiring a restart', async (sessionDefaultModel) => {
+      mockGetSettings.mockReturnValue({ preferences: {}, updatedAt: 1 })
+      mockUpdateSettings.mockReturnValue({ preferences: { sessionDefaultModel }, updatedAt: 2 })
+      const res = await settingsApp.fetch(new Request('http://localhost/', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: { sessionDefaultModel } }),
+      }))
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ preferences: { sessionDefaultModel }, updatedAt: 2 })
+      expect(mockUpdateSettings).toHaveBeenCalledWith({ sessionDefaultModel }, 'default')
+    })
+
+    it.each(['openai', 'openai/', 'openai/model name'])('rejects a malformed model reference %s', async (sessionDefaultModel) => {
+      const res = await settingsApp.fetch(new Request('http://localhost/', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: { sessionDefaultModel } }),
+      }))
+
+      expect(res.status).toBe(400)
+      expect(mockUpdateSettings).not.toHaveBeenCalled()
+    })
+  })
+
   describe('PATCH / - activity window validation', () => {
     it.each([5, 45, 2000, 30.5])('rejects activityWindowMinutes %s with 400', async (minutes) => {
       const res = await settingsApp.fetch(new Request('http://localhost/', {

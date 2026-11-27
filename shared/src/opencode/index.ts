@@ -60,6 +60,7 @@ export {
   decodeModelPreference,
   favoriteModels,
   findModelInfo,
+  selectAvailableSessionDefaultModel,
   isActiveCatalogProvider,
   isModelFree,
   isSameModelRef,

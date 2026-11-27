@@ -18,6 +18,7 @@ interface ModelComboboxProps {
   className?: string
   listClassName?: string
   emptyMeansDefault?: boolean
+  sessionDefault?: boolean
 }
 
 export function ModelCombobox({
@@ -34,9 +35,10 @@ export function ModelCombobox({
   className,
   listClassName,
   emptyMeansDefault = true,
+  sessionDefault,
 }: ModelComboboxProps) {
-  const { sections, defaultModel: openCodeDefaultModel } = useModelSections(directory, { enabled })
-  const defaultModel = emptyMeansDefault ? openCodeDefaultModel : null
+  const { sections, defaultModel: resolvedDefault } = useModelSections(directory, { enabled, sessionDefault })
+  const defaultModel = emptyMeansDefault ? resolvedDefault : null
 
   const options = useMemo(() => toModelComboboxOptions(sections, defaultModel), [sections, defaultModel])
 

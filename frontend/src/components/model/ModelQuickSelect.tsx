@@ -245,7 +245,7 @@ export const ModelQuickSelect = memo(function ModelQuickSelect({
   const { model, modelString, info, recentModels, favoriteModels, setModel, toggleFavorite, removeRecentModel } = useModelSelection(directory, session)
   const { availableVariants, currentVariant, setVariant, clearVariant, hasVariants } = useVariants(directory, session)
 
-  const { providers, sections } = useModelSections(directory)
+  const { providers, sections } = useModelSections(directory, { sessionDefault: true })
 
   const catalogSections = useMemo(() => buildModelSections(providers, undefined), [providers])
   const catalogOptions = useMemo(

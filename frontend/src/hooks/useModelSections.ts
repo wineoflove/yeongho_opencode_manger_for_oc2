@@ -16,12 +16,13 @@ export interface UseModelSectionsResult {
 
 export function useModelSections(
   directory?: string,
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; sessionDefault?: boolean } = {},
 ): UseModelSectionsResult {
   const enabled = options.enabled ?? true
   const { data: catalog, isLoading: catalogLoading } = useProviders(directory, { enabled })
   const { data: modelState, isLoading: modelStateLoading } = useOpenCodeModelState(directory, enabled)
-  const { data: defaultModel, isLoading: defaultModelLoading } = useOpenCodeDefaultModel(directory, enabled)
+  const { data: defaultModel, isLoading: defaultModelLoading } =
+    useOpenCodeDefaultModel(directory, enabled, options.sessionDefault)
 
   const providers = catalog?.providers ?? EMPTY_PROVIDERS
 
