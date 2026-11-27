@@ -1,6 +1,6 @@
 # 학습 반영 CLI와 근거 계약
 
-cwd는 Manager 루트다. 새 패키지·서버 배포 없이 기존 Bun과 scripts의 Zod를 사용한다. `entries/Status`와 별개로 반영 이력을 전역 store의 applications에 저장한다. 설정은 `workspace/.opencode/learnings/application-config.json`이며 `--config`는 격리 fixture용이다. 원래 데이터는 자동 이관/승격하지 않는다.
+cwd는 Manager 루트다. 새 패키지·서버 배포 없이 기존 Bun과 `shared/src/zod.ts`로 가져오는 workspace Zod를 사용한다. `entries/Status`와 별개로 반영 이력을 전역 store의 applications에 저장한다. 설정은 `workspace/.opencode/learnings/application-config.json`이며 `--config`는 격리 fixture용이다. 원래 데이터는 자동 이관/승격하지 않는다.
 
 ## 명령
 
@@ -20,7 +20,7 @@ bun --no-env-file scripts/learning-review/applications.mjs runtime-sync
 
 `claims`는 OpenCode 세션 DB를 읽기 전용으로 열어 최근 24시간 대상 파일을 edit/write/apply_patch로 다룬 세션을 찾고, 현재 실행 계보(자기 세션·부모·자식)를 제외한 뒤 지금 busy이거나 30분 이내 편집한 세션만 conflicts로 반환한다. directory에 무관한 busy 세션이 있다는 사실만으로는 충돌이 아니다.
 
-`runtime-probe`는 실행 중 서버의 `/agent` 또는 `/skill`이 제공하는 본문과 파일 본문(frontmatter 제외)을 대조해 `origin: runtime-probe` receipt를 남긴다. 일치하지 않으면 exitCode 2다. `runtime-sync`는 applied·runtime pending 항목을 로딩 방식으로 분류한다: agent/skill은 probe 일치 시 verified, 불일치 시 reloadPending(서버 재시작 전 정상 상태, 기록 변경 없음), AGENTS.md·정책 문서·학습 리뷰 스크립트는 파일에서 매번 다시 읽히므로 not_required, 그 밖의 제품 코드는 배포 확인이 필요해 pending(unsupported)으로 남긴다. 모두 읽기 전용이며 reload/restart를 하지 않는다. 설정의 `runtime`(api, directory, sessionDb)이 필요하다.
+`runtime-probe`는 실행 중 서버의 `/agent` 또는 `/skill`이 제공하는 본문과 파일 본문(frontmatter 제외)을 대조해 `origin: runtime-probe` receipt를 남긴다. 일치하지 않으면 exitCode 2다. `runtime-sync`는 applied·runtime pending 항목을 로딩 방식으로 분류한다: agent/skill은 probe 일치 시 verified, 불일치 시 reloadPending(서버 재시작 전 정상 상태, 기록 변경 없음), AGENTS.md·정책 문서·학습 리뷰 스크립트는 파일에서 매번 다시 읽히므로 not_required, 그 밖의 제품 코드는 배포 확인이 필요해 pending(unsupported)으로 남긴다. 모두 읽기 전용이며 reload/restart를 하지 않는다. 설정의 `runtime`(directory, sessionDb)과 Manager 내부 프록시 환경변수 `OCM_INTERNAL_API_URL`·`OCM_INTERNAL_TOKEN`이 필요하다.
 
 prepare가 반환한 manifest를 읽고 실제로 대상 소스와 원문을 확인한다. raw policy snapshot은 로컬 0600으로 보존되며 분석에는 sanitize된 사본만 사용한다. config의 정책 파일만 예외로 .config/.opencode 경로를 허용한다. 소스 대상은 codeRoots 안의 지정 확장자로 제한하고 의존성·산출물·인증 파일을 제외한다. 코드 대상은 whole-file hash가 달라지면 drifted로 보수적으로 재검토한다. 정책 대상에 `anchor`(반영한 규칙의 정확한 문구)를 기록하면 그 문구를 포함한 규칙 줄과 소속 heading의 해시를 함께 저장한다. anchor는 코드 블록 밖에서 정확히 한 줄에만 있어야 한다. 그 줄의 내용이 앞뒤 조건까지 포함해 바뀌거나, 다른 구간·코드 블록으로 옮겨지거나, 사라지면 drifted가 된다. 따라서 같은 지침 파일의 무관한 수정이 모든 반영 기록을 재검토 대기열로 되돌리지 않는다. anchor가 없는 정책 대상은 계속 whole-file hash로 판정한다.
 

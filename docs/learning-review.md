@@ -8,7 +8,7 @@ The analysis transport captures usage before aborting and deleting that session.
 
 The scheduled wrapper, not `run.mjs`, should call `ocm` with `action: report_outcome` near the end. Report the actual task outcome and delivery state, with processed/remaining counts when known. Forward non-null `analysisUsage` unchanged as `params.additionalUsage`, because the deleted analysis session won't appear in the run's termination snapshot. Don't add usage already counted in the run session tree.
 
-Only the session directly linked to a still-running schedule can report. A child analysis session can't report for its wrapper. A completed wrapper with no report becomes unreported, not succeeded. Report once as a convention; repeated reports while running replace the previous report and increment its count. See [Agent Tasks Operations](agent-tasks.md) for fields, limits, and error handling.
+Only the session directly linked to a still-running schedule can report. A child analysis session can't report for its wrapper. A completed wrapper with no report becomes unreported, not succeeded. Report once as a convention; repeated reports while running replace the previous report and increment its count. The `report_outcome` tool schema defines the accepted fields and limits.
 
 ## 승인된 반영 추적과 주간 지침 관리 (2026-10-19)
 
@@ -18,7 +18,7 @@ Only the session directly linked to a still-running schedule can report. A child
 
 ## Execution
 
-Install the automation script dependencies once with `pnpm --dir scripts install --frozen-lockfile`. `scripts/` is its own pnpm root, so the main workspace settings and lockfile do not apply to it.
+The scripts have no package of their own: they import Zod and the OpenCode client through `shared/src` and use Bun built-ins, so the checkout's existing workspace dependencies are sufficient and no separate install is needed.
 
 Run `bun --no-env-file scripts/learning-review/run.mjs daily` or `weekly` once from this repository. Configuration is in the global store's `review-config.json`. Existing jobs run daily at 03:00 and Monday at 04:00 Asia/Seoul; their current model/permission/time settings are preserved by this change. An empty daily batch skips the additional analysis call, not the wrapper. The model timeout remains 180 seconds.
 
@@ -38,7 +38,7 @@ The analysis subprocess cannot edit. The approved primary wrapper may apply scop
 
 ## Execution-session cleanup
 
-The user subsequently approved cleanup of disposable execution sessions. On the Mac mini deployment the non-model LaunchAgent `io.wineoflove.ocm.learning-cleanup` is configured to run `cleanup.mjs` at load and every 3600 seconds (`StartInterval`); the earlier Linux deployment used the systemd user timer `ocm-learning-review-cleanup.timer` every five minutes. It targets only the two IDs in `cleanupJobIds` (daily, weekly order), ignores runs finished before `cleanupEnabledAt`, requires a completed schedule run older than one minute, parses its successful batch receipt, verifies a done ledger entry and an exact matching report message in the permanent feedback session, and skips active/reused sessions, children and pending permission/question cases. Deletion receipts are retained locally. OCM schedule-run history and learning reports remain; the associated disposable OpenCode session is deleted.
+The user subsequently approved cleanup of disposable execution sessions. The OC1 Mac mini deployment ran `cleanup.mjs` from the non-model LaunchAgent `io.wineoflove.ocm.learning-cleanup` at load and every 3600 seconds; the earlier Linux deployment used the systemd user timer `ocm-learning-review-cleanup.timer`. As of 2026-11-23 no learning-cleanup LaunchAgent is installed or loaded for OC2, so completed execution sessions are not deleted automatically until a separately approved OC2 periodic unit is activated. When run, `cleanup.mjs` targets only the two IDs in `cleanupJobIds` (daily, weekly order), ignores runs finished before `cleanupEnabledAt`, requires a completed schedule run older than one minute, parses its successful batch receipt, verifies a done ledger entry and an exact matching report message in the permanent feedback session, and skips active/reused sessions, children and pending permission/question cases. Deletion receipts are retained locally. OCM schedule-run history and learning reports remain; the associated disposable OpenCode session is deleted.
 
 Failed or unconfirmed runs are retained for diagnosis, even when the OCM wrapper itself finished successfully. The permanent feedback session is explicitly excluded. No analysis or extra OpenCode session is created by the cleanup job. A user resuming a completed execution session concurrently with deletion is not transactionally locked across services; a grace interval and repeated activity checks reduce, but cannot eliminate, that race. Use the permanent feedback session rather than completed schedule execution sessions for follow-up discussion.
 
