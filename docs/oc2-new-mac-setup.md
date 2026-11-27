@@ -473,8 +473,8 @@ fi
 
 `forkedFrom`에는 복사해 온 맥미니 커밋이 기록됩니다. 나중에 맥미니 변경을 가져올 때([12.5](#125-워크스페이스-설정스킬)) 기준으로 씁니다.
 
-다음 파일들을 지웁니다.
-- 맥미니에서는 지웠지만 백업 브랜치에 아직 남아 있는 OC1 시절 파일. 특히 `opencode.json`은 OC1 형식이라 반드시 지웁니다.
+다음 파일들을 지웁니다. `macmini` 브랜치는 2026-11-27에 OC1 잔재를 정리했으므로, 보통은 Manager 생성 플러그인만 대상이 됩니다. 목록이 비어 있어도 정상입니다.
+- OC1 시절 파일(이전 백업에서 받았다면). 특히 `opencode.json`은 OC1 형식이라 반드시 지웁니다.
 - Manager가 기동할 때 다시 만드는 플러그인(`plugins/ocm-*.js`)
 
 **[확인]** 지울 대상만 먼저 출력합니다. 목록을 확인한 다음 두 번째 블록을 실행합니다.
@@ -674,7 +674,7 @@ GW=(git --git-dir=$G --work-tree=$W)
 
 | 상태 | 파일 |
 | --- | --- |
-| ` D` 삭제 | `skills-archive/…`, `skills/opencode-account-recovery`, `opencode.json`, `tui.json`, `agents/goal-runner.md`, `anthropic-pool-admin.mjs`, `plugins/ocm-*.js`, `goal-runner-session-scope.test.mjs` |
+| ` D` 삭제 | `plugins/ocm-*.js`. 이전 백업에서 받았다면 OC1 파일(`skills-archive/…`, `opencode.json`, `tui.json` 등)도 |
 | ` M` 수정 | `.gitignore`. 사용자명이나 포트가 다르면 경로·포트가 바뀐 지침·설정 파일 |
 | `??` 새 파일 | 번들에서 온 `.config/opencode/opencode.jsonc`, `repos/assistant/.opencode/bin/schedule-report.mjs`, `repos/assistant/.opencode/schedule-reports.json` |
 
