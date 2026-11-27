@@ -76,7 +76,7 @@ else
   SRC_HEAD=$(gh api "repos/$OC2_REPO/commits/main" -q .sha)
   SRC_TITLE=$(gh api "repos/$OC2_REPO/commits/main" -q '.commit.message | split("\n")[0]')
   case "$SRC_TITLE" in
-    *"$OC2_VERSION"*) SRC_NOTE="Source: main $SRC_HEAD ($SRC_TITLE)." ;;
+    *"$OC2_VERSION"*|*"pool.${OC2_VERSION##*-ocm-pool.}"*) SRC_NOTE="Source: main $SRC_HEAD ($SRC_TITLE)." ;;
     *) SRC_NOTE="Source: main $SRC_HEAD does not name $OC2_VERSION yet; push the matching fork source before building from source." ;;
   esac
   printf '%s\n\n- Version: `%s`\n- Binary `opencode` SHA-256: `%s` (the file serving production on the Mac mini)\n- %s\n' \
