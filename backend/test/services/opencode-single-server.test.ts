@@ -288,7 +288,7 @@ describe('OpenCodeServerManager - server auth', () => {
     try {
       const pending = operation()
       pending.catch(() => {})
-      await vi.advanceTimersByTimeAsync(15000)
+      await vi.advanceTimersByTimeAsync(30000)
       return await pending
     } finally {
       vi.useRealTimers()
@@ -1541,6 +1541,51 @@ describe('OpenCodeServerManager - server auth', () => {
       expect((manager as any).serverPid).not.toBeNull()
       expect((manager as any).isHealthy).toBe(false)
       expect(manager.getLastStartupError()).toContain('1234')
+    } finally {
+      killSpy.mockRestore()
+      Object.defineProperty(ENV.SERVER, 'NODE_ENV', {
+        value: originalNodeEnv,
+        configurable: true,
+        writable: true,
+      })
+    }
+  }, 15000)
+
+  it('completes the stop when the process group exits a few seconds after SIGKILL', async () => {
+    const originalNodeEnv = ENV.SERVER.NODE_ENV
+    Object.defineProperty(ENV.SERVER, 'NODE_ENV', {
+      value: 'production',
+      configurable: true,
+      writable: true,
+    })
+    const killSpy = vi.spyOn(process, 'kill')
+    try {
+      sandboxRuntimeServiceMock.SandboxRuntimeService.mockImplementation(() => ({
+        isEnabled: () => false,
+      }))
+      execSyncMock.mockImplementation(() => {
+        throw new Error('not found')
+      })
+      readFileSyncMock.mockReturnValue(procStatStringWithGroup(1234, '42'))
+      let groupExitsAt: number | null = null
+      killSpy.mockImplementation(((pid: number, signal?: number | string) => {
+        if (pid === -1234) {
+          if (signal === 'SIGKILL') groupExitsAt = Date.now() + 5000
+          if (groupExitsAt === null || Date.now() < groupExitsAt) return true
+        }
+        const error = new Error('No such process') as NodeJS.ErrnoException
+        error.code = 'ESRCH'
+        throw error
+      }) as typeof process.kill)
+      const { OpenCodeServerManager } = await import('../../src/services/opencode-single-server')
+      const manager = OpenCodeServerManager.getInstance()
+      manager.setDatabase(createPasswordDb(null))
+
+      await manager.start()
+
+      await expect(runPastTerminationGrace(() => manager.stop())).resolves.toBeUndefined()
+      expect(killSpy).toHaveBeenCalledWith(-1234, 'SIGKILL')
+      expect(manager.getLastStartupError() ?? '').not.toContain('retained live processes')
     } finally {
       killSpy.mockRestore()
       Object.defineProperty(ENV.SERVER, 'NODE_ENV', {

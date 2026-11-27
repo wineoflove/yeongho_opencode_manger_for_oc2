@@ -53,6 +53,7 @@ const HEALTH_POLL_INTERVAL_MS = 500
 const CHILD_EXIT_DIAGNOSTIC_DRAIN_MS = 1000
 const PROCESS_SIGTERM_GRACE_MS = 10000
 const PROCESS_SIGKILL_CONFIRM_MS = 2000
+const PROCESS_GROUP_SIGKILL_CONFIRM_MS = 15000
 const PROCESS_EXIT_POLL_MS = 50
 const CHILD_STATE_MARKER_REFRESH_MS = 60000
 
@@ -1179,7 +1180,11 @@ class OpenCodeServerManager {
     const exited = await this.waitForProcessOrGroupExit(pid, groupTarget, PROCESS_SIGTERM_GRACE_MS)
     if (exited) return
     this.signalProcessOrGroup(pid, groupTarget, 'SIGKILL')
-    const killed = await this.waitForProcessOrGroupExit(pid, groupTarget, PROCESS_SIGKILL_CONFIRM_MS)
+    const killed = await this.waitForProcessOrGroupExit(
+      pid,
+      groupTarget,
+      groupTarget !== null ? PROCESS_GROUP_SIGKILL_CONFIRM_MS : PROCESS_SIGKILL_CONFIRM_MS,
+    )
     if (!killed) {
       const message = `${context} (PID ${pid}${groupTarget !== null ? `, process group ${groupTarget}` : ''}) ${failurePhrase}`
       this.recordStartupError(message)
