@@ -8,6 +8,16 @@ it('prefers release metadata over a bare tag for the same version', () => {
   expect(entries.get('2.0.0')).toEqual({ tag: 'v2.0.0' })
 })
 
+it('retains parallel major releases and tag-only versions without relying on latest', () => {
+  const v1 = { tag_name: 'v1.19.6', body: 'V1 notes' }
+  const v2 = { tag_name: 'v2.3.2', body: 'V2 notes' }
+  const entries = catalog(['v1.19.6', 'v2.3.2', 'v2.3.3'], [v2, v1])
+  expect([...entries.keys()]).toEqual(['1.19.6', '2.3.2', '2.3.3'])
+  expect(entries.get('1.19.6')).toEqual({ tag: 'v1.19.6', release: v1 })
+  expect(entries.get('2.3.2')).toEqual({ tag: 'v2.3.2', release: v2 })
+  expect(entries.get('2.3.3')).toEqual({ tag: 'v2.3.3' })
+})
+
 const fail = (message) => async () => {
   throw new Error(message)
 }
