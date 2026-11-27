@@ -22,6 +22,10 @@ git_remote() { git -C "$1" -c credential.helper= -c 'credential.helper=!gh auth 
 
 LOCAL=false
 [ "${1:-}" = --local ] && LOCAL=true
+gh auth status >/dev/null 2>&1 || {
+  echo "gh is not authenticated. Run 'gh auth login' (or set GH_TOKEN) with push access to both fork repositories." >&2
+  exit 1
+}
 WORK=$(mktemp -d "$S/tmp/publish-baseline.XXXXXX")
 if $LOCAL; then
   TREE=$(cd "$(dirname "$0")/../.." && pwd)

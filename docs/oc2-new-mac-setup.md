@@ -1463,6 +1463,10 @@ bash $S/tmp/publish-baseline.sh; rm -f $S/tmp/publish-baseline.sh
 
 스크립트는 실행할 때 `origin/main`을 새 임시 worktree로 꺼내 그 안의 `make-bundle.sh`를 쓰므로, 운영 체크아웃이 어느 커밋이든 항상 최신 절차로 동작합니다.
 
+- `gh`가 두 포크 저장소에 push할 수 있는 계정으로 인증되어 있어야 합니다(`gh auth login` 또는 `GH_TOKEN`). 인증이 없으면 아무것도 바꾸지 않고 멈춥니다.
+- 맥미니의 일반 터미널에는 현재 `gh` 로그인이 없습니다. 터미널에서 직접 돌리려면 한 번 `gh auth login`을 하거나, Assistant에게 "12.6을 실행해 줘"라고 요청합니다. Assistant 세션은 Manager에 등록된 토큰을 씁니다.
+- 실패하면 임시 worktree를 지우고 끝나며, 중간 결과는 push하지 않습니다.
+
 `publish-baseline.sh`가 하는 일:
 1. `origin/main`의 임시 worktree에서 `make-bundle.sh`로 번들과 `versions.env`를 다시 만듭니다. 운영 체크아웃(`port`)과 실행 중인 서비스는 건드리지 않습니다.
 2. 실행 중인 CLIProxy가 그 버전의 공식 Release 바이너리와 같은지 해시로 확인합니다. 다르면 멈춥니다.
