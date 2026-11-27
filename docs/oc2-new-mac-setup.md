@@ -29,25 +29,22 @@ OC2 ─▶ MCP  context7 :CONTEXT7 · firecrawl :FIRECRAWL · markitdown :MARKIT
 
 포트는 이 Mac에 맞게 정합니다([1.1](#11-포트-정하기)). 맥미니 기본값은 Manager `5106`, OC2 `5107`, preview `5108`, CLIProxy `5117`, Headroom `18788`, MCP `5121`~`5124`입니다.
 
-| 구성 요소 | 기준 버전 | 원본 |
+**설치 버전은 가이드에 적혀 있지 않습니다.** 맥미니가 지금 실제로 쓰는 버전이 [`deploy/new-mac/versions.env`](../deploy/new-mac/versions.env)에 기록되어 있고, 이 가이드의 명령은 모두 그 값을 읽어 설치합니다. 그래서 언제 받아 가도 그 시점 맥미니의 최신 버전으로 설치됩니다. 이 파일과 번들은 맥미니에서 `publish-baseline.sh`로 갱신합니다([12.6](#126-설치-기준-갱신-맥미니)).
+
+| 구성 요소 | 버전을 정하는 곳 | 원본 |
 | --- | --- | --- |
-| OC2 native | `2.4.1-ocm-pool.36` | `wineoflove/yeongho_opencode2` `main`, Release `v2.4.1-ocm-pool.36`, upstream `anomalyco/opencode` `v2.4.1` |
-| OCM (Manager) | 포크 `main` | `wineoflove/yeongho_opencode_manger_for_oc2`, upstream `chriswritescode-dev/opencode-manager` |
-| 맥미니 운영 파일 번들 | `deploy/new-mac/oc2-macmini-bundle.tgz` | 이 저장소 (비밀값 제외) |
+| OC2 native | `OC2_VERSION`, `OC2_SHA256` | `wineoflove/yeongho_opencode2` Release `v<OC2_VERSION>`(바이너리), `main`(소스), upstream `anomalyco/opencode` |
+| OCM (Manager) | 포크 `main` 최신 커밋 | `wineoflove/yeongho_opencode_manger_for_oc2`, upstream `chriswritescode-dev/opencode-manager` |
+| 맥미니 운영 파일 번들 | `deploy/new-mac/oc2-macmini-bundle.tgz`(`SHA256SUMS`로 검증) | 이 저장소 (비밀값 제외) |
 | 워크스페이스 설정·스킬·학습 저장소 | 처음 설치 때 `macmini` 브랜치 → 이후 이 Mac 전용 `<기기명>-<계정명>` 브랜치 | `wineoflove/ocm-workspace-config` (비공개) |
-| CLIProxyAPI | `8.1.3` | `router-for-me/CLIProxyAPI` GitHub Releases |
-| Headroom | `headroom-ai 0.45.0` (Python 3.12) | PyPI |
-| Bun | 런타임 `1.4.0`, native 빌드 `1.4.4` | npm `bun` / `oven-sh/bun` Releases |
-| pnpm / Node / uv | `10.28.1` / Homebrew `node` (v26) / Homebrew `uv` | |
-| MCP | context7 `4.7.3`, firecrawl-mcp `3.41.0`, @playwright/mcp `0.0.85`, markitdown-mcp `0.0.1a8`, codegraph `1.5.0`, claude-design(자체) | |
+| CLIProxyAPI | `CLIPROXY_VERSION`, `CLIPROXY_TGZ_SHA256`, `CLIPROXY_BIN_SHA256` | `router-for-me/CLIProxyAPI` GitHub Releases |
+| Headroom | `HEADROOM_VERSION`(Python 3.12, 의존성은 번들의 `headroom-requirements.txt`) | PyPI |
+| Bun / pnpm | `BUN_VERSION`, `PNPM_VERSION`(런타임). OC2 소스 빌드용 Bun은 `yeongho_opencode2`의 `packageManager` | npm `bun` / `oven-sh/bun` Releases |
+| Node / uv | Homebrew 최신 | |
+| MCP | npm lock·`markitdown-requirements.txt`(번들), `CODEGRAPH_VERSION`, claude-design(자체) | |
 | 스킬 | 전역 38개 + Manager 생성 5개 | `ocm-workspace-config` |
 
-검증용 SHA-256:
-
-- OC2 `.36` 바이너리 `opencode`: `70d79d6bf6132eb50fd65d1263ba815c4baaaf6449f5d780ddf2d91534084c20`
-- `CLIProxyAPI_8.1.3_darwin_aarch64.tar.gz`: `c6eee7e616e3942e4ee279c93fbe7f989a337f91ac5b00665174244ae8b5726f`
-- 그 안의 `cli-proxy-api`: `b578f4c19b23cd94f95ff9ccb78dd1f1f2944b87d1737a90a6c09a18685d7f68`
-- 번들 파일의 해시는 `deploy/new-mac/SHA256SUMS`에 있습니다.
+각 파일의 SHA-256 검증 값도 `versions.env`와 `SHA256SUMS`에 들어 있어, 아래 명령이 자동으로 대조합니다.
 
 ---
 
@@ -58,7 +55,7 @@ OC2 ─▶ MCP  context7 :CONTEXT7 · firecrawl :FIRECRAWL · markitdown :MARKIT
 ```text
 $HOME/apps/ocm-v2-staging/          ($S)
   port/                             OCM 포크 체크아웃 (Manager 실행 위치)
-  opencode/2.4.1-ocm-pool.36/       OC2 native 바이너리
+  opencode/<OC2_VERSION>/           OC2 native 바이너리
   cliproxy/package/                 CLIProxy 실행 패키지 (bin, config.yaml, keys, auths, gate)
   env/staging.env                   Manager 환경변수 (권한 600, 비밀값 포함)
   bin/                              운영 스크립트 (launchd-backend.sh, restart.sh, build/deploy …)
@@ -79,7 +76,7 @@ $HOME/.codegraph/                   codegraph 실행 파일
 
 아래 명령은 모두 **새 Mac의 일반 터미널(zsh)** 기준입니다. 새 터미널을 열면 먼저 이 변수를 다시 설정하세요.
 - `CONFIG_BRANCH`는 이 Mac 전용 설정 브랜치 이름입니다([1.2](#12-설정-브랜치-이름)).
-- 마지막 줄은 [1.1](#11-포트-정하기)에서 만든 포트 파일을 불러옵니다.
+- 마지막 줄은 기준 버전 파일(바로 아래)과 [1.1](#11-포트-정하기)의 포트 파일을 불러옵니다. 아직 없는 파일은 건너뜁니다.
 
 ```bash
 U=$HOME
@@ -89,7 +86,17 @@ T=$W/.opencode/tooling
 G=$U/apps/ocm-workspace-config.git
 CONFIG_BRANCH=$(cat $S/env/config-branch 2>/dev/null || printf '%s-%s' "$(scutil --get LocalHostName)" "$(id -un)" \
   | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')
-set -a; . $S/env/ports.env; set +a
+set -a; for f in $S/env/versions.env $S/env/ports.env; do [ -f $f ] && . $f; done; set +a
+```
+
+처음 한 번, 맥미니의 현재 기준 버전 파일을 받아 둡니다. 저장소는 4.2에서 clone하므로 지금은 이 파일만 내려받습니다.
+
+```bash
+mkdir -p $S/env && chmod 700 $S/env
+curl -fsSL https://raw.githubusercontent.com/wineoflove/yeongho_opencode_manger_for_oc2/main/deploy/new-mac/versions.env \
+  -o $S/env/versions.env
+set -a; . $S/env/versions.env; set +a
+grep -v '^#' $S/env/versions.env
 ```
 
 ### 1.1 포트 정하기
@@ -195,11 +202,12 @@ echo "$CONFIG_BRANCH"      # 1절 공통 변수에서 계산된 이름
 
 | 절 | 완료 확인 | 완료 상태 |
 | --- | --- | --- |
+| 1 | `echo $OC2_VERSION $CLIPROXY_VERSION $HEADROOM_VERSION` | 버전 3개 출력 |
 | 1.1 | `cat $S/env/ports.env` | 포트 9개 |
 | 2 | `bun --version; pnpm --version; gh --version` | 버전 출력 |
 | 3.2 | `gh api user --jq .login` | 이 Mac의 GitHub 계정 |
 | 4.2 | `ls $S/port/backend/dist/index.js $S/port/frontend/dist/index.html` | 두 파일 있음 |
-| 4.3 | `$S/opencode/2.4.1-ocm-pool.36/opencode --version` | `2.4.1-ocm-pool.36` |
+| 4.3 | `$S/opencode/$OC2_VERSION/opencode --version` | `v$OC2_VERSION` |
 | 4.4 | `cat $S/env/config-branch; git --git-dir=$G branch --show-current` | 같은 이름 |
 | 4.5 | `ls $S/run/new-mac-meta/manifest.json` | 파일 있음 |
 | 4.6 | `cat $S/env/ports.applied.env` | `ports.env`와 같은 값 |
@@ -226,27 +234,18 @@ xcode-select --install
 ```bash
 brew install git gh jq node uv sqlite
 
-# 런타임 bun / pnpm (맥미니와 같은 위치·버전)
+# 런타임 bun / pnpm (맥미니와 같은 위치·버전, versions.env의 BUN_VERSION·PNPM_VERSION)
 mkdir -p $U/.local/share/ocm-toolchain $U/.local/bin
-npm install --prefix $U/.local/share/ocm-toolchain --save-exact bun@1.4.0 pnpm@10.28.1
+npm install --prefix $U/.local/share/ocm-toolchain --save-exact "bun@$BUN_VERSION" "pnpm@$PNPM_VERSION"
 ln -sf $U/.local/share/ocm-toolchain/node_modules/.bin/{bun,bunx,pnpm,pnpx} $U/.local/bin/
 echo 'export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"' >> $U/.zprofile
 exec zsh -l
 bun --version; pnpm --version; node --version; uv --version
 ```
 
-새 셸이 열렸으므로 [1](#1-경로-규칙과-공통-변수)의 공통 변수를 다시 설정합니다.
+새 셸이 열렸으므로 [1](#1-경로-규칙과-공통-변수)의 공통 변수를 다시 설정합니다. `bun --version`과 `pnpm --version`이 `versions.env`의 값과 같아야 합니다.
 
-OC2 native 빌드용 Bun 1.4.4입니다(`yeongho_opencode2`의 `packageManager`가 `bun@1.4.4`). 바이너리를 Release에서 받으면 지금은 생략해도 되지만, 이후 OC2를 업데이트할 때 필요합니다.
-
-```bash
-mkdir -p $S/toolchains/bun-1.4.4 && cd $S/toolchains/bun-1.4.4
-curl -fLO https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-darwin-aarch64.zip
-curl -fLO https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/SHASUMS256.txt
-grep ' bun-darwin-aarch64.zip$' SHASUMS256.txt | shasum -a 256 -c -
-unzip -q bun-darwin-aarch64.zip
-./bun-darwin-aarch64/bun --version   # 1.4.4
-```
+OC2를 소스에서 빌드할 때 쓰는 Bun은 4.3 B에서 따로 받습니다.
 
 ---
 
@@ -349,6 +348,15 @@ env HOME=$S/home PATH="$U/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/
 ls backend/dist/index.js frontend/dist/index.html
 ```
 
+clone한 저장소의 기준 버전 파일로 1절에서 받은 파일을 맞춥니다. 그사이 맥미니 기준이 갱신됐다면 여기서 새 값으로 바뀝니다. 번들도 같은 커밋에 있으므로 이후에는 이 값을 씁니다.
+
+```bash
+cmp -s $S/port/deploy/new-mac/versions.env $S/env/versions.env || echo "기준 버전이 갱신되었습니다. 새 값을 씁니다."
+cp $S/port/deploy/new-mac/versions.env $S/env/versions.env
+set -a; . $S/env/versions.env; set +a
+echo "OC2 $OC2_VERSION / CLIProxy $CLIPROXY_VERSION / Headroom $HEADROOM_VERSION"
+```
+
 ### 4.3 OC2 커스텀 (native)
 
 업데이트용 소스 저장소를 연결합니다. Manager에서 `OC2 custom` 리포지토리로 등록합니다.
@@ -358,35 +366,45 @@ git clone --filter=blob:none https://github.com/wineoflove/yeongho_opencode2.git
 cd $W/repos/oc2-custom
 git remote add upstream https://github.com/anomalyco/opencode.git
 git config remote.upstream.tagopt --no-tags
-git log --oneline -3      # 8a138733 merge: OC2 custom 2.4.1-ocm-pool.36 into main
+git log --oneline -3
+git tag -l "v$OC2_VERSION"   # 맥미니 기준 Release 태그
 ```
 
-`main` 이력은 `.35`(첫 번째 부모)와 `upstream v2.4.1 + 포크 패치`(두 번째 부모, `820a2aaa feat(ocm-pool): OC2 custom 2.4.1-ocm-pool.36`)로 이루어져 있습니다. 트리는 upstream `v2.4.1`에 포크 95개 파일을 적용한 결과와 같으며, 맥미니 빌드 매니페스트의 파일 해시와 모두 일치합니다.
+`main`은 우리 포크의 최신 소스이고, 맥미니가 운영 중인 버전은 Release 태그 `v$OC2_VERSION`입니다.
 
 바이너리는 다음 둘 중 하나로 준비합니다.
 
 **A. Release에서 내려받기 (권장)**
 
-맥미니에서 운영 중인 바이너리와 같은 파일입니다. 바이너리는 214MB(압축 86MB)라 Git 저장소에 넣지 않고 GitHub Release에 첨부했습니다. Release 파일은 개당 2GiB까지 올릴 수 있고, 저장소 용량이나 clone 크기에 포함되지 않으며 무료입니다.
+맥미니에서 운영 중인 바이너리와 같은 파일입니다. 바이너리는 200MB가 넘어서 Git 저장소에 넣지 않고 GitHub Release에 첨부합니다. Release 파일은 개당 2GiB까지 올릴 수 있고, 저장소 용량이나 clone 크기에 포함되지 않으며 무료입니다.
 
 ```bash
+O=$S/opencode/$OC2_VERSION
 mkdir -p $S/downloads/oc2 && cd $S/downloads/oc2
-gh release download v2.4.1-ocm-pool.36 -R wineoflove/yeongho_opencode2 --clobber
+gh release download "v$OC2_VERSION" -R wineoflove/yeongho_opencode2 --clobber
 shasum -a 256 -c SHA256SUMS --ignore-missing          # tar.gz 확인
-install -d -m 700 $S/opencode/2.4.1-ocm-pool.36
-tar -xzf opencode-2.4.1-ocm-pool.36-darwin-arm64.tar.gz -C $S/opencode/2.4.1-ocm-pool.36
-(cd $S/opencode/2.4.1-ocm-pool.36 && grep '  opencode$' $S/downloads/oc2/SHA256SUMS | shasum -a 256 -c -)
-xattr -d com.apple.quarantine $S/opencode/2.4.1-ocm-pool.36/opencode 2>/dev/null || true
-env -i HOME=$S/home PATH=/usr/bin:/bin $S/opencode/2.4.1-ocm-pool.36/opencode --version   # 2.4.1-ocm-pool.36
+install -d -m 700 $O
+tar -xzf "opencode-$OC2_VERSION-darwin-arm64.tar.gz" -C $O
+[ "$(shasum -a 256 $O/opencode | cut -d' ' -f1)" = "$OC2_SHA256" ] && echo "opencode SHA-256 OK" || echo "SHA-256 불일치" >&2
+xattr -d com.apple.quarantine $O/opencode 2>/dev/null || true
+env -i HOME=$S/home PATH=/usr/bin:/bin $O/opencode --version   # v$OC2_VERSION
 ```
 
 **B. 소스에서 빌드**
 
+Release 태그 `v$OC2_VERSION`의 소스를 그 소스가 지정한 Bun 버전으로 빌드합니다.
+
 ```bash
-BUNDIR=$S/toolchains/bun-1.4.4/bun-darwin-aarch64
-SRC=$S/run/oc2-src-36
-OUT=$S/run/oc2-artifact-36            # 반드시 새 경로. 빌드 스크립트가 outdir을 지우고 시작합니다.
-git -C $W/repos/oc2-custom worktree add --detach $SRC origin/main
+SRC=$S/run/oc2-src-$OC2_VERSION
+OUT=$S/run/oc2-artifact-$OC2_VERSION  # 반드시 새 경로. 빌드 스크립트가 outdir을 지우고 시작합니다.
+git -C $W/repos/oc2-custom fetch -q origin "refs/tags/v$OC2_VERSION:refs/tags/v$OC2_VERSION"
+git -C $W/repos/oc2-custom worktree add --detach $SRC "v$OC2_VERSION"
+BUILD_BUN=$(jq -r '.packageManager | sub("^bun@"; "")' $SRC/package.json); echo "build bun $BUILD_BUN"
+mkdir -p $S/toolchains/bun-$BUILD_BUN && cd $S/toolchains/bun-$BUILD_BUN
+curl -fLO https://github.com/oven-sh/bun/releases/download/bun-v$BUILD_BUN/bun-darwin-aarch64.zip
+curl -fLO https://github.com/oven-sh/bun/releases/download/bun-v$BUILD_BUN/SHASUMS256.txt
+grep ' bun-darwin-aarch64.zip$' SHASUMS256.txt | shasum -a 256 -c - && unzip -oq bun-darwin-aarch64.zip
+BUNDIR=$S/toolchains/bun-$BUILD_BUN/bun-darwin-aarch64
 mkdir -p $S/run/oc2-build-home/{.config,.local/share,.local/state,.cache,tmp}
 BENV=(env -i HOME=$S/run/oc2-build-home PATH=$BUNDIR:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
       XDG_CONFIG_HOME=$S/run/oc2-build-home/.config XDG_DATA_HOME=$S/run/oc2-build-home/.local/share
@@ -394,11 +412,11 @@ BENV=(env -i HOME=$S/run/oc2-build-home PATH=$BUNDIR:/opt/homebrew/bin:/usr/bin:
       TMPDIR=$S/run/oc2-build-home/tmp)
 cd $SRC
 "${BENV[@]}" $BUNDIR/bun --no-env-file install --frozen-lockfile --ignore-scripts
-"${BENV[@]}" OPENCODE_CHANNEL=ocm-pool OPENCODE_VERSION=2.4.1-ocm-pool.36 CI=true \
+"${BENV[@]}" OPENCODE_CHANNEL=ocm-pool OPENCODE_VERSION=$OC2_VERSION CI=true \
   $BUNDIR/bun --no-env-file run packages/cli/script/build.ts --single --skip-install --skip-web-ui --outdir=$OUT
-install -d -m 700 $S/opencode/2.4.1-ocm-pool.36
-cp $OUT/cli-darwin-arm64/bin/opencode $S/opencode/2.4.1-ocm-pool.36/opencode
-$S/opencode/2.4.1-ocm-pool.36/opencode --version
+install -d -m 700 $S/opencode/$OC2_VERSION
+cp $OUT/cli-darwin-arm64/bin/opencode $S/opencode/$OC2_VERSION/opencode
+$S/opencode/$OC2_VERSION/opencode --version
 git -C $W/repos/oc2-custom worktree remove $SRC
 ```
 
@@ -699,10 +717,11 @@ BASE=$(git --git-dir=$G config "branch.$CONFIG_BRANCH.forkedFrom")
 
 ```bash
 mkdir -p $S/downloads/cliproxy && cd $S/downloads/cliproxy
-curl -fLO https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.1.3/CLIProxyAPI_8.1.3_darwin_aarch64.tar.gz
-shasum -a 256 CLIProxyAPI_8.1.3_darwin_aarch64.tar.gz   # c6eee7e6…726f
-tar xzf CLIProxyAPI_8.1.3_darwin_aarch64.tar.gz cli-proxy-api
-shasum -a 256 cli-proxy-api                              # b578f4c1…7f68
+A=CLIProxyAPI_${CLIPROXY_VERSION}_darwin_aarch64.tar.gz
+curl -fLO https://github.com/router-for-me/CLIProxyAPI/releases/download/v$CLIPROXY_VERSION/$A
+[ "$(shasum -a 256 $A | cut -d' ' -f1)" = "$CLIPROXY_TGZ_SHA256" ] && echo "tar.gz SHA-256 OK" || echo "tar.gz SHA-256 불일치" >&2
+tar xzf $A cli-proxy-api
+[ "$(shasum -a 256 cli-proxy-api | cut -d' ' -f1)" = "$CLIPROXY_BIN_SHA256" ] && echo "binary SHA-256 OK" || echo "binary SHA-256 불일치" >&2
 xattr -d com.apple.quarantine cli-proxy-api 2>/dev/null || true
 ```
 
@@ -716,7 +735,7 @@ OCM 포크의 `prepareClaudeProxyPackage`를 사용합니다. 이 함수가 디�
 mkdir -p $S/cliproxy
 cd $S/port
 DEST=$S/cliproxy/package BIN=$S/downloads/cliproxy/cli-proxy-api PORT=$CLIPROXY_PORT \
-SHA=b578f4c19b23cd94f95ff9ccb78dd1f1f2944b87d1737a90a6c09a18685d7f68 \
+SHA=$CLIPROXY_BIN_SHA256 \
 bun -e '
 import { prepareClaudeProxyPackage } from "./backend/src/services/claude-proxy-package.ts";
 console.log(await prepareClaudeProxyPackage({
@@ -749,7 +768,7 @@ launchctl bootstrap gui/$(id -u) $U/Library/LaunchAgents/com.aion.ocm.claude-pro
 launchctl kickstart gui/$(id -u)/com.aion.ocm.claude-proxy
 lsof -nP -iTCP:$CLIPROXY_PORT -sTCP:LISTEN
 curl -s -D - -o /dev/null -H "Authorization: Bearer $(cat $S/cliproxy/package/keys/management.key)" \
-  http://127.0.0.1:$CLIPROXY_PORT/v8/management/credentials | grep -i '^x-cpa-version'   # 8.1.3
+  http://127.0.0.1:$CLIPROXY_PORT/v8/management/credentials | grep -i '^x-cpa-version'   # $CLIPROXY_VERSION
 ```
 
 계정은 Manager를 띄운 다음 UI에서 추가합니다([8.3](#83-cliproxy-계정-로그인)).
@@ -762,7 +781,7 @@ curl -s -D - -o /dev/null -H "Authorization: Bearer $(cat $S/cliproxy/package/ke
 H=$T/headroom
 uv venv --python 3.12 $H/.venv
 uv pip install --python $H/.venv/bin/python -r $S/run/new-mac-meta/headroom-requirements.txt
-$H/.venv/bin/python -m headroom.cli --version     # 0.45.0
+$H/.venv/bin/python -m headroom.cli --version     # $HEADROOM_VERSION
 
 P=$U/Library/LaunchAgents/io.wineoflove.ocm2.headroom.plist
 plutil -extract ProgramArguments.0 raw $P                     # $H/.venv/bin/python 이어야 함
@@ -868,12 +887,12 @@ node $U/apps/mcp-shared/bin/call-smoke.mjs   # 실제 도구 호출 (Exa·Firecr
 
 ### 7.3 codegraph
 
-공식 설치 스크립트로 v1.5.0을 설치합니다. Node가 번들되어 있어 Homebrew node(v26)와 상관없이 동작합니다. codegraph 1.5.0은 Node 25 미만만 지원합니다.
+공식 설치 스크립트로 맥미니와 같은 버전(`CODEGRAPH_VERSION`)을 설치합니다. Node가 번들되어 있어 Homebrew node 버전과 상관없이 동작합니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/v1.5.0/install.sh -o $S/downloads/codegraph-install.sh
-CODEGRAPH_VERSION=v1.5.0 sh $S/downloads/codegraph-install.sh
-$U/.codegraph/current/bin/codegraph version      # 1.5.0
+curl -fsSL "https://raw.githubusercontent.com/colbymchenry/codegraph/v$CODEGRAPH_VERSION/install.sh" -o $S/downloads/codegraph-install.sh
+CODEGRAPH_VERSION="v$CODEGRAPH_VERSION" sh $S/downloads/codegraph-install.sh
+$U/.codegraph/current/bin/codegraph version      # $CODEGRAPH_VERSION
 ```
 
 `opencode.jsonc`의 codegraph 명령은 `$HOME/.codegraph/current/bin/codegraph serve --mcp`입니다. 인덱스는 옮기지 않습니다. 필요한 프로젝트에서 직접 `codegraph init`을 실행하세요. 인덱싱은 영호 님이 결정하는 작업이며, 에이전트는 스스로 실행하지 않습니다. `codegraph install`(에이전트 자동 설정)은 실행하지 않습니다. OC2 설정은 이미 번들에 들어 있습니다.
@@ -901,21 +920,21 @@ ln -sf $T/lsp/node_modules/typescript-language-server/lib/cli.mjs $U/.local/bin/
 설치 직후 테스트: 버전을 출력하고, 실제로 서버를 띄워 LSP `initialize` 요청에 응답하는지 확인합니다.
 
 ```bash
-typescript-language-server --version                                     # 6.0.1
+typescript-language-server --version                                     # lsp/package.json의 버전
 TSSERVER=$T/lsp/node_modules/typescript/lib/tsserver.js \
   node $S/port/deploy/new-mac/lsp-check.mjs "$(command -v typescript-language-server)" $S/port
 # initialize ok: 23 capabilities (hover=true, definition=true)
 ```
 
-**UI 자동화** (`ui-automation` 스킬이 사용): agent-browser 0.43.0, agent-desktop 1.3.1, cua-driver
+**UI 자동화** (`ui-automation` 스킬이 사용): agent-browser, agent-desktop(버전은 번들의 `ui-automation/package-lock.json`), cua-driver
 
 ```bash
 npm ci --prefix $T/ui-automation
 for t in agent-browser agent-desktop cua-driver; do ln -sf $T/ui-automation/bin/$t $U/.local/bin/$t; done
-agent-browser --version; agent-desktop --version                          # 0.43.0 / 1.3.1
+agent-browser --version; agent-desktop --version                          # package-lock.json과 같은 버전
 ```
 
-`cua-driver`는 `/Applications/CuaDriver.app`(맥미니는 0.55.0)을 공식 배포본으로 설치한 뒤 권한을 줍니다.
+`cua-driver`는 `/Applications/CuaDriver.app`을 공식 배포본으로 설치한 뒤 권한을 줍니다. 맥미니 버전은 `CUADRIVER_VERSION`입니다.
 
 1. **[직접]** `cua-driver permissions grant`를 실행합니다. 시스템 설정의 **손쉬운 사용**과 **화면 기록** 스위치를 하나씩 안내하고, 마지막에 테스트 스크린샷으로 확인합니다.
 2. 권한 상태를 확인합니다.
@@ -978,7 +997,7 @@ TMPDIR=$S/tmp/
 OPENCODE_DISABLE_AUTOUPDATE=1
 OPENCODE_DISABLE_CLAUDE_CODE=1
 OCM_LEARNINGS_ENTRIES_PATH=$W/.opencode/learnings/entries
-OPENCODE_BIN=$S/opencode/2.4.1-ocm-pool.36/opencode
+OPENCODE_BIN=$S/opencode/$OC2_VERSION/opencode
 OPENCODE_SERVICE_CHANNEL=ocm-pool
 OCM_CLAUDE_PROXY_URL=http://127.0.0.1:$CLIPROXY_PORT
 OCM_CLAUDE_PROXY_MANAGEMENT_KEY_FILE=$S/cliproxy/package/keys/management.key
@@ -1018,7 +1037,7 @@ plutil -lint $U/Library/LaunchAgents/io.wineoflove.ocm2.backend.plist
 launchctl bootstrap gui/$(id -u) $U/Library/LaunchAgents/io.wineoflove.ocm2.backend.plist
 $S/bin/restart.sh && $S/bin/status.sh
 curl -s http://127.0.0.1:$MANAGER_PORT/api/health | jq '{status, database, opencode, opencodeVersion, opencodeVersionSupported}'
-# opencodeVersion: "2.4.1-ocm-pool.36", opencodeVersionSupported: true
+# opencodeVersion이 $OC2_VERSION, opencodeVersionSupported: true
 tail -50 $S/run/backend.log
 ```
 
@@ -1193,7 +1212,7 @@ Manager DB는 새로 만들어졌으므로 **스케줄 ID와 보고 세션 ID가
 | 9 | 개발환경·MCP·스킬 주간 버전 점검 (Claude·Codex 포함) | `0 6 * * 1` | 선택 |
 | 2 | workspace-config-backup | `0 5 * * *` | 선택. 브랜치를 바꿔야 함([10.4](#104-선택-설정-백업-스케줄)) |
 
-스케줄 정의(이름·cron·모델·프롬프트)는 번들을 만든 시점의 맥미니 설정입니다. 맥미니에서 스케줄을 바꾸면 [12.6](#126-맥미니-번들-갱신)으로 번들을 다시 만들어야 새 설치에 반영됩니다.
+스케줄 정의(이름·cron·모델·프롬프트)는 번들을 만든 시점의 맥미니 설정입니다. 맥미니에서 스케줄을 바꾸면 [12.6](#126-설치-기준-갱신-맥미니)을 실행해야 새 설치에 반영됩니다.
 
 먼저 선택 작업 중 무엇을 등록할지 정합니다. 이후 단계(보고 세션 만들기, ID 연결, `schedule-reports.json`)는 **등록하는 작업에만** 적용합니다.
 
@@ -1309,7 +1328,7 @@ grep -rlI "$(jq -r .sourceHome $S/run/new-mac-meta/manifest.json)" $S/bin $U/app
 | --- | --- | --- |
 | launchd 서비스 7개 | [ ] 모두 등록되어 `running` | [ ] 재부팅·로그인 후 다시 실행해도 모두 `running` |
 | 포트 9개 | [ ] `check-ports.sh`에서 모두 OC2 서비스가 대기 중 | — |
-| Manager | [ ] `/api/health`가 `healthy`, `2.4.1-ocm-pool.36` | [ ] 로컬·LAN(·외부) 주소에서 로그인되고 새로고침 후에도 유지(8.7) |
+| Manager | [ ] `/api/health`가 `healthy`, `opencodeVersion`이 `$OC2_VERSION` | [ ] 로컬·LAN(·외부) 주소에서 로그인되고 새로고침 후에도 유지(8.7) |
 | 추론 | [ ] 프록시 계정 등록(8.3) | [ ] Assistant에서 OpenAI·Anthropic 모델이 각각 응답(8.4) |
 | MCP | [ ] `opencode.jsonc`에 8개 등록 | [ ] Assistant에서 8개 모두 connected |
 | 스킬·에이전트 | [ ] 전역 38 + Manager 생성 5 파일 존재 | [ ] Assistant 스킬 목록에 43개, subagent 목록 표시 |
@@ -1342,7 +1361,7 @@ upstream 변경을 포크에 반영할 때는 `git fetch upstream` 후 별도 �
 ### 12.2 OC2 native
 
 1. 새 upstream 태그를 받습니다: `git -C $W/repos/oc2-custom fetch --no-tags upstream refs/tags/vX.Y.Z:refs/tags/vX.Y.Z`
-2. 현재 포크 변경을 추출합니다: `git -C $W/repos/oc2-custom diff v2.4.1 origin/main > $S/run/fork.patch`. 현재 `main` 트리는 `v2.4.1` + 포크 패치입니다.
+2. 현재 포크 변경을 추출합니다: `git -C $W/repos/oc2-custom diff <현재 기반 upstream 태그> origin/main > $S/run/fork.patch`. `main` 트리는 기반 upstream 태그 + 포크 패치입니다. 기반 태그는 `main` 최신 커밋 메시지의 `Base: upstream vX.Y.Z`에서 확인합니다.
 3. `vX.Y.Z`에서 worktree를 만들고 `git apply -3 $S/run/fork.patch`로 적용한 뒤 충돌을 해결합니다. 포크 관련 테스트(`packages/core/test/account-pool*`, `credential*`, `config/*` 등)와 `bun run check`를 실행합니다.
 4. 커밋 `feat(ocm-pool): OC2 custom X.Y.Z-ocm-pool.<N+1>`을 만들고, 기존 `main`을 첫 부모로 하는 merge 커밋을 만들어 push합니다. 이렇게 하면 force push가 필요 없습니다. zsh에서는 `"${M}:refs/heads/main"`처럼 변수를 중괄호로 감싸야 `:r` 수정자로 해석되지 않습니다.
 
@@ -1352,15 +1371,7 @@ upstream 변경을 포크에 반영할 때는 `git fetch upstream` 후 별도 �
    ```
 
 5. [4.3 B](#43-oc2-커스텀-native)와 같은 방식으로 빌드합니다. `OPENCODE_VERSION`과 Bun 버전은 새 `packageManager`에 맞춥니다. 결과물은 `$S/opencode/X.Y.Z-ocm-pool.<N+1>/opencode`에 둡니다.
-6. 다른 Mac도 같은 바이너리를 쓰도록 Release를 만듭니다.
-
-   ```bash
-   tar -C <빌드>/cli-darwin-arm64/bin -czf opencode-X.Y.Z-ocm-pool.<N+1>-darwin-arm64.tar.gz opencode
-   shasum -a 256 opencode-*.tar.gz > SHA256SUMS
-   (cd <빌드>/cli-darwin-arm64/bin && shasum -a 256 opencode) >> SHA256SUMS
-   gh release create vX.Y.Z-ocm-pool.<N+1> -R wineoflove/yeongho_opencode2 --target "${M}" \
-     --title "OC2 custom X.Y.Z-ocm-pool.<N+1>" opencode-*.tar.gz SHA256SUMS
-   ```
+6. 새 Mac이 같은 바이너리를 받도록 하는 Release는, 전환이 끝난 뒤 맥미니에서 [12.6](#126-설치-기준-갱신-맥미니)을 실행하면 운영 바이너리로 자동으로 만들어집니다.
 
 7. 전환은 외부 1회성 작업으로 진행합니다.
    - idle 대기
@@ -1439,23 +1450,31 @@ git --git-dir=$G diff --stat "$BASE" origin/macmini | tail -5
 일부 파일만 가져와도 기준은 그 시점의 `origin/macmini`로 갱신합니다. 가져오지 않기로 한 변경은 다음 비교에 다시 나타나지 않습니다.
 - MCP 패키지는 `npm install --prefix $T/npm-mcp/<이름> --save-exact <패키지>@<버전>` 후 `launchctl kickstart -k gui/$(id -u)/io.wineoflove.mcp.<이름>`으로 갱신합니다.
 
-### 12.6 맥미니 번들 갱신
+### 12.6 설치 기준 갱신 (맥미니)
 
-맥미니의 운영 스크립트, MCP 스크립트, `opencode.jsonc`, plist, 스케줄이 바뀌면 번들을 다시 만들어 커밋합니다. 맥미니에서 실행합니다. 운영 체크아웃을 건드리지 않도록 별도 worktree를 씁니다.
+맥미니에서 OC2·CLIProxy·Headroom·OCM을 업그레이드했거나 운영 스크립트·`opencode.jsonc`·plist·스케줄을 바꿨다면, 맥미니에서 다음을 실행합니다. 이후 이 가이드를 받는 Mac은 그 시점의 맥미니 버전으로 설치됩니다. 이미 설치한 Mac은 바뀌지 않습니다.
 
 ```bash
 S=/Users/<맥미니 사용자>/apps/ocm-v2-staging
-git -C $S/port fetch origin
-git -C $S/port worktree add --detach $S/run/bundle-refresh origin/main
-cd $S/run/bundle-refresh
-bash deploy/new-mac/make-bundle.sh          # 비밀값 검사 → oc2-macmini-bundle.tgz, SHA256SUMS 갱신
-git add deploy/new-mac/oc2-macmini-bundle.tgz deploy/new-mac/SHA256SUMS
-git commit -m "chore(new-mac): refresh Mac mini bundle"
-git push origin HEAD:main
-cd $S && git -C $S/port worktree remove $S/run/bundle-refresh
+git -C $S/port fetch -q origin
+git -C $S/port show origin/main:deploy/new-mac/publish-baseline.sh > $S/tmp/publish-baseline.sh
+bash $S/tmp/publish-baseline.sh; rm -f $S/tmp/publish-baseline.sh
 ```
 
-`make-bundle.sh`는 실행 중인 서비스를 건드리지 않고 파일을 읽기만 합니다. 묶을 파일에서 비밀값이 발견되면 중단합니다. 맥미니의 실제 포트는 `staging.env`, `opencode.jsonc`, Headroom plist에서 읽어 `manifest.json`의 `ports`에 기록하므로, 맥미니 포트가 바뀌어도 새 Mac의 `set-ports.sh`가 올바른 기준으로 변환합니다. **이 저장소는 공개 저장소입니다.** 번들에 새 파일을 추가할 때는 비밀값이나 개인 정보가 들어가지 않는지 먼저 확인하세요.
+스크립트는 실행할 때 `origin/main`을 새 임시 worktree로 꺼내 그 안의 `make-bundle.sh`를 쓰므로, 운영 체크아웃이 어느 커밋이든 항상 최신 절차로 동작합니다.
+
+`publish-baseline.sh`가 하는 일:
+1. `origin/main`의 임시 worktree에서 `make-bundle.sh`로 번들과 `versions.env`를 다시 만듭니다. 운영 체크아웃(`port`)과 실행 중인 서비스는 건드리지 않습니다.
+2. 실행 중인 CLIProxy가 그 버전의 공식 Release 바이너리와 같은지 해시로 확인합니다. 다르면 멈춥니다.
+3. 실행 중인 OC2 버전의 Release가 `yeongho_opencode2`에 없으면 운영 바이너리로 Release를 만듭니다. 이미 있으면 Release의 바이너리 해시가 운영 바이너리와 같은지 확인합니다.
+4. 내용이 바뀐 경우에만 `deploy/new-mac`을 커밋해 `origin/main`에 push합니다. 바뀐 것이 없으면 아무것도 올리지 않습니다.
+
+함께 챙길 것:
+- **OCM 코드**: 새 Mac은 `origin/main`을 빌드합니다. 맥미니에서 고친 코드가 커밋되지 않았으면 새 Mac에는 빠집니다. 스크립트가 `port`에 커밋되지 않은 소스 변경이 있으면 경고합니다.
+- **OC2 소스**: 바이너리(A 방식)는 Release로 따라가지만, 소스 빌드(B 방식)는 `yeongho_opencode2`의 소스가 있어야 합니다. 새 버전을 올렸다면 12.2의 1~4단계로 소스를 push한 뒤 실행합니다. Release가 소스보다 먼저 만들어지면 Release 설명에 그 사실이 적힙니다.
+- **지침·스킬·학습**: 이 스크립트가 아니라 매일 05:00 설정 백업(`macmini` 브랜치)으로 따라갑니다.
+
+`make-bundle.sh`는 파일을 읽기만 하고, 묶을 파일에서 비밀값이 발견되면 중단합니다. 맥미니의 실제 포트와 버전은 `staging.env`, `opencode.jsonc`, plist, 실행 파일에서 읽어 `manifest.json`과 `versions.env`에 기록합니다. **이 저장소와 `yeongho_opencode2`는 공개 저장소입니다.** 번들에 새 파일을 추가할 때는 비밀값이나 개인 정보가 들어가지 않는지 먼저 확인하세요.
 
 ### 12.7 설치 후 포트 바꾸기
 
